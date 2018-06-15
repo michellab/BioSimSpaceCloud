@@ -23,6 +23,19 @@ RUN wget ftp://ftp.gromacs.org/pub/gromacs/gromacs-2018.2.tar.gz
 RUN tar -zxvf gromacs-2018.2.tar.gz && \
     rm gromacs-2018.2.tar.gz
 
+# Configure gromacs
+RUN mkdir /tmp && \
+    cd gromacs-2018.2 && \
+    mkdir build && \
+    cd build && \
+    cmake -DGMX_BUILD_OWN_FFTW=ON ../
+
+# Now build and install gromacs (this goes into /usr/local/gromacs)...
+RUN cd gromacs-2018.2/build && make -j 16 install
+
+# Now remove the gromacs source and build directory
+RUN rm -rf gromacs-2018.2
+
 # Add the function last as this is the thing that will change
 # most often
 ADD function/* /function/
