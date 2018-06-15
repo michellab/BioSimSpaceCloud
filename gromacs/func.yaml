@@ -1,0 +1,5 @@
+name: node-gromacs
+version: 0.0.5
+runtime: docker
+format: json
+path: /gromacs
