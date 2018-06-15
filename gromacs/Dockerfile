@@ -14,7 +14,6 @@ RUN apt-get update && \
     
 ADD requirements.txt /function/
 RUN pip3 install --no-cache --no-cache-dir -r requirements.txt
-ADD function/* /function/
 RUN rm -fr ~/.cache/pip /tmp* requirements.txt func.yaml Dockerfile .venv
 
 # Download gromacs source using wget
@@ -23,5 +22,9 @@ RUN wget ftp://ftp.gromacs.org/pub/gromacs/gromacs-2018.2.tar.gz
 # Untar the file
 RUN tar -zxvf gromacs-2018.2.tar.gz && \
     rm gromacs-2018.2.tar.gz
+
+# Add the function last as this is the thing that will change
+# most often
+ADD function/* /function/
 
 ENTRYPOINT ["python3", "func.py"]

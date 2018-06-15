@@ -32,7 +32,7 @@ This will build the application. Test using
 or put in info using
 
 ```
-# echo -n "Jane" | fn run
+# echo -n '{"name":"Chris"}' | fn run
 ```
 
 Once happy, make sure that the docker repository has been set up, e.g.
