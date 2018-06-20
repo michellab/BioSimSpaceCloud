@@ -165,7 +165,33 @@ Oracle cloud :-)
 
 Can this work from a machine that is not in the Oracle cloud, e.g.
 from cibod? I have copied the "~/.oci" directory from the VM
-to cibod and have installed the oracle python SDK. Let's see
+to cibod and have installed the oracle python SDK (`pip install oci`). Let's see
 what happens...
 
+```
+[chris@cibod ~]$ python
+Python 2.7.5 (default, Nov 20 2015, 02:00:19) 
+[GCC 4.8.5 20150623 (Red Hat 4.8.5-4)] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import oci
+>>> config = oci.config.from_file("~/.oci/config", "DEFAULT")
+>>> identity = oci.identity.IdentityClient(config)
+>>> user = identity.get_user(config["user"]).data
+>>> print(user)
+{
+  "compartment_id": "ocid1.tenancy.oc1..aaaaaaaa3eiex6fbfj626uwhs3dg24oygknrhhgfj4khqearluf4i74zdt2a", 
+  "defined_tags": {}, 
+  "description": "chryswoods account for the biosimspace_root compartment", 
+  "freeform_tags": {}, 
+  "id": "ocid1.user.oc1..aaaaaaaahxlrqhcgfzdv52ias5yt6go6ybgmb5hv7at5amepal22tagvaczq", 
+  "inactive_status": null, 
+  "lifecycle_state": "ACTIVE", 
+  "name": "chryswoods", 
+  "time_created": "2018-06-15T15:24:52.386000+00:00"
+}
+```
+
+## Running an example that uploads/downloads from the object store
+
+I am now going to try to upload and download files from the object store
 
