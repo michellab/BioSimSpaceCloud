@@ -195,3 +195,28 @@ Type "help", "copyright", "credits" or "license" for more information.
 
 I am now going to try to upload and download files from the object store
 
+I have taken the example [here](https://github.com/oracle/oci-python-sdk/blob/master/examples/object_crud.py)
+and modified it a tiny-tiny amount to create a bucket in the `biosimspace_root`
+compartment (as detailed in the file [here](examples/object_crud.py)).
+
+Running it on cibod I get...
+
+```
+[chris@cibod objectstore]$ python examples/object_crud.py 
+Creating a new bucket 'python-sdk-example-bucket' in compartment 'ocid1.compartment.oc1..aaaaaaaat33j7w74mdyjenwoinyeawztxe7ri6qkfbm5oihqb5zteamvbpzq'
+Uploading new object 'python-sdk-example-object'
+'Hello, World!' == 'Hello, World!': True
+Uploading a file to object storage
+Retrieving file from object storage
+Uploaded and downloaded files are the same: True
+Deleting object python-sdk-example-object
+Deleting object example_file_obj
+Deleting bucket python-sdk-example-bucket
+```
+
+It all works :-)
+
+This means that I can put things in the oracle object store from any
+location in the world (e.g. even pulling backwards and forwards
+from the Jupyter notebooks running on Azure)
+
