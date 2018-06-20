@@ -117,7 +117,7 @@ function main {
     [[ -z "${USERID}" ]] && die_usage "missing 'user' in $CONFIG"
     PRIVATEKEYPATH=$(awk -F= '/^key_file/ {print $2;exit}' $CONFIG)
     [[ -z "${PRIVATEKEYPATH}" ]] && die_usage "missing 'key_file' in $CONFIG"
-    #[[ -f "${PRIVATEKEYPATH}" ]] || die "${PRIVATEKEYPATH} is not a file"
+    [[ -f "${PRIVATEKEYPATH}" ]] || die "${PRIVATEKEYPATH} is not a file"
     FINGERPRINT=$(awk -F= '/^fingerprint/ {print $2;exit}' $CONFIG)
     [[ -z "${FINGERPRINT}" ]] && die_usage "missing 'fingerprint' in $CONFIG"
     REGION=$(awk -F= '/^region/ {print $2;exit}' $CONFIG) #not used
