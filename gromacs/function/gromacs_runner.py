@@ -9,10 +9,12 @@ import os
 import sys
 
 def log(message):
-    sys.stderr.write(message)
+    sys.stderr.write( str(message) )
     sys.stderr.write("\n")
 
-def run(data):
+def run(bucket):
     log("Running a gromacs simulation!\n")
+
+    log(bucket)
 
     return (0, "Simulation complete")

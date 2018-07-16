@@ -4,12 +4,10 @@ import json
 import os
 import sys
 
-from oci.object_storage.models import CreateBucketDetails
-
 import gromacs_runner
 
 def log(message):
-    sys.stderr.write(message)
+    sys.stderr.write( str(message) )
     sys.stderr.write("\n")
 
 def get_login(login):
@@ -31,27 +29,38 @@ def get_login(login):
 
         del login["key_lines"]
         login["key_file"] = keyfile
+
+        # validate the config is ok
+        oci.config.validate_config(login)
+
     except:
         os.remove(keyfile)
         raise
 
     return login
 
-def connect_to_bucket( login_details, compartment, bucket ):
+def connect_to_bucket( login_details, compartment, bucket_name ):
     """Connect to the object store compartment 'compartment'
        using the passed 'login_details', returning a handle to the 
        bucket associated with 'bucket'"""
 
     login = get_login(login_details)
+    bucket = {}
 
-    object_storage = oci.object_storage.ObjectStorageClient(login)
-    namespace = object_storage.get_namespace().data
+    try:
+        client = oci.object_storage.ObjectStorageClient(login)
+        bucket["client"] = client
+        bucket["compartment_id"] = compartment
 
-    request = CreateBucketDetails()
-    request.compartment_id = compartment
-    request.name = bucket
+        namespace = client.get_namespace().data
+        bucket["namespace"] = namespace
 
-    bucket = object_storage.create_bucket(namespace, request)
+        bucket["bucket"] = client.get_bucket(namespace, bucket_name).data
+    except:
+        os.remove( os.path.abspath(login["key_file"]) )
+        raise
+
+    os.remove( os.path.abspath(login["key_file"]) )
 
     return bucket
 
@@ -69,11 +78,11 @@ def handler(ctx, data=None, loop=None):
     if data and len(data) > 0:
         try:
             data = json.loads(data)
-            obj_bucket = connect_to_bucket( data["login"],
-                                            data["compartment"], 
-                                            data["bucket"] )
+            bucket = connect_to_bucket( data["login"],
+                                        data["compartment"], 
+                                        data["bucket"] )
 
-            (status, message) = gromacs_runner.run(obj_bucket)
+            (status, message) = gromacs_runner.run(bucket)
 
         except Exception as e:
             status = -2
