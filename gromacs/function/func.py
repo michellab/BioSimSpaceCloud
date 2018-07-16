@@ -16,7 +16,7 @@ def get_login(login):
 
     # first, we need to convert the 'login' so that it puts
     # the private key into a file
-    keyfile = os.path.abspath("key.pem")
+    keyfile = "/tmp/key.pem"
 
     try:
         FILE = open(keyfile, "w")
@@ -56,6 +56,7 @@ def connect_to_bucket( login_details, compartment, bucket_name ):
         bucket["namespace"] = namespace
 
         bucket["bucket"] = client.get_bucket(namespace, bucket_name).data
+        bucket["bucket_name"] = bucket_name
     except:
         os.remove( os.path.abspath(login["key_file"]) )
         raise
@@ -87,7 +88,7 @@ def handler(ctx, data=None, loop=None):
         except Exception as e:
             status = -2
             log(str(e))
-            message = "Failed to run simulation:\n%s" % str(e)
+            message = "Error:\n%s" % str(e)
     else:
         status = -1
         message = "No input data, so no simulation to run!"
