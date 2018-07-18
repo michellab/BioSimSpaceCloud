@@ -12,7 +12,7 @@ object_storage = oci.object_storage.ObjectStorageClient(config)
 
 namespace = object_storage.get_namespace().data
 bucket_name = "test-gromacs-bucket"
-object_name = "input"
+object_name = sys.argv[2]
 filename = sys.argv[1]
 
 # Then upload the file to Object Storage

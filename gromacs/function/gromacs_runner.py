@@ -13,6 +13,7 @@ import objstore
 import datetime
 import tarfile
 import tempfile
+import multiprocessing
 
 class Error(Exception):
     """Base class for exceptions in this module"""
@@ -41,6 +42,11 @@ def run(bucket):
     # create a log function for logging messages to this bucket
     log = lambda message: objstore.log(bucket,message)
 
+    # create a set_status function for setting the simulation status
+    set_status = lambda status: objstore.set_string_object(bucket, "status", status)
+
+    set_status("Loading...")
+
     # create a temporary directory for the simulation
     # (this ensures we are in the writable part of the container)
     tmpdir = tempfile.mkdtemp()
@@ -50,7 +56,7 @@ def run(bucket):
     log("Running a gromacs simulation in %s" % tmpdir)
 
     # get the value of the input key
-    input_tar_bz2 = objstore.get_object_as_file(bucket, "input", 
+    input_tar_bz2 = objstore.get_object_as_file(bucket, "input.tar.bz2", 
                                                 "/%s/input.tar.bz2" % tmpdir)
 
     # now unpack this file
@@ -69,6 +75,8 @@ def run(bucket):
     topfile = glob.glob("../*.top")[0]
     grofile = glob.glob("../*.gro")[0]
 
+    set_status("Preparing...")
+
     # run grompp to generate the input
     cmd = "%s grompp -f %s -c %s -p %s -o run.tpr" % (gmx,mdpfile,grofile,topfile)
     log("Running '%s'" % cmd)
@@ -83,7 +91,7 @@ def run(bucket):
                              "-o", "run.tpr"],
                             stdout=grompp_stdout, stderr=grompp_stderr)
 
-    log("gmx grompp completed. Returncode == %s" % status.returncode)
+    log("gmx grompp completed. Return code == %s" % status.returncode)
 
     # Upload the grompp output to the object store
     objstore.set_object_from_file(bucket, "output/grompp.out", "grompp.out")
@@ -94,6 +102,42 @@ def run(bucket):
                           status.returncode)
 
     # now write a run script to run the process and output the result
+    cmd = "%s mdrun -v -deffnm run > mdrun.stdout 2> mdrun.stderr" % gmx
+    FILE = open("run_mdrun.sh", "w")
+    FILE.write("#!/bin/bash\n")
+    FILE.write("%s\n" % cmd)
+    FILE.close()
 
-    return (0, "Simulation complete")
-        
+    set_status("Running...")
+    log("Running '%s'" % cmd)
+
+    # start the processor in the background
+    PROC = os.popen("bash run_mdrun.sh", "r")
+
+    # wait for the gromacs job to finish...
+    status = PROC.close()
+
+    log("gmx mdrun completed. Return code == %s" % status)
+
+    set_status("Uploading output...")
+
+    # Upload all of the output files to the output directory
+    log("Uploading mdrun.stdout")
+    objstore.set_object_from_file(bucket, "output/mdrun.stdout", "mdrun.stdout")
+    log("Uploading mdrun.stderr")
+    objstore.set_object_from_file(bucket, "output/mdrun.stderr", "mdrun.stderr")
+
+    for filename in glob.glob("run.*"):
+        if not filename.endswith("tpr"):
+            log("Uploading %s" % filename)
+            objstore.set_object_from_file(bucket,
+                                          "output/%s" % filename, filename) 
+
+    log("Simulation and data upload complete.")
+
+    if status:
+        set_status("Error")
+        return (status, "Simulation finished with ERROR")
+    else:
+        set_status("Completed")
+        return (0, "Simulation finished successfully")

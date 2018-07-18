@@ -1,5 +1,6 @@
 name: node-gromacs
 version: 0.0.30
 runtime: docker
+timeout: 172800
 format: json
 path: /gromacs
