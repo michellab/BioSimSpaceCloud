@@ -6,6 +6,7 @@ from the .oci/config and hard-coded compartment and bucket names
 import oci
 import json
 import os
+import sys
 
 config = oci.config.from_file()
 compartment = "ocid1.compartment.oc1..aaaaaaaat33j7w74mdyjenwoinyeawztxe7ri6qkfbm5oihqb5zteamvbpzq"
@@ -21,6 +22,11 @@ data = {}
 data["login"] = config
 data["compartment"] = compartment
 data["bucket"] = bucket
+
+try:
+    data["task"] = sys.argv[1]
+except:
+    pass
 
 server = "http://130.61.60.88:8080/r/gromacs/gromacs"
 

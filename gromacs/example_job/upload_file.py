@@ -1,7 +1,7 @@
 # coding: utf-8
 # Copyright (c) 2016, 2018, Oracle and/or its affiliates. All rights reserved.
 
-import filecmp
+import sys
 import oci
 from oci.object_storage.models import CreateBucketDetails
 
