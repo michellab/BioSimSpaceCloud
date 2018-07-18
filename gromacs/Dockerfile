@@ -36,6 +36,9 @@ RUN cd gromacs-2018.2/build && make -j 16 install
 # Now remove the gromacs source and build directory
 RUN rm -rf gromacs-2018.2
 
+# Install watchdog...
+RUN pip3 install --no-cache --no-cache-dir watchdog
+
 # Add the function last as this is the thing that will change
 # most often
 ADD function/* /function/

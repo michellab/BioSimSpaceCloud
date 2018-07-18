@@ -15,6 +15,9 @@ import tarfile
 import tempfile
 import multiprocessing
 
+from watchdog.observers import Observer
+from watchdog.events import LoggingEventHandler
+
 class Error(Exception):
     """Base class for exceptions in this module"""
     pass
@@ -113,6 +116,8 @@ def run(bucket):
 
     # start the processor in the background
     PROC = os.popen("bash run_mdrun.sh", "r")
+
+
 
     # wait for the gromacs job to finish...
     status = PROC.close()
