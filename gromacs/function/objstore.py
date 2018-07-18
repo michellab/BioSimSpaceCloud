@@ -4,6 +4,20 @@ import io
 import sys
 import datetime
 
+def get_object_as_file(bucket, key, filename):
+    """Get the object contained in the key 'key' in the passed 'bucket'
+       and writing this to the file called 'filename'"""
+
+    response = bucket["client"].get_object(bucket["namespace"],
+                                           bucket["bucket_name"],
+                                           key)
+
+    with open(filename, 'wb') as f:
+        for chunk in response.data.raw.stream(1024 * 1024, decode_content=False):
+            f.write(chunk)
+
+    return filename
+
 def get_object(bucket, key):
      """Return the binary data contained in the key 'key' in the
         passed bucket"""
@@ -81,6 +95,15 @@ def set_object(bucket, key, data):
      obj = bucket["client"].put_object(bucket["namespace"],
                                        bucket["bucket_name"],
                                        key, f)
+
+def set_object_from_file(bucket, key, filename):
+     """Set the value of 'key' in 'bucket' to equal the contents
+        of the file located by 'filename'"""
+
+     with open(filename, 'rb') as f:
+        obj = bucket["client"].put_object(bucket["namespace"], 
+                                          bucket["bucket_name"], 
+                                          key, f)
 
 def set_string_object(bucket, key, string_data):
      """Set the value of 'key' in 'bucket' to the string 'string_data'"""
