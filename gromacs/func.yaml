@@ -1,6 +1,9 @@
 name: node-gromacs
-version: 0.0.30
+version: 0.0.40
 runtime: docker
-timeout: 172800
+type: async
+memory: 1024
+cpus: 1000m
 format: json
+timeout: 3600
 path: /gromacs

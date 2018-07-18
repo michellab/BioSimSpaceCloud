@@ -92,6 +92,13 @@ def handler(ctx, data=None, loop=None):
             if task == "gromacs":
                 (status, message) = gromacs_runner.run(bucket)
                 message = "<output>%s</output>" % message
+            elif task == "clear":
+                objstore.delete_all_objects(bucket,"log")
+                objstore.delete_all_objects(bucket,"output")
+                objstore.delete_all_objects(bucket,"status")
+                objstore.delete_all_objects(bucket,"interim")
+                message = "All keys cleared"
+                status = 0
             else:
                 message = objstore.get_log(bucket)
                 status = 0
@@ -99,6 +106,8 @@ def handler(ctx, data=None, loop=None):
         except Exception as e:
             status = -2
             log(str(e))
+            log(os.popen("df -lh", "r").readlines())
+            log(os.popen("free -h", "r").readlines())
             message = "<error>%s</error>" % str(e)
     else:
         status = -1

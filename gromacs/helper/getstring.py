@@ -15,7 +15,6 @@ namespace = object_storage.get_namespace().data
 bucket_name = "test-gromacs-bucket"
 object_name = sys.argv[1]
 
-print('Retrieving file from object storage')
 get_obj = object_storage.get_object(namespace, bucket_name, object_name)
 
 data = None

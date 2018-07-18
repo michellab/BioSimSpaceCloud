@@ -123,9 +123,14 @@ def delete_all_objects(bucket, prefix=None):
 
     if prefix:
         for object in get_all_object_names(bucket,prefix):
-            bucket["client"].delete_object(bucket["namespace"],
-                                           bucket["bucket_name"],
-                                           "%s/%s" % (prefix,object))
+            if len(object) == 0:
+                bucket["client"].delete_object(bucket["namespace"],
+                                               bucket["bucket_name"],
+                                               prefix)
+            else:
+                bucket["client"].delete_object(bucket["namespace"],
+                                               bucket["bucket_name"],
+                                               "%s/%s" % (prefix,object))
     else:
         for object in get_all_object_names(bucket):
             bucket["client"].delete_object(bucket["namespace"], 
