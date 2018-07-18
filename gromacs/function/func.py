@@ -5,6 +5,7 @@ import os
 import sys
 
 import gromacs_runner
+import objstore
 
 def log(message):
     sys.stderr.write( str(message) )
@@ -83,15 +84,25 @@ def handler(ctx, data=None, loop=None):
                                         data["compartment"], 
                                         data["bucket"] )
 
-            (status, message) = gromacs_runner.run(bucket)
+            try:
+                task = data["task"]
+            except:
+                task = "logreport"
+
+            if task == "gromacs":
+                (status, message) = gromacs_runner.run(bucket)
+                message = "<output>%s</output>" % message
+            else:
+                message = objstore.get_log(bucket)
+                status = 0
 
         except Exception as e:
             status = -2
             log(str(e))
-            message = "Error:\n%s" % str(e)
+            message = "<error>%s</error>" % str(e)
     else:
         status = -1
-        message = "No input data, so no simulation to run!"
+        message = "<error>No input data, so no simulation to run!</error>"
 
     return {"status" : status, "message" : message }
 

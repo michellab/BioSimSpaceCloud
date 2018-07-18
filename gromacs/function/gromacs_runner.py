@@ -16,22 +16,14 @@ def run(bucket):
        write a log to /log and write the output to /output
     """
 
-    sys.stderr.write("\n\nOld log:\n%s\n\n" % "\n".join(objstore.get_log(bucket)))
-
     objstore.clear_log(bucket)
     log = lambda message: objstore.log(bucket,message)
 
-    log("Running a gromacs simulation!\n")
+    log("Running a gromacs simulation!")
 
     # get the value of the input key
     data = objstore.get_object(bucket, "input")
 
     objs = objstore.get_all_objects(bucket)
 
-    names = list(objs.keys())
-    names.sort()
-
-    for name in names:
-        sys.stderr.write("%s => %s\n" % (name,str(objs[name])))
-
-    return (0, "Simulation complete: %s" % data)
+    return (0, "Simulation complete: %s" % data.decode("utf-8"))
