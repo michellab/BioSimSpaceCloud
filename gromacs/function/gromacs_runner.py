@@ -16,7 +16,7 @@ import tempfile
 import multiprocessing
 
 from watchdog.observers import Observer
-from watchdog.events import LoggingEventHandler
+from watchdog.events import FileSystemEventHandler
 
 class Error(Exception):
     """Base class for exceptions in this module"""
@@ -29,6 +29,35 @@ class GromppError(Error):
 class MDRunError(Error):
     """Exception raised by a failure of mdrun"""
     pass
+
+class PosixToObjstoreEventHandler(FileSystemEventHandler):
+    """This class responds to events in the filesystem. 
+       The aim is to detect as files are created and modified,
+       and to stream this data up to the object store while
+       the simulation is in progress. This is called in 
+       a background thread by watchdog"""
+
+    def __init__(self, logger):
+        FileSystemEventHandler.__init__(self)
+        self._logger = logger
+
+    def log(self, message):
+        self._logger(message)
+
+    def on_any_event(self, event):
+        self.log( str(event) )
+
+        # ideally, if this is a new file then open the file in 
+        # binary mode and connect to a handle
+
+        # if file changed, then read the change in binary into a buffer.
+        # If the buffer grows to larger than X or the amount of time since
+        # the last upload to the object store is > 5 seconds (configurable)
+        # then upload the buffer to the object store as the next chunk 
+        # of the file, e.g. to /bucket/interim/filename/chunk_number
+
+        # it should be that all of the chunks can be merged together
+        # to recreate the original file... (we hope - should md5 check!)
 
 def run(bucket):
     """Run the gromacs simulation whose input is contained
@@ -112,15 +141,26 @@ def run(bucket):
     FILE.close()
 
     set_status("Running...")
-    log("Running '%s'" % cmd)
+
+    # Start a watchdog process to look for new files
+    observer = Observer()
+    event_handler = PosixToObjstoreEventHandler(log)
+    observer.schedule(event_handler, ".", recursive=False)
+    log("Starting the filesystem observer...")
+    observer.start()
 
     # start the processor in the background
+    log("Running '%s'" % cmd)
     PROC = os.popen("bash run_mdrun.sh", "r")
-
-
 
     # wait for the gromacs job to finish...
     status = PROC.close()
+
+    log("Gromacs has finished. Waiting for filesystem observer...")
+
+    # stop monitoring for events
+    observer.stop()
+    observer.join()
 
     log("gmx mdrun completed. Return code == %s" % status)
 
