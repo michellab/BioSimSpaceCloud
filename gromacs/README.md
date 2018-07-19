@@ -11,7 +11,7 @@ in func.py
 Build using docker to make sure it is ok using
 
 ```
-# docker build .
+# docker build -t chryswoods/node-gromacs .
 ```
 
 ## Fn building
@@ -57,5 +57,11 @@ or from the web browser go to
 
 ```
 http://130.61.60.88:8080/r/gromacs/gromacs
+```
+
+To pass data use
+
+```
+curl -d '{"name":"Chris"}' http://130.61.60.88:8080/r/gromacs/gromacs
 ```
 
