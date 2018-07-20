@@ -56,7 +56,9 @@ class _FileWatcher:
     def _uploadBuffer(self):
         """Internal function that uploads the current buffer to
            a new chunk in the object store"""
-        if len(self._buffer) == 0:
+        if self._buffer is None:
+            return
+        elif len(self._buffer) == 0:
             #nothing to upload
             return
 
@@ -77,7 +79,7 @@ class _FileWatcher:
         """Finalise the uploads"""
         self._uploadBuffer()
 
-    def update(self):
+    def update(self, force_upload=False):
         """Called whenever the file changes"""
         if not self._key:
             # the file hasn't been opened or uploaded yet - create
@@ -110,7 +112,19 @@ class _FileWatcher:
         # we have read in everything that has been produced - should 
         # we upload it? Only upload if more than 5 seconds have passed
         # since the last update
-        if (_datetime.datetime.now() - self._last_upload_time).seconds \
+        if force_upload:
+            try:
+                bufsize = len(self._buffer)
+            except:
+                bufsize = 0
+
+            if bufsize > 0:
+                objstore.log(self._bucket, "Uploading last of %s (%d bytes)" % \
+                                    (self._filename, 0))
+
+                self._uploadBuffer()
+
+        elif (_datetime.datetime.now() - self._last_upload_time).seconds \
                   > self._upload_timeout:
             self._uploadBuffer()
         
@@ -169,6 +183,17 @@ if _have_watchdog:
                                                      timetrigger=self.chunkTimeTrigger())
 
             self._files[filename].update()
+
+        def finaliseUploads(self):
+            """Ensure that the last parts of any files are uploaded
+               before this observer exits"""
+            objstore.log(self._bucket, "Finalising upload...")
+
+            for filename in self._files:
+                self._files[filename].update(True)
+
+            self.finishUploads()
+
 else:
     class _PosixToObjstoreEventHandler:
         def __init__(self, **kwargs):
@@ -284,6 +309,7 @@ class GromacsRunner:
             # stop monitoring for events
             observer.stop()
             observer.join()
+            event_handler.finaliseUploads()
 
         log("gmx mdrun completed. Return code == %s" % status)
 

@@ -5,29 +5,79 @@ import datetime as _datetime
 __all__ = [ "ObjectStore" ]
 
 class ObjectStore:
+    #@staticmethod
+    #def get_interim_object
+
     @staticmethod
     def get_object_as_file(bucket, key, filename):
         """Get the object contained in the key 'key' in the passed 'bucket'
            and writing this to the file called 'filename'"""
 
-        response = bucket["client"].get_object(bucket["namespace"],
-                                               bucket["bucket_name"],
-                                               key)
+        try:
+            response = bucket["client"].get_object(bucket["namespace"],
+                                                   bucket["bucket_name"],
+                                                   key)
+            is_chunked = False
+        except:
+            try:
+                response = bucket["client"].get_object(bucket["namespace"],
+                                                       bucket["bucket_name"],
+                                                       "%s/1" % key)
+                is_chunked = True
+            except:
+                is_chunked = False
+                pass
+                
+            if not is_chunked:
+                raise
 
+        if not is_chunked:
+            with open(filename, 'wb') as f:
+                for chunk in response.data.raw.stream(1024 * 1024, decode_content=False):
+                    f.write(chunk)
+
+            return filename
+
+        # the data is chunked - get this out chunk by chunk
         with open(filename, 'wb') as f:
-            for chunk in response.data.raw.stream(1024 * 1024, decode_content=False):
-                f.write(chunk)
+            next_chunk = 1
+            while True:
+                for chunk in response.data.raw.stream(1024 * 1024, decode_content=False):
+                    f.write(chunk)
 
-        return filename
-
+                # now get and write the rest of the chunks
+                next_chunk += 1
+                
+                try:
+                    response = bucket["client"].get_object(bucket["namespace"],
+                                                           bucket["bucket_name"],
+                                                           "%s/%d" % (key,next_chunk))
+                except:
+                    break
+                                                           
     @staticmethod
     def get_object(bucket, key):
         """Return the binary data contained in the key 'key' in the
            passed bucket"""
 
-        response = bucket["client"].get_object(bucket["namespace"],
-                                               bucket["bucket_name"],
-                                               key)
+        try:
+            response = bucket["client"].get_object(bucket["namespace"],
+                                                   bucket["bucket_name"],
+                                                   key)
+            is_chunked = False
+        except:
+            try:
+                response = bucket["client"].get_object(bucket["namespace"],
+                                                       bucket["bucket_name"],
+                                                       "%s/1" % key)
+                is_chunked = True
+            except:
+                is_chunked = False
+                pass
+
+            # Raise the original error
+            if not is_chunked:
+                raise
 
         data = None
 
@@ -36,6 +86,27 @@ class ObjectStore:
                 data = chunk
             else:
                 data += chunk
+
+        if is_chunked:
+            # keep going through to find more chunks
+            next_chunk = 1
+            
+            while True:
+                next_chunk += 1
+                
+                try:
+                    response = bucket["client"].get_object(bucket["namespace"],
+                                                           bucket["bucket_name"],
+                                                           "%s/%d" % (key,next_chunk))
+                except:
+                    response = None
+                    break
+
+                for chunk in response.data.raw.stream(1024 * 1024, decode_content=False):
+                    if not data:
+                        data = chunk
+                    else:
+                        data += chunk
 
         return data
 
