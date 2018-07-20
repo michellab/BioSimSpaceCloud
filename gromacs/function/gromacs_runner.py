@@ -30,6 +30,81 @@ class MDRunError(Error):
     """Exception raised by a failure of mdrun"""
     pass
 
+class FileWatcher:
+    """This class is used to watch a specific file,
+       uploading chunks of the file to an object store
+       when the watcher is updated"""
+    def __init__(self, filename, bucket, rootkey):
+        self._filename = filename
+        self._bucket = bucket
+        self._rootkey = rootkey
+        self._handle = None
+        self._key = None
+        self._buffer = None
+        self._last_upload_time = datetime.datetime.now()
+        self._next_chunk = 0
+        self._chunksize = 8192
+        self._uploadsize = 8*1024*1024
+        self._upload_timeout = 1
+
+    def _uploadBuffer(self):
+        """Internal function that uploads the current buffer to
+           a new chunk in the object store"""
+        if len(self._buffer) == 0:
+            #nothing to upload
+            return
+
+        self._next_chunk += 1
+        self._last_upload_time = datetime.datetime.now()
+
+        objstore.log(self._bucket, "Upload %s chunk (%f KB) to %s/%s" % \
+                       (self._filename, float(len(self._buffer))/1024.0,
+                        self._key, self._next_chunk))
+
+        self._buffer = None
+
+    def finishUploads(self):
+        """Finalise the uploads"""
+        self._uploadBuffer()
+
+    def update(self):
+        """Called whenever the file changes"""
+        if not self._key:
+            # the file hasn't been opened or uploaded yet - create
+            # key for this file, open the file and read as much as
+            # possible into a buffer, ready for upload
+            if self._rootkey:
+                self._key = "%s/%s" % (self._rootkey,self._filename)
+            else:
+                self._key = self._filename
+
+            # open the file and connect to the filehandle
+            self._handle = open(self._filename, "rb")
+
+        # read in the next chunk of the file
+        while True:
+            chunk = self._handle.read(self._chunksize)
+
+            if chunk:
+                if not self._buffer:
+                    self._buffer = chunk
+                else:
+                    self._buffer += chunk
+
+                if len(self._buffer) > self._uploadsize:
+                    self._uploadBuffer()
+            else:
+                # nothing more to read
+                break
+    
+        # we have read in everything that has been produced - should 
+        # we upload it? Only upload if more than 5 seconds have passed
+        # since the last update
+        if (datetime.datetime.now() - self._last_upload_time).seconds \
+                  > self._upload_timeout:
+            self._uploadBuffer()
+        
+
 class PosixToObjstoreEventHandler(FileSystemEventHandler):
     """This class responds to events in the filesystem. 
        The aim is to detect as files are created and modified,
@@ -37,16 +112,18 @@ class PosixToObjstoreEventHandler(FileSystemEventHandler):
        the simulation is in progress. This is called in 
        a background thread by watchdog"""
 
-    def __init__(self, logger):
+    def __init__(self, bucket, root=None):
         FileSystemEventHandler.__init__(self)
-        self._logger = logger
+        self._bucket = bucket
+        self._root = root
+        self._files = {}
 
-    def log(self, message):
-        self._logger(message)
+    def finishUploads(self):
+        # Call this to complete all of the uploads
+        for f in self._files:
+            self._files[f].finishUploads()
 
     def on_any_event(self, event):
-        self.log( str(event) )
-
         # ideally, if this is a new file then open the file in 
         # binary mode and connect to a handle
 
@@ -58,6 +135,20 @@ class PosixToObjstoreEventHandler(FileSystemEventHandler):
 
         # it should be that all of the chunks can be merged together
         # to recreate the original file... (we hope - should md5 check!)
+
+        if event.is_directory:
+            return
+
+        filename = event.src_path
+
+        if filename.startswith("./"):
+            filename = filename[2:]
+
+        if not filename in self._files:
+            self._files[filename] = FileWatcher(filename, self._bucket, self._root)
+
+        self._files[filename].update()
+
 
 def run(bucket):
     """Run the gromacs simulation whose input is contained
@@ -144,7 +235,7 @@ def run(bucket):
 
     # Start a watchdog process to look for new files
     observer = Observer()
-    event_handler = PosixToObjstoreEventHandler(log)
+    event_handler = PosixToObjstoreEventHandler(bucket,"interim")
     observer.schedule(event_handler, ".", recursive=False)
     log("Starting the filesystem observer...")
     observer.start()
