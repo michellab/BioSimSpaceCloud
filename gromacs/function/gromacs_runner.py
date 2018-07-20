@@ -34,7 +34,8 @@ class FileWatcher:
     """This class is used to watch a specific file,
        uploading chunks of the file to an object store
        when the watcher is updated"""
-    def __init__(self, filename, bucket, rootkey):
+    def __init__(self, filename, bucket, rootkey,
+                 sizetrigger, timetrigger):
         self._filename = filename
         self._bucket = bucket
         self._rootkey = rootkey
@@ -44,8 +45,8 @@ class FileWatcher:
         self._last_upload_time = datetime.datetime.now()
         self._next_chunk = 0
         self._chunksize = 8192
-        self._uploadsize = 8*1024*1024
-        self._upload_timeout = 1
+        self._uploadsize = int(sizetrigger)
+        self._upload_timeout = int(timetrigger)
 
     def _uploadBuffer(self):
         """Internal function that uploads the current buffer to
@@ -60,6 +61,10 @@ class FileWatcher:
         objstore.log(self._bucket, "Upload %s chunk (%f KB) to %s/%s" % \
                        (self._filename, float(len(self._buffer))/1024.0,
                         self._key, self._next_chunk))
+
+        objstore.set_object(self._bucket,
+                            "%s/%d" % (self._key,self._next_chunk),
+                            self._buffer)
 
         self._buffer = None
 
@@ -112,11 +117,24 @@ class PosixToObjstoreEventHandler(FileSystemEventHandler):
        the simulation is in progress. This is called in 
        a background thread by watchdog"""
 
-    def __init__(self, bucket, root=None):
+    def __init__(self, bucket, rootkey=None,
+                 sizetrigger=8*1024*1024, timetrigger=5):
         FileSystemEventHandler.__init__(self)
         self._bucket = bucket
-        self._root = root
+        self._rootkey = rootkey
+        self._sizetrigger = int(sizetrigger)
+        self._timetrigger = int(timetrigger)
         self._files = {}
+
+    def chunkSizeTrigger(self):
+        """Return the size of buffer that will trigger a write to 
+           the object store"""
+        return self._sizetrigger
+
+    def chunkTimeTrigger(self):
+        """Return the amount of time between writes that will trigger
+           a write to the object store"""
+        return self._timetrigger
 
     def finishUploads(self):
         # Call this to complete all of the uploads
@@ -124,18 +142,13 @@ class PosixToObjstoreEventHandler(FileSystemEventHandler):
             self._files[f].finishUploads()
 
     def on_any_event(self, event):
-        # ideally, if this is a new file then open the file in 
-        # binary mode and connect to a handle
-
-        # if file changed, then read the change in binary into a buffer.
-        # If the buffer grows to larger than X or the amount of time since
-        # the last upload to the object store is > 5 seconds (configurable)
-        # then upload the buffer to the object store as the next chunk 
-        # of the file, e.g. to /bucket/interim/filename/chunk_number
-
-        # it should be that all of the chunks can be merged together
-        # to recreate the original file... (we hope - should md5 check!)
-
+        """This function is called on any filesystem event. If locates
+           the changed file and reads the file into a buffer. This is
+           uploaded to the object store if one of two conditions are
+           met:
+            1. The amount of data written exceeds self.chunkSizeTrigger()
+            2. More than self.chunkTimeTrigger() seconds has passsed
+        """
         if event.is_directory:
             return
 
@@ -145,7 +158,10 @@ class PosixToObjstoreEventHandler(FileSystemEventHandler):
             filename = filename[2:]
 
         if not filename in self._files:
-            self._files[filename] = FileWatcher(filename, self._bucket, self._root)
+            self._files[filename] = FileWatcher(filename, bucket=self._bucket, 
+                                                rootkey=self._rootkey,
+                                                sizetrigger=self.chunkSizeTrigger(),
+                                                timetrigger=self.chunkTimeTrigger())
 
         self._files[filename].update()
 
@@ -235,8 +251,12 @@ def run(bucket):
 
     # Start a watchdog process to look for new files
     observer = Observer()
-    event_handler = PosixToObjstoreEventHandler(bucket,"interim")
+    event_handler = PosixToObjstoreEventHandler(bucket,
+                                                rootkey="interim",
+                                                timetrigger=1)
+
     observer.schedule(event_handler, ".", recursive=False)
+
     log("Starting the filesystem observer...")
     observer.start()
 
