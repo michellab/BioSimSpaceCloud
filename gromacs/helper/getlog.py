@@ -1,6 +1,6 @@
 
 import login
-from BioSimSpaceFunction import ObjectStore as objstore
+from BioSimSpaceCloud import ObjectStore as objstore
 
 import datetime
 

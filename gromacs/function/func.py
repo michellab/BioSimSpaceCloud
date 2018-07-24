@@ -8,10 +8,10 @@ _sys.path.append(_os.path.join(_os.path.dirname(__file__), "lib"))
 ####
 ####
 
-#### All functionality called from BioSimSpaceFunction
-from BioSimSpaceFunction import GromacsRunner as gromacs_runner
-from BioSimSpaceFunction import ObjectStore as objstore
-from BioSimSpaceFunction import Account as account
+#### All functionality called from BioSimSpaceCloud
+from BioSimSpaceCloud import GromacsRunner as gromacs_runner
+from BioSimSpaceCloud import ObjectStore as objstore
+from BioSimSpaceCloud import Account as account
 
 #### Actual function that is called by Fn
 def handler(ctx, data=None, loop=None):

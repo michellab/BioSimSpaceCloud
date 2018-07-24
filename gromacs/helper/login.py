@@ -4,7 +4,7 @@ import json
 import os
 import sys
 
-from BioSimSpaceFunction import Account as account
+from BioSimSpaceCloud import Account as account
 
 def login():
     config = oci.config.from_file()
