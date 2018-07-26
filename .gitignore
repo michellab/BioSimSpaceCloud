@@ -1,3 +1,4 @@
 BioSimSpaceCloud/__pycache__
 gromacs/function/lib/BioSimSpaceCloud
 auth/function/lib/BioSimSpaceCloud
+auth/credentials/*.pem
