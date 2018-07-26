@@ -7,11 +7,7 @@ import os
 
 from BioSimSpaceCloud import Account
 
-class Error(Exception):
-    """Base class for exceptions in this module"""
-    pass
-
-class IdentityAccountError(Error):
+class IdentityAccountError(Exception):
     """Used for errors associated with logging into or
        using the central Identity Account"""
     pass
@@ -33,23 +29,40 @@ def loginToIdentityAccount():
     # the LOGIN_JSON environment variable
     identity_json = os.getenv("LOGIN_JSON")
     identity_data = None
-    identity_account = None
+
+    # get the bucket information in json format from
+    # the BUCKET_JSON environment variable
+    bucket_json = os.getenv("BUCKET_JSON")
+    bucket_data = None
+
+    if bucket_json and len(bucket_json) > 0:
+        try:
+            bucket_data = json.loads(bucket_json)
+            bucket_json = None
+        except:
+            raise IdentityAccountError(
+             "Cannot decode the bucket information for the central identity account")
+    else:
+        raise IdentityAccountError("You must supply valid bucket data!")
 
     if identity_json and len(identity_json) > 0:
         try:
             identity_data = json.loads(identity_json)
+            identity_json = None
         except:
             raise IdentityAccountError(
              "Cannot decode the login information for the central identity account")
+    else:
+        raise IdentityAccountError("You must supply valid login data!")
 
-    # now login as this user
+    # now login and create/load the bucket for this account
     try:
-        identity_account = Account.get_login(identity_data)
+        return Account.create_and_connect_to_bucket(identity_data,
+                                                    bucket_data["compartment"],
+                                                    bucket_data["bucket"])
     except Exception as e:
         raise IdentityAccountError(
-             "Error logging into the central identity account: %s" % str(e))
-
-    return "SUCCESS"
+             "Error connecting to the identity account: %s" % str(e))
 
 def handler(ctx, data=None, loop=None):
     """This function will read in json data that identifies the 

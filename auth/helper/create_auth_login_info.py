@@ -8,6 +8,8 @@ import json
 import sys
 import os
 
+## First create the login info to connect to the account
+
 """
 [DEFAULT]
 user=ocid1.user.oc1..aaaaaaaahxlrqhcgfzdv52ias5yt6go6ybgmb5hv7at5amepal22tagvaczq
@@ -33,6 +35,9 @@ data["key_lines"] = open(sys.argv[1],"r").readlines()
 # The tenancy in which this user and everything exists!
 data["tenancy"] = "ocid1.tenancy.oc1..aaaaaaaa3eiex6fbfj626uwhs3dg24oygknrhhgfj4khqearluf4i74zdt2a"
 
+# The passphrase to unlock the key - VERY SECRET!!!
+data["pass_phrase"] = sys.argv[2]
+
 # The region for this tenancy
 data["region"] = "eu-frankfurt-1"
 
@@ -40,3 +45,13 @@ print(json.dumps(data))
 
 os.system("fn config app auth LOGIN_JSON '%s'" % json.dumps(data))
 
+## Now create the bucket info so we know where the bucket is
+## that will store all data related to logging into accounts
+
+data = {}
+data["compartment"] = "ocid1.compartment.oc1..aaaaaaaat33j7w74mdyjenwoinyeawztxe7ri6qkfbm5oihqb5zteamvbpzq"
+data["bucket"] = "accounts"
+
+print(json.dumps(data))
+
+os.system("fn config app auth BUCKET_JSON '%s'" % json.dumps(data))

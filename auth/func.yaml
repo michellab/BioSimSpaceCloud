@@ -1,5 +1,5 @@
 name: node-auth
-version: 0.0.5
+version: 0.0.16
 runtime: docker
 type: sync
 format: json

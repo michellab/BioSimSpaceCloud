@@ -1,12 +1,14 @@
 
 import io as _io
 import datetime as _datetime
+import uuid as _uuid
 
 __all__ = [ "ObjectStore" ]
 
+class ObjectStoreError(Exception):
+    pass
+
 class ObjectStore:
-    #@staticmethod
-    #def get_interim_object
 
     @staticmethod
     def get_object_as_file(bucket, key, filename):
