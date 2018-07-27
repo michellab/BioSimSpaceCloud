@@ -1,0 +1,7 @@
+name: node-auth-register
+version: 0.0.7
+runtime: docker
+type: sync
+format: json
+timeout: 20
+path: /register

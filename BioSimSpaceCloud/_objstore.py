@@ -2,6 +2,7 @@
 import io as _io
 import datetime as _datetime
 import uuid as _uuid
+import json as _json
 
 __all__ = [ "ObjectStore" ]
 
@@ -118,6 +119,22 @@ class ObjectStore:
         return ObjectStore.get_object(bucket, key).decode("utf-8")
 
     @staticmethod
+    def get_object_from_json(bucket, key):
+        """Return an object constructed from json stored at 'key' in
+           the passed bucket. This returns None if there is no data
+           at this key
+        """
+
+        data = None
+
+        try:
+            data = ObjectStore.get_string_object(bucket,key)
+        except:
+            return None
+
+        return _json.loads(data)
+
+    @staticmethod
     def get_all_object_names(bucket, prefix=None):
         """Returns the names of all objects in the passed bucket"""
         objects = bucket["client"].list_objects(bucket["namespace"],
@@ -192,6 +209,12 @@ class ObjectStore:
         """Set the value of 'key' in 'bucket' to the string 'string_data'"""
         ObjectStore.set_object(bucket, key, string_data.encode("utf-8"))
 
+    @staticmethod
+    def set_object_from_json(bucket, key, data):
+        """Set the value of 'key' in 'bucket' to equal to contents
+           of 'data', which has been encoded to json"""
+        ObjectStore.set_string_object(bucket, key, _json.dumps(data))
+ 
     @staticmethod
     def log(bucket, message, prefix="log"):
          """Log the the passed message to the object store in 
