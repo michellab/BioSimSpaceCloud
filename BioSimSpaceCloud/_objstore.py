@@ -274,6 +274,16 @@ class ObjectStore:
         ObjectStore.delete_all_objects(bucket, log)
 
     @staticmethod
+    def delete_object(bucket, key):
+        """Removes the object at 'key'"""
+        try:
+            bucket["client"].delete_object(bucket["namespace"],
+                                                   bucket["bucket_name"],
+                                                   key)
+        except:
+            pass
+
+    @staticmethod
     def clear_all_except(bucket, keys):
         """Removes all objects from the passed 'bucket' except those
            whose keys are or start with any key in 'keys'"""

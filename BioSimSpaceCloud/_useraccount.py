@@ -39,6 +39,27 @@ class UserAccount:
         """Return the sanitised username"""
         return self._sanitised_username
 
+    def max_open_sessions(self):
+        """Return the maximum number of open login sessions
+           (and open login requests) allowed for this user account"""
+        return 10
+
+    def login_request_timeout(self):
+        """Return the number of hours a login request will
+           remain active. This should normally be short, e.g. 30 minutes"""
+        return 0.5
+
+    def login_timeout(self):
+        """Return the maximum number of hours a single login 
+           can remain active. This should normally be of the order
+           of 1-7 days, as individual calculations or workflows
+           should not normally take longer than this"""
+        return 7 * 24.0
+
+    def login_root_url(self):
+        """Return the root URL used to log into this account"""
+        return "https://login.biosimspace.org/auth"
+
     def is_valid(self):
         """Return whether or not this is a valid account"""
         return not (self._status is None)

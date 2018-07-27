@@ -6,16 +6,15 @@ import sys
 
 data = {}
 data["username"] = sys.argv[1]
-data["password"] = sys.argv[2]
 
-try:
-    data["old_password"] = sys.argv[3]
-except:
-    pass
+public_key = sys.argv[2]
+public_cert = sys.argv[3]
+
+data["public_key"] = open(public_key,"r").readlines()
+data["public_certificate"] = open(public_cert,"r").readlines()
+data["ipaddr"] = "somewhere!"
 
 server = "http://130.61.60.88:8080/r/auth/request-login"
-
-print(json.dumps(data))
 
 print("Running call to '%s'" % server)
 os.system("curl -d '%s' %s" % (json.dumps(data),server))
