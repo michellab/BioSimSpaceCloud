@@ -1,0 +1,7 @@
+name: node-auth-request-login
+version: 0.0.2
+runtime: docker
+type: sync
+format: json
+timeout: 20
+path: /request-login
