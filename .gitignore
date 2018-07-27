@@ -1,4 +1,5 @@
-BioSimSpaceCloud/__pycache__
-gromacs/function/lib/BioSimSpaceCloud
-auth/function/lib/BioSimSpaceCloud
 auth/credentials/*.pem
+auth/base_image/function/lib/BioSimSpaceCloud/
+gromacs/function/lib/BioSimSpaceCloud/
+gromacs/helper/__pycache__/
+BioSimSpaceCloud/__pycache__/

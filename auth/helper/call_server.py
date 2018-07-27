@@ -10,10 +10,17 @@ import os
 import sys
 
 data = {}
-data["username"] = sys.argv[1]
-data["password"] = sys.argv[2]
 
-server = "http://130.61.60.88:8080/r/auth/auth"
+try:
+    service = sys.argv[1]
+except:
+    service = ""
+
+server = "http://130.61.60.88:8080/r/auth/%s" % service
+
+if service == "login":
+    data["username"] = sys.argv[2]
+    data["password"] = sys.argv[3]
 
 print("Running call to '%s'" % server)
 os.system("curl -d '%s' %s" % (json.dumps(data),server))

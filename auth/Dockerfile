@@ -1,2 +1,2 @@
-FROM chryswoods/auth-login-base:0.0.2
-ENTRYPOINT ["python", "function/login.py"]
+FROM chryswoods/auth-login-base:latest
+ENTRYPOINT ["python", "status.py"]
