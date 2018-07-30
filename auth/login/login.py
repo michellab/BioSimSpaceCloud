@@ -5,7 +5,7 @@ import oci
 
 import os
 
-from BioSimSpaceCloud import Account
+from Acquire import Account
 
 class IdentityAccountError(Exception):
     """Used for errors associated with logging into or

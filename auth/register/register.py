@@ -2,7 +2,7 @@
 import json
 import fdk
 
-from BioSimSpaceCloud import ObjectStore, Keys, UserAccount
+from Acquire import ObjectStore, Keys, UserAccount
 from identityaccount import loginToIdentityAccount
 
 class ExistingAccountError(Exception):

@@ -1,5 +1,5 @@
 name: node-auth-register
-version: 0.0.7
+version: 0.0.8
 runtime: docker
 type: sync
 format: json

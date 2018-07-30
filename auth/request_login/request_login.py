@@ -2,7 +2,7 @@
 import json
 import fdk
 
-from BioSimSpaceCloud import ObjectStore, UserAccount, LoginSession
+from Acquire import ObjectStore, UserAccount, LoginSession
 from identityaccount import loginToIdentityAccount
 
 class InvalidLoginError(Exception):

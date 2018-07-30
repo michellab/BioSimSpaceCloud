@@ -1,5 +1,5 @@
 auth/credentials/*.pem
-auth/base_image/function/lib/BioSimSpaceCloud/
-gromacs/function/lib/BioSimSpaceCloud/
+auth/base_image/function/lib/Acquire/
+gromacs/function/lib/Acquire/
 gromacs/helper/__pycache__/
 BioSimSpaceCloud/__pycache__/
