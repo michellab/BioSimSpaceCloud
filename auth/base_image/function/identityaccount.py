@@ -3,7 +3,7 @@ import json as _json
 import oci as _oci
 import os as _os
 
-from BioSimSpaceCloud import Account as _Account
+from Acquire import Account as _Account
 
 class IdentityAccountError(Exception):
     """Used for errors associated with logging into or

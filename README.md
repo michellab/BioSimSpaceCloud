@@ -8,6 +8,7 @@ running such simulations for a wide range of different domains.
 The subdirectories contain;
 
 * Acquire: All of the shared code needed to implement the services
+* user: Example scripts showing how the user can log into and access the service
 * auth: The code needed to run the authentication service
 * access: The code needed to run the access service
 * accounting: The code needed to run the accounting service

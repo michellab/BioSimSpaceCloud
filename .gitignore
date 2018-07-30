@@ -2,4 +2,4 @@ auth/credentials/*.pem
 auth/base_image/function/lib/Acquire/
 gromacs/function/lib/Acquire/
 gromacs/helper/__pycache__/
-BioSimSpaceCloud/__pycache__/
+Acquire/__pycache__/
