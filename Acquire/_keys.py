@@ -58,11 +58,21 @@ class PublicKey:
         """Construct from the passed public key"""
         self._pubkey = public_key
 
-    def write(self, filename):
-        """Write this public key to 'filename'"""
-        pubkey_bytes = self._pubkey.public_bytes(
+    def bytes(self):
+        """Return the raw bytes for this key"""
+        if self._pubkey is None:
+            return None
+
+        return self._pubkey.public_bytes(
                             encoding=_serialization.Encoding.PEM,
                             format=_serialization.PublicFormat.SubjectPublicKeyInfo)
+
+    def write(self, filename):
+        """Write this public key to 'filename'"""
+        if self._pubkey is None:
+            return
+
+        pubkey_bytes = self.bytes()
 
         with open(filename, "wb") as FILE:
             FILE.write(pubkey_bytes)           
@@ -129,21 +139,27 @@ class PrivateKey:
 
         return PrivateKey(private_key)
 
+    def bytes(self, passphrase, mangleFunction=None):
+        """Return the raw bytes for this key, encoded by the passed
+           passphrase that has been optionally mangled by mangleFunction"""
+        if self._privkey is None:
+            return None
+
+        passphrase = _assert_strong_passphrase(passphrase)
+
+        return self._privkey.private_bytes(
+                            encoding=_serialization.Encoding.PEM,
+                            format=_serialization.PrivateFormat.PKCS8,
+                            encryption_algorithm=_serialization.BestAvailableEncryption(
+                                                     passphrase.encode("utf-8")))
+
     def write(self, filename, passphrase, mangleFunction=None):
         """Write this key to 'filename', encrypted with 'passphrase'"""
 
         if self._privkey is None:
             return
 
-        passphrase = _assert_strong_passphrase(passphrase)
-
-        # now write the key to disk, encrypted using the
-        # supplied passphrase
-        privkey_bytes = self._privkey.private_bytes(
-                            encoding=_serialization.Encoding.PEM,
-                            format=_serialization.PrivateFormat.PKCS8,
-                            encryption_algorithm=_serialization.BestAvailableEncryption(
-                                                     passphrase.encode("utf-8")))
+        privkey_bytes = self.bytes(passphrase, mangleFunction)
 
         with open(_os.open(filename,
                   _os.O_CREAT | _os.O_WRONLY, 0o700), 'wb') as FILE:
