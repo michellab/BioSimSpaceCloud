@@ -1,7 +1,12 @@
 
 import json as _json
 
-import pycurl as _pycurl
+try:
+    import pycurl as _pycurl
+    has_pycurl = True
+except:
+    has_pycurl = False
+
 from urllib.parse import urlencode as _urlencode
 from io import BytesIO as _BytesIO
 
@@ -13,6 +18,11 @@ class RemoteFunctionCallError(Exception):
 def call_function(function_url, arg_dict):
     """Call the remote function at 'function_url' passing
        in named function arguments in 'arg_dict'"""
+
+    if not has_pycurl:
+        raise RemoteFunctionCallError("Cannot call remote functions as "
+                   "the pycurl module cannot be imported! It needs "
+                   "to be installed into this python session...")
 
     arg_json = _json.dumps(arg_dict)
 

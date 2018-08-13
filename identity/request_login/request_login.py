@@ -48,6 +48,7 @@ def handler(ctx, data=None, loop=None):
     status = 0
     message = None
     login_url = None
+    login_uid = None
 
     try:
         # data is already a decoded unicode string
@@ -56,13 +57,32 @@ def handler(ctx, data=None, loop=None):
         username = data["username"]
         public_key = data["public_key"]
         public_cert = data["public_certificate"]
-        ip_addr = data["ipaddr"]
+
+        ip_addr = None
+        hostname = None
+        login_message = None
+
+        try:
+            ip_addr = data["ipaddr"]
+        except:
+            pass
+
+        try:
+            hostname = data["hostname"]
+        except:
+            pass
+
+        try:
+            login_message = data["message"]
+        except:
+            pass
 
         # generate a sanitised version of the username
         user_account = UserAccount(username)
 
         # Now generate a login session for this request
-        login_session = LoginSession(public_key, public_cert, ip_addr)
+        login_session = LoginSession(public_key, public_cert, ip_addr,
+                                     hostname, login_message)
 
         # now log into the central identity account to record
         # that a request to open a login session has been opened
@@ -112,6 +132,8 @@ def handler(ctx, data=None, loop=None):
         login_url = "%s/%s" % (user_account.login_root_url(),
                                login_session.short_uuid())        
 
+        login_uid = login_session.uuid()
+
         message = "Success: Login via %s" % login_url
 
     except Exception as e:
@@ -121,6 +143,7 @@ def handler(ctx, data=None, loop=None):
     response = {}
     response["status"] = status
     response["message"] = message
+    response["session_uid"] = login_uid
 
     if login_url:
         response["login_url"] = login_url

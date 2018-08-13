@@ -20,10 +20,11 @@ def handler(ctx, data=None, loop=None):
 
         response = { "log" : ObjectStore.get_log(identity_client) }
 
-        return json.dumps(response)
+        return json.dumps(response).encode("utf-8")
+
     except Exception as e:
         response = { "error" : str(e) }
-        return json.dumps(response)
+        return json.dumps(response).encode("utf-8")
 
 if __name__ == "__main__":
     from fdk import handle

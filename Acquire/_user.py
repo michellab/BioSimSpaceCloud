@@ -6,7 +6,8 @@ import os as _os
 
 from enum import Enum as _Enum
 
-from datetime import time as _time
+from datetime import datetime as _datetime
+import time as _time
 
 # If we can, import qrcode to auto-generate QR codes
 # for the login url
@@ -59,6 +60,17 @@ class User:
         """Make sure that we log out before deleting this object"""
         self.logout()
 
+    def _setStatus(self, status):
+        """Internal function used to set the status from the 
+           string obtained from the LoginSession"""
+
+        if status == "approved":
+            self._status = _LoginStatus.LOGGED_IN
+        elif status == "denied":
+            self._setErrorState("Permission to log in was denied!")
+        elif status == "logged_out":
+            self._status = _LoginStatus.LOGGED_OUT
+
     def status(self):
         """Return the current status of this account"""
         return self._status
@@ -91,6 +103,18 @@ class User:
 
         try:
             return self._signing_key
+        except:
+            return None
+
+    def identityServiceURL(self):
+        """Return the URL to the identity service. This is the full URL
+           to the service, minus the actual function to be called, e.g.
+           https://function_service.com/r/identity
+        """
+        self._checkForError()
+
+        try:
+            return self._identity_url
         except:
             return None
 
@@ -167,7 +191,7 @@ class User:
 
         if identity_url is None:
             # eventually we need to discover this from the system...
-            identity_url = "http://130.61.60.88:8080/r/identity/request-login"
+            identity_url = "http://130.61.60.88:8080/r/identity"
 
         # first, create a private key that will be used
         # to sign all requests and identify this login
@@ -202,7 +226,7 @@ class User:
 
         args["message"] = login_message
 
-        result = _call_function(identity_url, args)
+        result = _call_function("%s/request-login" % identity_url, args)
 
         # look for status = 0
         try:
@@ -263,6 +287,43 @@ class User:
 
         return (self._login_url,qrcode)
 
+    def _pollSessionStatus(self):
+        """Function used to query the identity service for this session
+           to poll for the session status"""
+
+        identity_url = self.identityServiceURL()
+
+        if identity_url is None:
+            return
+
+        args = { "username" : self._username,
+                 "session_uid" : self._session_uid }
+
+        result = _call_function("%s/get-status" % identity_url, args)
+
+        print(result)
+	    
+        # look for status = 0
+        try:
+            status = int( result["status"] )
+        except:
+            status = -1            
+
+        try:
+            message = result["message"]
+        except:
+            message = str(result)
+
+        if status !=0:
+            error = "Failed to query identity service. Error = %d. Message = %s" % \
+                                (status, message)
+            self._setErrorState(error)
+            raise LoginError(error)
+
+        # now update the status...
+        status = result["session_status"]
+        self._setStatus(status)
+
     def waitForLogin(self, timeout=None, polling_delta=5):
         """Block until the user has logged in. If 'timeout' is set
            then we will wait for a maximum of that number of seconds
@@ -274,12 +335,43 @@ class User:
         self._checkForError()
 
         if not self.isLoggingIn():
-            return
+            return self.isLoggedIn()
+
+        polling_delta = int(polling_delta)
+        if polling_delta > 60:
+            polling_delta = 60
+        elif polling_delta < 1:
+            polling_delta = 1
 
         if timeout is None:
             # block forever....
-            print("Waiting...")
-                
+            while True:
+                self._pollSessionStatus()
+
+                if self.isLoggedIn():
+                    return True
+
+                elif not self.isLoggingIn():
+                    return False
+
+                _time.sleep(polling_delta)
         else:
             # only block until the timeout has been reached
-            print("Waiting...")
+            timeout = int(timeout)
+            if timeout < 1:
+                timeout = 1
+
+            start_time = _datetime.now()
+
+            while (_datetime.now() - start_time).seconds < timeout:
+                self._pollSessionStatus()
+
+                if self.isLoggedIn():
+                    return True
+
+                elif not self.isLoggingIn():
+                    return False
+
+                _time.sleep(polling_delta)
+
+            return False

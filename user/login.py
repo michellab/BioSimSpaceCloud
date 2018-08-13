@@ -11,4 +11,10 @@ try:
 except Exception as e:
     print(e)
 
-user.waitForLogin()
+logged_in = user.waitForLogin(timeout=10)
+
+if not logged_in:
+    print("Still not logged in after 10 seconds? Waiting forever!")
+    user.waitForLogin()
+
+

@@ -86,7 +86,7 @@ def handler(ctx, data=None, loop=None):
     response["status"] = status
     response["message"] = message
 
-    return json.dumps(response)
+    return json.dumps(response).encode("utf-8")
 
 if __name__ == "__main__":
     from fdk import handle

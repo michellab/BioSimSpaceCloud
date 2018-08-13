@@ -4,15 +4,21 @@ import uuid as _uuid
 
 __all__ = [ "LoginSession" ]
 
+class LoginSessionError(Exception):
+    pass
+
 class LoginSession:
     """This class holds all details of a single login session"""
-    def __init__(self, public_key=None, public_cert=None, ip_addr=None):
+    def __init__(self, public_key=None, public_cert=None, ip_addr=None,
+                       hostname=None, login_message=None):
         self._pubkey = None
         self._uuid = None
         self._datetime = None
         self._pubcert = None
         self._status = None
         self._ipaddr = None
+        self._hostname = None
+        self._login_message = None
 
         if public_key:
             try:
@@ -35,6 +41,12 @@ class LoginSession:
 
         if ip_addr:
             self._ipaddr = ip_addr
+
+        if hostname:
+            self._hostname = hostname
+
+        if login_message:
+            self._login_message = login_message
 
     def public_key(self):
         """Return the public key"""
@@ -114,6 +126,15 @@ class LoginSession:
         else:
             return False
 
+    def login_message(self):
+        """Return any login message that has been set by the user"""
+        return self._login_message
+
+    def hostname(self):
+        """Return the user-supplied hostname of the host making the
+           login request"""
+        return self._hostname
+
     def to_data(self):
         """Return a data version (dictionary) of this LoginSession"""
 
@@ -127,6 +148,8 @@ class LoginSession:
         data["public_certificate"] = self._pubcert
         data["status"] = self._status
         data["ipaddr"] = self._ipaddr
+        data["hostname"] = self._hostname
+        data["login_message"] = self._login_message
 
         return data
 
@@ -136,15 +159,23 @@ class LoginSession:
         if data is None:
             return None
 
-        logses = LoginSession()
+        try:
+            logses = LoginSession()
 
-        logses._uuid = data["uuid"]
-        logses._datetime = _datetime.datetime \
-                                    .fromtimestamp(float(data["timestamp"]))
-        logses._pubkey = data["public_key"]
-        logses._pubcert = data["public_certificate"]
+            logses._uuid = data["uuid"]
+            logses._datetime = _datetime.datetime \
+                                        .fromtimestamp(float(data["timestamp"]))
+            logses._pubkey = data["public_key"]
+            logses._pubcert = data["public_certificate"]
 
-        logses._status = data["status"]
-        logses._ipaddr = data["ipaddr"]
+            logses._status = data["status"]
+            logses._ipaddr = data["ipaddr"]
 
-        return logses
+            logses._hostname = data["hostname"]
+            logses._login_message = data["login_message"]
+
+            return logses
+
+        except Exception as e:
+            raise LoginSessionError("Cannot load the LoginSession from "
+                      "the object store? error = %s" % (str(e)))
