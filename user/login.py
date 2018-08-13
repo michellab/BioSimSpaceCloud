@@ -4,6 +4,11 @@ from Acquire import User
 import sys
 
 user = User(sys.argv[1])
-request = user.requestLogin()
 
-print(request)
+try:
+    request = user.requestLogin()
+    print(request)
+except Exception as e:
+    print(e)
+
+user.waitForLogin()

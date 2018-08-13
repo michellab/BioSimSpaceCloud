@@ -2,6 +2,12 @@
 from ._function import call_function as _call_function
 from ._keys import PrivateKey as _PrivateKey
 
+import os as _os
+
+from enum import Enum as _Enum
+
+from datetime import time as _time
+
 # If we can, import qrcode to auto-generate QR codes
 # for the login url
 try:
@@ -10,10 +16,24 @@ try:
 except:
     has_qrcode = False
 
+# If we can, import socket to get the hostname and IP address
+try:
+    import socket as _socket
+    has_socket = True
+except:
+    has_socket = False
+
 __all__ = ["User"]
 
 class LoginError(Exception):
     pass
+
+class _LoginStatus(_Enum):
+    EMPTY = 0
+    LOGGING_IN = 1
+    LOGGED_IN = 2
+    LOGGED_OUT = 3
+    ERROR = 4
 
 class User:
     """This class holds all functionality that would be used
@@ -25,20 +45,60 @@ class User:
     def __init__(self, username):
         """Construct a null user"""
         self._username = username
-        self._session_key = None
-        self._signing_key = None
+        self._status = _LoginStatus.EMPTY
+
+    def __enter__(self):
+        """Enter function used by 'with' statements'"""
+        pass
+
+    def __exit__(self):
+        """Ensure that we logout"""
+        self.logout()
+
+    def __del__(self):
+        """Make sure that we log out before deleting this object"""
+        self.logout()
+
+    def status(self):
+        """Return the current status of this account"""
+        return self._status
+
+    def _checkForError(self):
+        """Call to ensure that this object is not in an error
+           state. If it is in an error state then raise an
+           exception"""
+        if self._status == _LoginStatus.ERROR:
+            raise LoginError(self._error_string)
+
+    def _setErrorState(self, message):
+        """Put this object into an error state, displaying the
+           passed message if anyone tries to use this object"""
+        self._status = _LoginStatus.ERROR
+        self._error_string = message
 
     def sessionKey(self):
         """Return the session key for the current login session"""
-        return self._session_key
+        self._checkForError()
+
+        try:
+            return self._session_key
+        except:
+            return None
 
     def signingKey(self):
         """Return the signing key used for the current login session"""
-        return self._signing_key
+        self._checkForError()
+
+        try:
+            return self._signing_key
+        except:
+            return None
 
     def loginURL(self):
         """Return the URL that the user must connect to to authenticate 
            this login session"""
+        self._checkForError()
+
         try:
             return self._login_url
         except:
@@ -47,27 +107,63 @@ class User:
     def loginQRCode(self):
         """Return a QR code of the login URL that the user must connect to
            to authenticate this login session"""
+        self._checkForError()
+
         try:
             return self._login_qrcode
         except:
             return None
 
+    def sessionUID(self):
+        """Return the UID of the current login session. Returns None
+           if there is no valid login session"""
+        self._checkForError()
+
+        try:
+            return self._session_uid
+        except:
+            return None
+
+    def isEmpty(self):
+        """Return whether or not this is an empty login (so has not
+           been used for anything yet..."""
+        return self._status == _LoginStatus.EMPTY
+
     def isLoggedIn(self):
         """Return whether or not the user has successfully logged in"""
-        return False
+        return self._status == _LoginStatus.LOGGED_IN
 
-    def requestLogin(self, identity_url=None):
+    def isLoggingIn(self):
+        """Return whether or not the user is in the process of loggin in"""
+        return self._status == _LoginStatus.LOGGING_IN
+
+    def logout(self):
+        """Log out from the current session"""
+        if self.isLoggedIn() or self.isLoggingIn():
+            pass
+
+    def requestLogin(self, login_message=None, identity_url=None):
         """Connect to the identity URL 'identity_url'
            and request a login to the account connected to 
            'username'. This returns a login URL that you must
            connect to to supply your login credentials
 
+           If 'login_message' is supplied, then this is passed to
+           the identity service so that it can be displayed
+           when the user accesses the login page. This helps
+           the user validate that they have accessed the correct
+           login page. Note that if the message is None,
+           then a random message will be generated.
+
            If 'identity_url' is None then it is discovered
            from the system
         """
+        self._checkForError()
 
-        if not self._session_key is None:
-            raise LoginError("You cannot try to log in twice...")
+        if not self.isEmpty():
+            raise LoginError("You cannot try to log in twice using the same "
+                             "User object. Create another object if you want "
+                             "to try to log in again.")
 
         if identity_url is None:
             # eventually we need to discover this from the system...
@@ -87,10 +183,26 @@ class User:
         certkey = signing_key.public_key().bytes() \
                              .decode("utf-8")
 
-        result = _call_function(identity_url, {"username" : self._username,
-                                               "public_key" : pubkey,
-                                               "public_certificate" : certkey,
-                                               "ipaddr" : "somewhere" })
+        args = { "username" : self._username,
+                 "public_key" : pubkey,
+                 "public_certificate" : certkey,
+                 "ipaddr" : None }
+
+        # get information from the local machine to help
+        # the user validate that the login details are correct
+        if has_socket:
+            hostname = _socket.gethostname()
+            ipaddr = _socket.gethostbyname(hostname)
+            args["ipaddr"] = ipaddr
+            args["hostname"] = hostname
+
+        if login_message is None:
+            login_message = "User '%s' in process '%s' wants to log in..." % \
+                              (_os.getlogin(),_os.getpid())
+
+        args["message"] = login_message
+
+        result = _call_function(identity_url, args)
 
         # look for status = 0
         try:
@@ -104,8 +216,10 @@ class User:
             message = str(result)
 
         if status !=0:
-            raise LoginError("Failed to login. Error = %d. Message = %s" % \
-                                (status, message))
+            error = "Failed to login. Error = %d. Message = %s" % \
+                                (status, message)
+            self._setErrorState(error)
+            raise LoginError(error)
 
         try:
             login_url = result["login_url"]
@@ -113,14 +227,30 @@ class User:
             login_url = None
 
         if login_url is None:
-            raise LoginError("Failed to login. Could not extract the login URL! "
-                             "Result is %s" % (str(result)))
+            error = "Failed to login. Could not extract the login URL! " % \
+                             "Result is %s" % (str(result))
+            self._setErrorState(error)
+            raise LoginError(error)
+
+        try:
+            session_uid = result["session_uid"]
+        except:
+            session_uid = None
+
+        if session_uid is None:
+            error = "Failed to login. Could not extract the login " \
+                    "session UID! Result is %s" % (str(result))
+
+            self._setErrorState(error)
+            raise LoginError(error)
 
         # now save all of the needed data
         self._login_url = result["login_url"]
         self._identity_url = identity_url
         self._session_key = session_key
         self._signing_key = signing_key
+        self._session_uid = session_uid
+        self._status = _LoginStatus.LOGGING_IN
 
         qrcode = None
 
@@ -132,3 +262,24 @@ class User:
                 pass
 
         return (self._login_url,qrcode)
+
+    def waitForLogin(self, timeout=None, polling_delta=5):
+        """Block until the user has logged in. If 'timeout' is set
+           then we will wait for a maximum of that number of seconds
+
+           This will check whether we have logged in by polling
+           the identity service every 'polling_delta' seconds.
+        """
+
+        self._checkForError()
+
+        if not self.isLoggingIn():
+            return
+
+        if timeout is None:
+            # block forever....
+            print("Waiting...")
+                
+        else:
+            # only block until the timeout has been reached
+            print("Waiting...")
