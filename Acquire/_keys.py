@@ -9,6 +9,12 @@ from cryptography.hazmat.backends import default_backend as _default_backend
 from cryptography.hazmat.primitives import hashes as _hashes
 from cryptography.hazmat.primitives.asymmetric import padding as _padding
 
+try:
+    import pyotp as _pyotp
+    _has_pyotp = True
+except:
+    _has_pyotp = False
+
 __all__ = ["Keys", "PrivateKey", "PublicKey"]
 
 class WeakPassphraseError(Exception):
@@ -85,6 +91,15 @@ class PublicKey:
                             FILE.read(), backend=_default_backend())
 
             return PublicKey(public_key)
+
+    def encrypt(self, message):
+        """Encrypt and return the passed message"""
+        return self._pubkey.encrypt( message,
+                                     _padding.OAEP(
+                                        mgf=_padding.MGF1(algorithm=_hashes.SHA256()),
+                                        algorithm=_hashes.SHA256(),
+                                        label=None)
+                                    )
 
     def verify(self, signature, message):
         """Verify that the message has been correctly signed"""
@@ -174,6 +189,19 @@ class PrivateKey:
 
         return PublicKey(self._privkey.public_key())
 
+    def decrypt(self, message):
+        """Decrypt and return the passed message"""
+        if self._privkey is None:
+            return None
+
+        return self._privkey.decrypt( message,
+                                      _padding.OAEP(
+                                        mgf=_padding.MGF1(algorithm=_hashes.SHA256()),
+                                        algorithm=_hashes.SHA256(),
+                                        label=None
+                                      ),
+                                    )
+
     def sign(self, message):
         """Return the signature for the passed message"""
         if self._privkey is None:
@@ -210,7 +238,7 @@ class Keys:
                                          (keyfile) )
 
     @staticmethod
-    def create_key_pair(passphrase, mangleFunction=None):
+    def create_key_pair(passphrase, mangleFunction=None, create_secret=False):
         """Create a public/private key pair, with the private
            key encrypted using the passed passphrase"""
 
@@ -246,5 +274,17 @@ class Keys:
         with open(pubkey, "wb") as FILE:
             FILE.write(pubkey_bytes)
 
-        return (privkey, pubkey)
+        if create_secret and _has_pyotp:
+            otp_secret = _pyotp.random_base32()
+            # encrypt this secret using the public key
+            secret = PublicKey(public_key).encrypt(otp_secret.encode("utf-8"))
 
+            #check that we can decrypt it...
+            test_secret = PrivateKey(private_key).decrypt(secret).decode("utf-8")
+
+            if otp_secret != test_secret:
+                print("WARNING: DIFFERENT SECRETS? %s vs %s" % (otp_secret,test_secret))
+
+            return (privkey,pubkey,secret)
+        else:
+            return (privkey, pubkey)

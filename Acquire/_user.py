@@ -13,16 +13,16 @@ import time as _time
 # for the login url
 try:
     import qrcode as _qrcode
-    has_qrcode = True
+    _has_qrcode = True
 except:
-    has_qrcode = False
+    _has_qrcode = False
 
 # If we can, import socket to get the hostname and IP address
 try:
     import socket as _socket
-    has_socket = True
+    _has_socket = True
 except:
-    has_socket = False
+    _has_socket = False
 
 __all__ = ["User"]
 
@@ -214,7 +214,7 @@ class User:
 
         # get information from the local machine to help
         # the user validate that the login details are correct
-        if has_socket:
+        if _has_socket:
             hostname = _socket.gethostname()
             ipaddr = _socket.gethostbyname(hostname)
             args["ipaddr"] = ipaddr
@@ -284,7 +284,7 @@ class User:
 
         qrcode = None
 
-        if has_qrcode:
+        if _has_qrcode:
             try:
                 self._login_qrcode = _qrcode.make(self._login_url)
                 qrcode = self._login_qrcode

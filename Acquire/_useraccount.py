@@ -1,4 +1,10 @@
 
+try:
+    import pyotp as _pyotp
+    _has_pyotp = True
+except:
+    _has_pyotp = False
+
 __all__ = ["UserAccount"]
 
 class UsernameError(Exception):
@@ -22,6 +28,7 @@ class UserAccount:
         self._sanitised_username = UserAccount.sanitise_username(username)
         self._privkey = None
         self._pubkey = None
+        self._otp_secret = None
 
         if username is None:
             self._status = None
@@ -79,7 +86,7 @@ class UserAccount:
 
        	return self._status
 
-    def set_keys(self, privkey, pubkey):
+    def set_keys(self, privkey, pubkey, secret=None):
         """Set the private and public keys for this account. The 
            keys can be set from files or from lines in a file.
            They are stored in this object as lines from the file,
@@ -101,6 +108,7 @@ class UserAccount:
 
         self._privkey = privkey
         self._pubkey = pubkey
+        self._otp_secret = secret
 
         self._status = "active"
 
@@ -132,6 +140,7 @@ class UserAccount:
         data["private_key"] = self._privkey
         data["public_key"] = self._pubkey
         data["status"] = self._status
+        data["otp_secret"] = self._otp_secret
 
         return data
 
@@ -148,5 +157,6 @@ class UserAccount:
         user_account._privkey = data["private_key"]
         user_account._pubkey = data["public_key"]
         user_account._status = data["status"]
+        user_account._otp_secret = data["otp_secret"]
 
         return user_account

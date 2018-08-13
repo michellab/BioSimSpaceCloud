@@ -30,8 +30,8 @@ def handler(ctx, data=None, loop=None):
         user_account = UserAccount(username)
 
         # generate the encryption keys using the passed password
-        (privkey, pubkey) = Keys.create_key_pair(password)
-        user_account.set_keys(privkey, pubkey)
+        (privkey, pubkey, secret) = Keys.create_key_pair(password, create_secret=True)
+        user_account.set_keys(privkey, pubkey, secret)
 
         # now log into the central identity account to either register
         # the user, or to update to a new password
@@ -68,7 +68,7 @@ def handler(ctx, data=None, loop=None):
                 Keys.assert_valid_passphrase(user_account.private_key(), 
                                              old_password)
 
-                user_account.set_keys(privkey,pubkey)
+                user_account.set_keys(privkey,pubkey,secret)
 
                 # save the new account details
                 ObjectStore.set_object_from_json(bucket, account_key, 

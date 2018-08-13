@@ -13,7 +13,7 @@ try:
 except:
     pass
 
-server = "http://130.61.60.88:8080/r/auth/register"
+server = "http://130.61.60.88:8080/r/identity/register"
 
 print(json.dumps(data))
 
