@@ -1,5 +1,5 @@
-auth/credentials/*.pem
-auth/base_image/function/lib/Acquire/
+identity/credentials/*.pem
+identity/base_image/function/lib/Acquire/
 gromacs/function/lib/Acquire/
 gromacs/helper/__pycache__/
 Acquire/__pycache__/

@@ -1,4 +1,4 @@
-FROM chryswoods/auth-login-base:latest
+FROM chryswoods/identity-login-base:latest
 
 ADD status.py $HOME
 

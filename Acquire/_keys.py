@@ -132,10 +132,10 @@ class PrivateKey:
                                  backend=_default_backend())
         except IOError as e:
             raise KeyManipulationError( "Cannot read the private keyfile %s: %s" % \
-                                         (keyfile,str(e)) )
+                                         (filename,str(e)) )
         except Exception as e:
             raise KeyManipulationError( "Cannot unlock key %s. Invalid Password?" % \
-                                         (keyfile) )
+                                         (filename) )
 
         return PrivateKey(private_key)
 

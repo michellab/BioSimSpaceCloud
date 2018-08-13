@@ -8,6 +8,8 @@ import json
 import sys
 import os
 
+from Acquire import PrivateKey
+
 ## First create the login info to connect to the account
 
 """
@@ -38,6 +40,9 @@ data["tenancy"] = "ocid1.tenancy.oc1..aaaaaaaa3eiex6fbfj626uwhs3dg24oygknrhhgfj4
 # The passphrase to unlock the key - VERY SECRET!!!
 data["pass_phrase"] = sys.argv[2]
 
+# Make sure that this is the correct password...
+privkey = PrivateKey.read(sys.argv[1],sys.argv[2])
+
 # The region for this tenancy
 data["region"] = "eu-frankfurt-1"
 
@@ -54,4 +59,4 @@ data["bucket"] = "accounts"
 
 print(json.dumps(data))
 
-os.system("fn config app auth BUCKET_JSON '%s'" % json.dumps(data))
+os.system("fn config app identity BUCKET_JSON '%s'" % json.dumps(data))

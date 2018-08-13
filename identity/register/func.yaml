@@ -1,5 +1,5 @@
-name: node-auth-register
-version: 0.0.9
+name: node-identity-register
+version: 0.0.10
 runtime: docker
 type: sync
 format: json
