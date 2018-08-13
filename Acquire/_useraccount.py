@@ -5,6 +5,8 @@ try:
 except:
     _has_pyotp = False
 
+import base64 as _base64
+
 __all__ = ["UserAccount"]
 
 class UsernameError(Exception):
@@ -12,6 +14,16 @@ class UsernameError(Exception):
 
 class ExistingAccountError(Exception):
     pass
+
+def _bytes_to_string(b):
+    """Return the passed binary bytes safely encoded to
+       a base64 utf-8 string"""
+    return _base64.b64encode(b).decode("utf-8")
+
+def _string_to_bytes(s):
+    """Return the passed base64 utf-8 encoded binary data
+       back converted from a string back to bytes"""
+    return _base64.b64decode(s.encode("utf-8"))
 
 class UserAccount:
     """This class holds all information about a user's account,
@@ -86,23 +98,25 @@ class UserAccount:
 
        	return self._status
 
+    def otp_secret(self):
+        """Return the encrypted one-time-password secret"""
+        return self._otp_secret
+
     def set_keys(self, privkey, pubkey, secret=None):
         """Set the private and public keys for this account. The 
-           keys can be set from files or from lines in a file.
-           They are stored in this object as lines from the file,
-           so the original files can be deleted if necessary
+           keys can be set from files or from a binary read file..
         """
 
         if self._status is None or privkey is None or pubkey is None:
             return
 
         try:
-            privkey = open(privkey,"r").readlines()
+            privkey = open(privkey,"rb").read()
         except:
             pass
 
         try:
-            pubkey = open(pubkey,"r").readlines()
+            pubkey = open(pubkey,"rb").read()
         except:
             pass
 
@@ -137,10 +151,13 @@ class UserAccount:
 
         data = {}
         data["username"] = self._username
-        data["private_key"] = self._privkey
-        data["public_key"] = self._pubkey
         data["status"] = self._status
-        data["otp_secret"] = self._otp_secret
+
+        # the keys and secret are arbitrary binary data.
+        # These need to be base64 encoded and then turned into strings
+        data["private_key"] = _bytes_to_string(self._privkey)
+        data["public_key"] = _bytes_to_string(self._pubkey)
+        data["otp_secret"] = _bytes_to_string(self._otp_secret)
 
         return data
 
@@ -154,9 +171,13 @@ class UserAccount:
             return None
 
         user_account = UserAccount(data["username"])
-        user_account._privkey = data["private_key"]
-        user_account._pubkey = data["public_key"]
+        user_account._privkey = _string_to_bytes(data["private_key"])
+        user_account._pubkey = _string_to_bytes(data["public_key"])
         user_account._status = data["status"]
-        user_account._otp_secret = data["otp_secret"]
+
+        try:
+            user_account._otp_secret = _string_to_bytes(data["otp_secret"])
+        except:
+            user_account._otp_secret = None
 
         return user_account

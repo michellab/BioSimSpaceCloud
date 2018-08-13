@@ -60,7 +60,7 @@ class User:
         """Make sure that we log out before deleting this object"""
         self.logout()
 
-    def _setStatus(self, status):
+    def _set_status(self, status):
         """Internal function used to set the status from the 
            string obtained from the LoginSession"""
 
@@ -75,98 +75,108 @@ class User:
         """Return the current status of this account"""
         return self._status
 
-    def _checkForError(self):
+    def _check_for_error(self):
         """Call to ensure that this object is not in an error
            state. If it is in an error state then raise an
            exception"""
         if self._status == _LoginStatus.ERROR:
             raise LoginError(self._error_string)
 
-    def _setErrorState(self, message):
+    def _set_error_state(self, message):
         """Put this object into an error state, displaying the
            passed message if anyone tries to use this object"""
         self._status = _LoginStatus.ERROR
         self._error_string = message
 
-    def sessionKey(self):
+    def session_key(self):
         """Return the session key for the current login session"""
-        self._checkForError()
+        self._check_for_error()
 
         try:
             return self._session_key
         except:
             return None
 
-    def signingKey(self):
+    def signing_key(self):
         """Return the signing key used for the current login session"""
-        self._checkForError()
+        self._check_for_error()
 
         try:
             return self._signing_key
         except:
             return None
 
-    def identityServiceURL(self):
+    def identity_service_url(self):
         """Return the URL to the identity service. This is the full URL
            to the service, minus the actual function to be called, e.g.
            https://function_service.com/r/identity
         """
-        self._checkForError()
+        self._check_for_error()
 
         try:
             return self._identity_url
         except:
             return None
 
-    def loginURL(self):
+    def login_url(self):
         """Return the URL that the user must connect to to authenticate 
            this login session"""
-        self._checkForError()
+        self._check_for_error()
 
         try:
             return self._login_url
         except:
             return None
 
-    def loginQRCode(self):
+    def login_qr_code(self):
         """Return a QR code of the login URL that the user must connect to
            to authenticate this login session"""
-        self._checkForError()
+        self._check_for_error()
 
         try:
             return self._login_qrcode
         except:
             return None
 
-    def sessionUID(self):
+    def session_uid(self):
         """Return the UID of the current login session. Returns None
            if there is no valid login session"""
-        self._checkForError()
+        self._check_for_error()
 
         try:
             return self._session_uid
         except:
             return None
 
-    def isEmpty(self):
+    def is_empty(self):
         """Return whether or not this is an empty login (so has not
            been used for anything yet..."""
         return self._status == _LoginStatus.EMPTY
 
-    def isLoggedIn(self):
+    def is_logged_in(self):
         """Return whether or not the user has successfully logged in"""
         return self._status == _LoginStatus.LOGGED_IN
 
-    def isLoggingIn(self):
+    def is_logging_in(self):
         """Return whether or not the user is in the process of loggin in"""
         return self._status == _LoginStatus.LOGGING_IN
 
     def logout(self):
         """Log out from the current session"""
-        if self.isLoggedIn() or self.isLoggingIn():
-            pass
+        if self.is_logged_in() or self.is_logging_in():	
+            identity_url = self.identity_service_url()
+            
+            if identity_url is None:
+                return
+            
+            args = { "username" : self._username,
+	             "session_uid" : self._session_uid }
+	    
+            print("Logging out %s from session %s" % (self._username,self._session_uid))
+            result = _call_function("%s/logout" % identity_url, args)
+            print(result)
 
-    def requestLogin(self, login_message=None, identity_url=None):
+    def request_login(self, login_message=None, identity_url=None):
         """Connect to the identity URL 'identity_url'
            and request a login to the account connected to 
            'username'. This returns a login URL that you must
@@ -182,9 +192,9 @@ class User:
            If 'identity_url' is None then it is discovered
            from the system
         """
-        self._checkForError()
+        self._check_for_error()
 
-        if not self.isEmpty():
+        if not self.is_empty():
             raise LoginError("You cannot try to log in twice using the same "
                              "User object. Create another object if you want "
                              "to try to log in again.")
@@ -248,7 +258,7 @@ class User:
         if status !=0:
             error = "Failed to login. Error = %d. Message = %s" % \
                                 (status, message)
-            self._setErrorState(error)
+            self._set_error_state(error)
             raise LoginError(error)
 
         try:
@@ -259,7 +269,7 @@ class User:
         if login_url is None:
             error = "Failed to login. Could not extract the login URL! " % \
                              "Result is %s" % (str(result))
-            self._setErrorState(error)
+            self._set_error_state(error)
             raise LoginError(error)
 
         try:
@@ -271,7 +281,7 @@ class User:
             error = "Failed to login. Could not extract the login " \
                     "session UID! Result is %s" % (str(result))
 
-            self._setErrorState(error)
+            self._set_error_state(error)
             raise LoginError(error)
 
         # now save all of the needed data
@@ -293,11 +303,11 @@ class User:
 
         return (self._login_url,qrcode)
 
-    def _pollSessionStatus(self):
+    def _poll_session_status(self):
         """Function used to query the identity service for this session
            to poll for the session status"""
 
-        identity_url = self.identityServiceURL()
+        identity_url = self.identity_service_url()
 
         if identity_url is None:
             return
@@ -323,14 +333,14 @@ class User:
         if status !=0:
             error = "Failed to query identity service. Error = %d. Message = %s" % \
                                 (status, message)
-            self._setErrorState(error)
+            self._set_error_state(error)
             raise LoginError(error)
 
         # now update the status...
         status = result["session_status"]
-        self._setStatus(status)
+        self._set_status(status)
 
-    def waitForLogin(self, timeout=None, polling_delta=5):
+    def wait_for_login(self, timeout=None, polling_delta=5):
         """Block until the user has logged in. If 'timeout' is set
            then we will wait for a maximum of that number of seconds
 
@@ -338,10 +348,10 @@ class User:
            the identity service every 'polling_delta' seconds.
         """
 
-        self._checkForError()
+        self._check_for_error()
 
-        if not self.isLoggingIn():
-            return self.isLoggedIn()
+        if not self.is_logging_in():
+            return self.is_logged_in()
 
         polling_delta = int(polling_delta)
         if polling_delta > 60:
@@ -352,12 +362,12 @@ class User:
         if timeout is None:
             # block forever....
             while True:
-                self._pollSessionStatus()
+                self._poll_session_status()
 
-                if self.isLoggedIn():
+                if self.is_logged_in():
                     return True
 
-                elif not self.isLoggingIn():
+                elif not self.is_logging_in():
                     return False
 
                 _time.sleep(polling_delta)
@@ -370,12 +380,12 @@ class User:
             start_time = _datetime.now()
 
             while (_datetime.now() - start_time).seconds < timeout:
-                self._pollSessionStatus()
+                self._poll_session_status()
 
-                if self.isLoggedIn():
+                if self.is_logged_in():
                     return True
 
-                elif not self.isLoggingIn():
+                elif not self.is_logging_in():
                     return False
 
                 _time.sleep(polling_delta)

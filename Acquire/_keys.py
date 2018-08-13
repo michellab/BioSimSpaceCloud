@@ -84,13 +84,18 @@ class PublicKey:
             FILE.write(pubkey_bytes)           
 
     @staticmethod
+    def read_bytes(data):
+        """Read and return a public key from 'data'"""
+        public_key = _serialization.load_pem_public_key(
+                        data, backend=_default_backend())
+
+        return PublicKey(public_key)
+
+    @staticmethod
     def read(filename):
         """Read and return a public key from 'filename'"""
         with open(filename, "rb") as FILE:
-            public_key = _serialization.load_pem_public_key(
-                            FILE.read(), backend=_default_backend())
-
-            return PublicKey(public_key)
+             return PublicKey.read_bytes(FILE.read())
 
     def encrypt(self, message):
         """Encrypt and return the passed message"""
@@ -130,29 +135,43 @@ class PrivateKey:
             self._privkey = private_key
 
     @staticmethod
-    def read(filename, passphrase, mangleFunction=None):
-        """Read a private key from 'filename' that is encrypted using
-           'passphrase' and return a PrivateKey object holding that 
-           key"""
+    def read_bytes(data, passphrase, mangleFunction=None):
+        """Read a private key from the passed bytes 'data' that
+           is encrypted using 'passphrase' and return a PrivateKey
+           object holding that key
+        """
 
         passphrase = _assert_strong_passphrase(passphrase, mangleFunction)
 
         private_key = None
 
         try:
+            private_key = _serialization.load_pem_private_key(
+                             data,
+                             password=passphrase.encode("utf-8"),
+                             backend=_default_backend())
+        except Exception as e:
+            raise KeyManipulationError( "Cannot unlock key. %s" % \
+                                         str(e) )
+
+        return PrivateKey(private_key)
+
+    @staticmethod
+    def read(filename, passphrase, mangleFunction=None):
+        """Read a private key from 'filename' that is encrypted using
+           'passphrase' and return a PrivateKey object holding that 
+           key"""
+
+        data = None
+
+        try:
             with open(filename, "rb") as FILE:
-                private_key = _serialization.load_pem_private_key(
-                                 FILE.read(),
-                                 password=passphrase.encode("utf-8"),
-                                 backend=_default_backend())
+                data = FILE.read()
         except IOError as e:
             raise KeyManipulationError( "Cannot read the private keyfile %s: %s" % \
                                          (filename,str(e)) )
-        except Exception as e:
-            raise KeyManipulationError( "Cannot unlock key %s. Invalid Password?" % \
-                                         (filename) )
 
-        return PrivateKey(private_key)
+        return PrivateKey.read_bytes(data, passphrase, mangleFunction)
 
     def bytes(self, passphrase, mangleFunction=None):
         """Return the raw bytes for this key, encoded by the passed
@@ -160,7 +179,7 @@ class PrivateKey:
         if self._privkey is None:
             return None
 
-        passphrase = _assert_strong_passphrase(passphrase)
+        passphrase = _assert_strong_passphrase(passphrase, mangleFunction)
 
         return self._privkey.private_bytes(
                             encoding=_serialization.Encoding.PEM,
@@ -245,10 +264,10 @@ class Keys:
         passphrase = _assert_strong_passphrase(passphrase, mangleFunction)
 
         # create a directory to hold all of the keys
-        tmpdir = _tempfile.mkdtemp()
+        #tmpdir = _tempfile.mkdtemp()
 
-        privkey = "%s/credentials.pem" % tmpdir
-        pubkey = "%s/credentials_public.pem" % tmpdir
+        #privkey = "%s/credentials.pem" % tmpdir
+        #pubkey = "%s/credentials_public.pem" % tmpdir
 
         # use pyca cryptography to generate the private key
         private_key = _generate_private_key()
@@ -261,9 +280,10 @@ class Keys:
                             encryption_algorithm=_serialization.BestAvailableEncryption(
                                                      passphrase.encode("utf-8")))
 
-        with open(_os.open(privkey,
-                  _os.O_CREAT | _os.O_WRONLY, 0o700), 'wb') as FILE:
-            FILE.write(privkey_bytes)
+        privkey = privkey_bytes
+        #with open(_os.open(privkey,
+        #          _os.O_CREAT | _os.O_WRONLY, 0o700), 'wb') as FILE:
+        #    FILE.write(privkey_bytes)
 
         # now generate the public key
         public_key = private_key.public_key()
@@ -271,8 +291,9 @@ class Keys:
                             encoding=_serialization.Encoding.PEM,
                             format=_serialization.PublicFormat.SubjectPublicKeyInfo)
 
-        with open(pubkey, "wb") as FILE:
-            FILE.write(pubkey_bytes)
+        pubkey = pubkey_bytes
+        #with open(pubkey, "wb") as FILE:
+        #    FILE.write(pubkey_bytes)
 
         if create_secret and _has_pyotp:
             otp_secret = _pyotp.random_base32()

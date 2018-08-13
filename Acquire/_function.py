@@ -37,12 +37,17 @@ def call_function(function_url, arg_dict):
     # All of the output from Acquire will be utf-8 encoded
     result_json = buffer.getvalue().decode("utf-8")
 
-    # Need to double-un-json it, as the first json returns
-    # a Python string, and then we need to json decode
-    # this string into a dictionary
+    # may need to multi-decode the json...
+    while isinstance(result_json,str):
+        try:
+            result_json = _json.loads(result_json)
+        except:
+            raise RemoteFunctionCallError("Error calling '%s'. Could not json decode "
+                     "the returned string: '%s'" % (function_url,result_json))
+            
+    if isinstance(result_json,dict):
+        if len(result_json) == 1 and "error" in result_json:
+            raise RemoteFunctionCallError("Error calling '%s'. Server returned the "
+                     "error string: '%s'" % (function_url,result_json["error"]))
 
-    try:
-        return _json.loads(_json.loads(result_json))
-    except Exception as e:
-        raise RemoteFunctionCallError("Could not interpret the "
-               "returned json data '%s' : %s" % (result_json,str(e)) )
+    return result_json

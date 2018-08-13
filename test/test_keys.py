@@ -20,4 +20,15 @@ try:
     raise AssertationError()
 except:
     pass
- 
+
+bytes = privkey.bytes("testPass32")
+
+privkey3 = PrivateKey.read_bytes(bytes, "testPass32")
+
+privkey.write("test.pem", "testPass32")
+
+privkey3 = PrivateKey.read("test.pem", "testPass32")
+
+bytes = pubkey.bytes()
+pubkey2 = PublicKey.read_bytes(bytes)
+

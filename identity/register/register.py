@@ -2,7 +2,7 @@
 import json
 import fdk
 
-from Acquire import ObjectStore, Keys, UserAccount
+from Acquire import ObjectStore, Keys, UserAccount, PrivateKey, PublicKey
 from identityaccount import loginToIdentityAccount
 
 class ExistingAccountError(Exception):
@@ -65,10 +65,17 @@ def handler(ctx, data=None, loop=None):
                 # the existing password unlocks the existing key
                 user_account = UserAccount.from_data(existing_data)
 
-                Keys.assert_valid_passphrase(user_account.private_key(), 
-                                             old_password)
+                testkey = PrivateKey.read_bytes(user_account.private_key(),
+                                                old_password)
 
-                user_account.set_keys(privkey,pubkey,secret)
+                # decrypt the old secret
+                old_secret = testkey.decrypt(user_account.otp_secret())
+
+                # now encrypt the secret with the new key
+                new_key = PublicKey.read_bytes(pubkey)
+                new_secret = new_key.encrypt(old_secret)
+
+                user_account.set_keys(privkey,pubkey,new_secret)
 
                 # save the new account details
                 ObjectStore.set_object_from_json(bucket, account_key, 
