@@ -50,6 +50,7 @@ def handler(ctx, data=None, loop=None):
     login_url = None
 
     try:
+        # data is already a decoded unicode string
         data = json.loads(data)
 
         username = data["username"]
@@ -76,7 +77,7 @@ def handler(ctx, data=None, loop=None):
             existing_data = None
 
         if existing_data is None:
-            raise InvalidLoginError("There is no user with this name")
+            raise InvalidLoginError("There is no user with name '%s'" % username)
 
         user_account = UserAccount.from_data(existing_data)
 
@@ -123,8 +124,10 @@ def handler(ctx, data=None, loop=None):
 
     if login_url:
         response["login_url"] = login_url
+    else:
+        response["login_url"] = None
 
-    return json.dumps(response)
+    return json.dumps(response).encode("utf-8")
 
 if __name__ == "__main__":
     from fdk import handle

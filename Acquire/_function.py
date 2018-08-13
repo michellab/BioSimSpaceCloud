@@ -7,6 +7,9 @@ from io import BytesIO as _BytesIO
 
 __all__ = [ "call_function" ]
 
+class RemoteFunctionCallError(Exception):
+    pass
+
 def call_function(function_url, arg_dict):
     """Call the remote function at 'function_url' passing
        in named function arguments in 'arg_dict'"""
@@ -21,6 +24,15 @@ def call_function(function_url, arg_dict):
     c.perform()
     c.close()
 
+    # All of the output from Acquire will be utf-8 encoded
     result_json = buffer.getvalue().decode("utf-8")
 
-    return _json.loads(result_json)
+    # Need to double-un-json it, as the first json returns
+    # a Python string, and then we need to json decode
+    # this string into a dictionary
+
+    try:
+        return _json.loads(_json.loads(result_json))
+    except Exception as e:
+        raise RemoteFunctionCallError("Could not interpret the "
+               "returned json data '%s' : %s" % (result_json,str(e)) )
