@@ -14,6 +14,8 @@ def prune_expired_sessions(bucket, user_account, root, sessions):
        weird sessions. It will also use the ipaddress of the source
        to rate limit or blacklist sources"""
 
+    message = []
+
     for name in sessions:
         key = "%s/%s" % (root,name)
         request_key = "requests/%s/%s" % (name[:8],name)
@@ -25,13 +27,36 @@ def prune_expired_sessions(bucket, user_account, root, sessions):
             session = None
 
         if session:
+            should_delete = False
+
             try:
                 session = LoginSession.from_data(session)
-                message.append( "%s is %s" % (name,session.hours_since_creation()))
+                if session.status() == "approved":
+                    if session.hours_since_creation() > user_account.login_timeout():
+                        should_delete = True
+                elif session.status() == "denied" or session.status() == "logged_out":
+                    should_delete = True
+                else:
+                    if session.hours_since_creation() > user_account.login_request_timeout():
+                        should_delete = True
             except:
                 # this is corrupt - delete it
-                ObjectStore.delete_object(bucket, key)
-                ObjectStore.delete_object(bucket, request_key)
+                should_delete = True
+
+            if should_delete:
+                message.append("Deleting expired session '%s'" % key)
+
+                try:
+                    ObjectStore.delete_object(bucket, key)
+                except:
+                    pass
+
+                try:
+                    ObjectStore.delete_object(bucket, request_key)
+                except:
+                    pass
+
+    return message
 
 def handler(ctx, data=None, loop=None):
     """This function will allow a user to request a new session
@@ -47,6 +72,7 @@ def handler(ctx, data=None, loop=None):
 
     status = 0
     message = None
+    prune_message = None
     login_url = None
     login_uid = None
 
@@ -108,9 +134,9 @@ def handler(ctx, data=None, loop=None):
         open_sessions = ObjectStore.get_all_object_names(bucket, 
                                                          user_session_root)
 
-        if len(open_sessions) > user_account.max_open_sessions():
-            prune_expired_sessions(bucket, user_account, 
-                                   user_session_root, open_sessions)
+        # take the opportunity to prune old user login sessions
+        prune_message = prune_expired_sessions(bucket, user_account, 
+                                               user_session_root, open_sessions)
 
         # this is the key for the session in the object store
         user_session_key = "%s/%s" % (user_session_root,
@@ -149,6 +175,9 @@ def handler(ctx, data=None, loop=None):
         response["login_url"] = login_url
     else:
         response["login_url"] = None
+
+    if prune_message:
+        response["prune_message"] = prune_message
 
     return json.dumps(response).encode("utf-8")
 

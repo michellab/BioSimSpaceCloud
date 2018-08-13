@@ -239,6 +239,12 @@ class User:
         except:
             message = str(result)
 
+        try:
+            prune_message = result["prune_message"]
+            print("Pruning old sessions...\n%s" % "\n".join(prune_message))
+        except:
+            pass
+
         if status !=0:
             error = "Failed to login. Error = %d. Message = %s" % \
                                 (status, message)

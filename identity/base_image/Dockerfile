@@ -8,6 +8,8 @@ RUN apt-get update && \
     build-essential \ 
     gcc \
     cmake \
+    libgnutls28-dev \
+    libcurl4-gnutls-dev \
     wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
