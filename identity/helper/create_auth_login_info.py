@@ -48,7 +48,7 @@ data["region"] = "eu-frankfurt-1"
 
 print(json.dumps(data))
 
-os.system("fn config app auth LOGIN_JSON '%s'" % json.dumps(data))
+os.system("fn config app identity LOGIN_JSON '%s'" % json.dumps(data))
 
 ## Now create the bucket info so we know where the bucket is
 ## that will store all data related to logging into accounts

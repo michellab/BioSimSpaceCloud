@@ -5,7 +5,7 @@ import oci
 
 import os
 
-from BioSimSpaceCloud import ObjectStore
+from Acquire import ObjectStore
 from identityaccount import loginToIdentityAccount
 
 def handler(ctx, data=None, loop=None):
@@ -14,12 +14,16 @@ def handler(ctx, data=None, loop=None):
        retrieved from the object store, password checked, and,
        if passed, then this will be returned as a response"""
 
-    # The first step is to log into the primary identity account.
-    identity_client = loginToIdentityAccount()
+    try:
+        # The first step is to log into the primary identity account.
+        identity_client = loginToIdentityAccount()
 
-    response = { "log" : ObjectStore.get_log(identity_client) }
+        response = { "log" : ObjectStore.get_log(identity_client) }
 
-    return json.dumps(response)
+        return json.dumps(response)
+    except Exception as e:
+        response = { "error" : str(e) }
+        return json.dumps(response)
 
 if __name__ == "__main__":
     from fdk import handle

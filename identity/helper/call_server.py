@@ -16,7 +16,7 @@ try:
 except:
     service = ""
 
-server = "http://130.61.60.88:8080/r/auth/%s" % service
+server = "http://130.61.60.88:8080/r/identity/%s" % service
 
 if service == "login" or service == "register":
     data["username"] = sys.argv[2]
