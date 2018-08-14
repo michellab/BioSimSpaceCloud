@@ -27,7 +27,7 @@ try:
 except:
     _has_socket = False
 
-__all__ = ["User"]
+__all__ = [ "User" ]
 
 class LoginError(Exception):
     pass
@@ -73,6 +73,10 @@ class User:
             self._setErrorState("Permission to log in was denied!")
         elif status == "logged_out":
             self._status = _LoginStatus.LOGGED_OUT
+
+    def username(self):
+        """Return the username of the user"""
+        return self._username
 
     def status(self):
         """Return the current status of this account"""

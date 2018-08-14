@@ -81,5 +81,11 @@ def call_function(function_url, arg_dict):
         if len(result_json) == 1 and "error" in result_json:
             raise RemoteFunctionCallError("Error calling '%s'. Server returned the "
                      "error string: '%s'" % (function_url,result_json["error"]))
+        elif "status" in result_json:
+            if result_json["status"] != 0:
+                raise RemoteFunctionCallError("Error calling '%s'. Server returned "
+                     "error code '%d' with message '%s'" % \
+                        (function_url,result_json["status"],result_json["message"]))
 
     return result_json
+

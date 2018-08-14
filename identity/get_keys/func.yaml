@@ -1,0 +1,7 @@
+name: node-identity-get-keys
+version: 0.0.4
+runtime: docker
+type: sync
+format: json
+timeout: 20
+path: /get-keys
