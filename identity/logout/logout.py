@@ -2,7 +2,9 @@
 import json
 import fdk
 
-from Acquire import ObjectStore, UserAccount, LoginSession
+from Acquire import ObjectStore, UserAccount, LoginSession, PublicKey
+from Acquire import string_to_bytes, bytes_to_string
+
 from identityaccount import loginToIdentityAccount
 
 class InvalidSessionError(Exception):
@@ -22,6 +24,8 @@ def handler(ctx, data=None, loop=None):
     message = None
     session_status = None
 
+    log = []
+
     try:
         # data is already a decoded unicode string
         data = json.loads(data)
@@ -29,7 +33,7 @@ def handler(ctx, data=None, loop=None):
         session_uid = data["session_uid"]
         username = data["username"]
         permission = data["permission"]
-        signature = data["signature"]
+        signature = string_to_bytes( data["signature"] )
 
         # generate a sanitised version of the username
         user_account = UserAccount(username)
@@ -50,7 +54,8 @@ def handler(ctx, data=None, loop=None):
         # get the signing certificate from the login session and
         # validate that the permission object has been signed by
         # the user requesting the logout
-        cert = PublicKey.read_data( login_session.public_key() )
+        cert = PublicKey.read_bytes( login_session.public_certificate() )
+
         cert.verify(signature, permission)
 
         # the signature was correct, so log the user out. For record 
@@ -60,19 +65,21 @@ def handler(ctx, data=None, loop=None):
         
         try:
              ObjectStore.delete_object(bucket, user_session_key)
-        except:
+        except Exception as e:
+             log.append(str(e))
              pass
 
         try:
              ObjectStore.delete_object(bucket, request_session_key)
-        except:
+        except Exception as e:
+             log.append(str(e))
              pass
 
         user_session_key = "expired_sessions/%s/%s" % \
                                (user_account.sanitised_name(), session_uid)
 
         ObjectStore.set_object_from_json(bucket, user_session_key, 
-                                         login_session.to_date())
+                                         login_session.to_data())
 
         status = 0
         message = "Success: Status = %s" % login_session.status()
@@ -85,6 +92,9 @@ def handler(ctx, data=None, loop=None):
     response = {}
     response["status"] = status
     response["message"] = message
+
+    if len(log) > 0:
+        response["log"] = log
     
     if session_status:
         response["session_status"] = session_status

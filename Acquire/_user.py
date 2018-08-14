@@ -175,17 +175,17 @@ class User:
             # create a permission message that can be signed
             # and then validated by the user
             permission = "Log out request for %s" % self._session_uid
-            permission = _string_to_bytes(permission)
             signature = self.signing_key().sign(permission)
             
             args = { "username" : self._username,
 	             "session_uid" : self._session_uid,
-                     "permission" : _bytes_to_string(permission),
+                     "permission" : permission,
                      "signature" : _bytes_to_string(signature) }
 	    
             print("Logging out %s from session %s" % (self._username,self._session_uid))
             result = _call_function("%s/logout" % identity_url, args)
             print(result)
+            return result
 
     def request_login(self, login_message=None, identity_url=None):
         """Connect to the identity URL 'identity_url'

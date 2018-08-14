@@ -112,6 +112,9 @@ class PublicKey:
             raise KeyManipulationError( "You cannot verify a message using "
                                         "an empty public key!" )
 
+        if isinstance(message, str):
+            message = message.encode("utf-8")
+
         try:
             self._pubkey.verify(
                           signature,
@@ -225,6 +228,9 @@ class PrivateKey:
         """Return the signature for the passed message"""
         if self._privkey is None:
             return None
+
+        if isinstance(message, str):
+            message = message.encode("utf-8")
 
         signature = self._privkey.sign(
                      message,

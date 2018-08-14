@@ -5,6 +5,8 @@ import fdk
 from Acquire import ObjectStore, UserAccount, LoginSession
 from identityaccount import loginToIdentityAccount
 
+from Acquire import bytes_to_string, string_to_bytes
+
 class InvalidLoginError(Exception):
     pass
 
@@ -81,8 +83,8 @@ def handler(ctx, data=None, loop=None):
         data = json.loads(data)
 
         username = data["username"]
-        public_key = data["public_key"]
-        public_cert = data["public_certificate"]
+        public_key = string_to_bytes( data["public_key"] )
+        public_cert = string_to_bytes( data["public_certificate"] )
 
         ip_addr = None
         hostname = None

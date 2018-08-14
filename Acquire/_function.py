@@ -17,12 +17,18 @@ __all__ = [ "call_function", "bytes_to_string", "string_to_bytes" ]
 def bytes_to_string(b):
     """Return the passed binary bytes safely encoded to
        a base64 utf-8 string"""
-    return _base64.b64encode(b).decode("utf-8")
+    if b is None:
+        return None
+    else:
+        return _base64.b64encode(b).decode("utf-8")
 
 def string_to_bytes(s):
     """Return the passed base64 utf-8 encoded binary data
        back converted from a string back to bytes"""
-    return _base64.b64decode(s.encode("utf-8"))
+    if s is None:
+        return None
+    else:
+        return _base64.b64decode(s.encode("utf-8"))
 
 class RemoteFunctionCallError(Exception):
     pass

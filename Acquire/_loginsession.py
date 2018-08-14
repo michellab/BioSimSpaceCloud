@@ -4,20 +4,13 @@ import uuid as _uuid
 
 import base64 as _base64
 
+from ._function import string_to_bytes as _string_to_bytes
+from ._function import bytes_to_string as _bytes_to_string
+
 __all__ = [ "LoginSession" ]
 
 class LoginSessionError(Exception):
     pass
-
-def _bytes_to_string(b):
-    """Return the passed binary bytes safely encoded to
-       a base64 utf-8 string"""
-    return _base64.b64encode(b).decode("utf-8")
-
-def _string_to_bytes(s):
-    """Return the passed base64 utf-8 encoded binary data
-       back converted from a string back to bytes"""
-    return _base64.b64decode(s.encode("utf-8"))
 
 class LoginSession:
     """This class holds all details of a single login session"""
@@ -201,8 +194,16 @@ class LoginSession:
         data = {}
         data["uuid"] = self._uuid
         data["timestamp"] = self._request_datetime.timestamp()
-        data["login_timestamp"] = self._login_datetime.timestamp()
-        data["logout_timestamp"] = self._logout_datetime.timestamp()
+
+        try:
+            data["login_timestamp"] = self._login_datetime.timestamp()
+        except:
+            data["login_timestamp"] = None
+
+        try:
+            data["logout_timestamp"] = self._logout_datetime.timestamp()
+        except:
+            data["logout_timestamp"] = None
 
         # the keys and certificate are arbitrary binary data.
         # These need to be base64 encoded and then turned into strings
@@ -228,15 +229,30 @@ class LoginSession:
             logses._uuid = data["uuid"]
             logses._request_datetime = _datetime.datetime \
                                         .fromtimestamp(float(data["timestamp"]))
-       	    logses._login_datetime = _datetime.datetime \
-                                        .fromtimestamp(float(data["login_timestamp"]))
-       	    logses._logout_datetime = _datetime.datetime \
-                                        .fromtimestamp(float(data["logout_timestamp"]))
+
+            try:
+                logses._login_datetime = _datetime.datetime \
+                                           .fromtimestamp(float(data["login_timestamp"]))
+            except:
+                logses._login_datetime = None
+
+            try:
+                logses._logout_datetime = _datetime.datetime \
+                                            .fromtimestamp(float(data["logout_timestamp"]))
+            except:
+                logses._logout_datetime = None
 
             # the keys and secret are arbitrary binary data.
             # These need to be base64 encoded and then turned into strings
-            logses._pubkey = _string_to_bytes(data["public_key"])
-            logses._pubcert = _string_to_bytes(data["public_certificate"])
+            try:
+                logses._pubkey = _string_to_bytes(data["public_key"])
+            except:
+                logses._pubkey = None
+
+            try:
+                logses._pubcert = _string_to_bytes(data["public_certificate"])
+            except:
+                logses._pubcert = None
 
             logses._status = data["status"]
             logses._ipaddr = data["ipaddr"]
