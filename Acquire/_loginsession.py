@@ -2,10 +2,22 @@
 import datetime as _datetime
 import uuid as _uuid
 
+import base64 as _base64
+
 __all__ = [ "LoginSession" ]
 
 class LoginSessionError(Exception):
     pass
+
+def _bytes_to_string(b):
+    """Return the passed binary bytes safely encoded to
+       a base64 utf-8 string"""
+    return _base64.b64encode(b).decode("utf-8")
+
+def _string_to_bytes(s):
+    """Return the passed base64 utf-8 encoded binary data
+       back converted from a string back to bytes"""
+    return _base64.b64decode(s.encode("utf-8"))
 
 class LoginSession:
     """This class holds all details of a single login session"""
@@ -13,7 +25,9 @@ class LoginSession:
                        hostname=None, login_message=None):
         self._pubkey = None
         self._uuid = None
-        self._datetime = None
+        self._request_datetime = None
+        self._login_datetime = None
+        self._logout_datetime = None
         self._pubcert = None
         self._status = None
         self._ipaddr = None
@@ -28,7 +42,7 @@ class LoginSession:
 
             self._pubkey = public_key
             self._uuid = str(_uuid.uuid4())
-            self._datetime = _datetime.datetime.utcnow()
+            self._request_datetime = _datetime.datetime.utcnow()
             self._status = "unapproved"
 
         if public_cert:
@@ -50,10 +64,18 @@ class LoginSession:
 
     def public_key(self):
         """Return the public key"""
+        if self._pubkey is None:
+            raise LoginSessionError("You cannot get a public key from "
+                     "a logged out or otherwise denied session")
+
         return self._pubkey
 
     def public_certificate(self):
         """Return the public certificate"""
+       	if self._pubcert is None:
+       	    raise LoginSessionError("You cannot	get a public key from "
+       	       	     "a logged out or otherwise	denied session")
+
         return self._pubcert
 
     def request_source(self):
@@ -81,11 +103,21 @@ class LoginSession:
 
     def timestamp(self):
         """Return the timestamp of when this was created"""
-        return self._datetime.timestamp()
+        return self._request_datetime.timestamp()
 
     def creation_time(self):
         """Return the date and time when this was created"""
-        return self._datetime
+        return self._request_datetime
+
+    def login_time(self):
+        """Return the date and time when the user logged in. This
+           returns None if the user has not yet logged in"""
+        return self._login_datetime
+
+    def logout_time(self):
+        """Return the date and time when the user logged out. This
+           returns None if the user has not yet logged out"""
+        return self._logout_datetime
 
     def hours_since_creation(self):
         """Return the number of hours since this request was
@@ -105,18 +137,43 @@ class LoginSession:
     def set_approved(self):
         """Register that this request has been approved"""
         if self._uuid:
+            if self._pubkey is None or self._pubcert is None:
+                raise LoginSessionError("You cannot approve a login session "
+                    "that doesn't have a valid public key or certificate. "
+                    "Perhaps you have already denied or logged out?")
+
+            self._login_datetime = _datetime.datetime.utcnow()
             self._status = "approved"
+
+    def _clear_keys_and_certs(self):
+        """Function called to remove all keys and certificates
+           from this session, as it has now been terminated
+           (and so the keys and certs are no longer valid)
+        """
+        self._pubkey = None
+        self._pubcert = None
 
     def set_denied(self):
         """Register that this request has been denied"""
         if self._uuid:
             self._status = "denied"
+            self._clear_keys_and_certs()
 
     def set_logged_out(self):
         """Register that this request has been closed as 
            the user has logged out"""
         if self._uuid:
             self._status = "logged_out"
+            self._logout_datetime = _datetime.datetime.utcnow()
+            self._clear_keys_and_certs()
+
+    def login(self):
+        """Convenience function to set the session into the logged in state"""
+        self.set_approved()
+
+    def logout(self):
+        """Convenience function to set the session into the logged out state"""
+        self.set_logged_out()
 
     def is_approved(self):
         """Return whether or not this session is open and
@@ -143,9 +200,15 @@ class LoginSession:
 
         data = {}
         data["uuid"] = self._uuid
-        data["timestamp"] = self._datetime.timestamp()
-        data["public_key"] = self._pubkey
-        data["public_certificate"] = self._pubcert
+        data["timestamp"] = self._request_datetime.timestamp()
+        data["login_timestamp"] = self._login_datetime.timestamp()
+        data["logout_timestamp"] = self._logout_datetime.timestamp()
+
+        # the keys and certificate are arbitrary binary data.
+        # These need to be base64 encoded and then turned into strings
+        data["public_key"] = _bytes_to_string(self._pubkey)
+        data["public_certificate"] = _bytes_to_string(self._pubcert)
+
         data["status"] = self._status
         data["ipaddr"] = self._ipaddr
         data["hostname"] = self._hostname
@@ -163,10 +226,17 @@ class LoginSession:
             logses = LoginSession()
 
             logses._uuid = data["uuid"]
-            logses._datetime = _datetime.datetime \
+            logses._request_datetime = _datetime.datetime \
                                         .fromtimestamp(float(data["timestamp"]))
-            logses._pubkey = data["public_key"]
-            logses._pubcert = data["public_certificate"]
+       	    logses._login_datetime = _datetime.datetime \
+                                        .fromtimestamp(float(data["login_timestamp"]))
+       	    logses._logout_datetime = _datetime.datetime \
+                                        .fromtimestamp(float(data["logout_timestamp"]))
+
+            # the keys and secret are arbitrary binary data.
+            # These need to be base64 encoded and then turned into strings
+            logses._pubkey = _string_to_bytes(data["public_key"])
+            logses._pubcert = _string_to_bytes(data["public_certificate"])
 
             logses._status = data["status"]
             logses._ipaddr = data["ipaddr"]

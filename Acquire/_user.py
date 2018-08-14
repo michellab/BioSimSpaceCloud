@@ -1,5 +1,8 @@
 
 from ._function import call_function as _call_function
+from ._function import bytes_to_string as _bytes_to_string
+from ._function import string_to_bytes as _string_to_bytes
+
 from ._keys import PrivateKey as _PrivateKey
 
 import os as _os
@@ -168,9 +171,17 @@ class User:
             
             if identity_url is None:
                 return
+
+            # create a permission message that can be signed
+            # and then validated by the user
+            permission = "Log out request for %s" % self._session_uid
+            permission = _string_to_bytes(permission)
+            signature = self.signing_key().sign(permission)
             
             args = { "username" : self._username,
-	             "session_uid" : self._session_uid }
+	             "session_uid" : self._session_uid,
+                     "permission" : _bytes_to_string(permission),
+                     "signature" : _bytes_to_string(signature) }
 	    
             print("Logging out %s from session %s" % (self._username,self._session_uid))
             result = _call_function("%s/logout" % identity_url, args)
@@ -211,11 +222,8 @@ class User:
         # we will send the public key to the authentication
         # service so that it can validate all future communication
         # and requests
-        pubkey = session_key.public_key().bytes() \
-                            .decode("utf-8")
-
-        certkey = signing_key.public_key().bytes() \
-                             .decode("utf-8")
+        pubkey = _bytes_to_string(session_key.public_key().bytes())
+        certkey = _bytes_to_string(signing_key.public_key().bytes())
 
         args = { "username" : self._username,
                  "public_key" : pubkey,
