@@ -3,3 +3,4 @@ identity/base_image/function/lib/Acquire/
 gromacs/function/lib/Acquire/
 gromacs/helper/__pycache__/
 Acquire/__pycache__/
+user/notebooks/.ipynb_checkpoints/
