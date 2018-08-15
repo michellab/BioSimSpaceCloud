@@ -125,7 +125,8 @@ class User:
         try:
             return self._identity_url
         except:
-            return None
+            # return the default URL - this should be discovered...
+            return _get_identity_url()
 
     def login_url(self):
         """Return the URL that the user must connect to to authenticate 
@@ -243,9 +244,7 @@ class User:
                              "to try to log in again.")
 
         if identity_url is None:
-            if self._identity_url is None:
-                 # eventually we need to discover this from the system...
-                 identity_url = _get_identity_url()
+            identity_url = self.identity_service_url()
 
         # first, create a private key that will be used
         # to sign all requests and identify this login
