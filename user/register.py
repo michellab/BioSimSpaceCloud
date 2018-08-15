@@ -1,21 +1,13 @@
 
-import json
-import os
+
+from Acquire import User
 
 import sys
 
-data = {}
-data["username"] = sys.argv[1]
-data["password"] = sys.argv[2]
+user = User(sys.argv[1])
 
-try:
-    data["old_password"] = sys.argv[3]
-except:
-    pass
+(uri,qrcode) = user.create_account(sys.argv[2])
 
-server = "http://130.61.60.88:8080/r/identity/register"
+print(uri)
+print(qrcode)
 
-print(json.dumps(data))
-
-print("Running call to '%s'" % server)
-os.system("curl -d '%s' %s" % (json.dumps(data),server))

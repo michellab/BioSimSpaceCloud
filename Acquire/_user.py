@@ -5,20 +5,15 @@ from ._function import string_to_bytes as _string_to_bytes
 
 from ._keys import PrivateKey as _PrivateKey
 
+from ._qrcode import create_qrcode as _create_qrcode
+from ._qrcode import has_qrcode as _has_qrcode
+
 import os as _os
 
 from enum import Enum as _Enum
 
 from datetime import datetime as _datetime
 import time as _time
-
-# If we can, import qrcode to auto-generate QR codes
-# for the login url
-try:
-    import qrcode as _qrcode
-    _has_qrcode = True
-except:
-    _has_qrcode = False
 
 # If we can, import socket to get the hostname and IP address
 try:
@@ -32,12 +27,19 @@ __all__ = [ "User" ]
 class LoginError(Exception):
     pass
 
+class AccountError(Exception):
+    pass
+
 class _LoginStatus(_Enum):
     EMPTY = 0
     LOGGING_IN = 1
     LOGGED_IN = 2
     LOGGED_OUT = 3
     ERROR = 4
+
+def _get_identity_url():
+    """Function to discover and return the default identity url"""
+    return "http://130.61.60.88:8080/r/identity"
 
 class User:
     """This class holds all functionality that would be used
@@ -191,6 +193,32 @@ class User:
             print(result)
             return result
 
+    def create_account(self, password, identity_url=None):
+        """Request to create an account with the identity service running
+           at 'identity_url', using the supplied 'password'. This will
+           return a QR code that you must use immediately to add this
+           account to a QR code generator"""
+
+        if self._username is None:
+            return None
+
+        if identity_url is None:
+            identity_url = _get_identity_url()
+
+        args = { "username" : self._username,
+                 "password" : password }
+
+        result = _call_function("%s/register" % identity_url, args)
+
+        try:
+            provisioning_uri = result["provisioning_uri"]
+        except:
+            raise AccountError("Cannot create a new account for '%s' on "
+                   "the identity service at '%s'!" % (self._username,identity_url))
+
+        # return a QR code for the provisioning URI
+        return (provisioning_uri,_create_qrcode(provisioning_uri))
+
     def request_login(self, login_message=None, identity_url=None):
         """Connect to the identity URL 'identity_url'
            and request a login to the account connected to 
@@ -215,8 +243,9 @@ class User:
                              "to try to log in again.")
 
         if identity_url is None:
-            # eventually we need to discover this from the system...
-            identity_url = "http://130.61.60.88:8080/r/identity"
+            if self._identity_url is None:
+                 # eventually we need to discover this from the system...
+                 identity_url = _get_identity_url()
 
         # first, create a private key that will be used
         # to sign all requests and identify this login
@@ -306,9 +335,9 @@ class User:
 
         qrcode = None
 
-        if _has_qrcode:
+        if _has_qrcode():
             try:
-                self._login_qrcode = _qrcode.make(self._login_url)
+                self._login_qrcode = _create_qrcode(self._login_url)
                 qrcode = self._login_qrcode
             except:
                 pass

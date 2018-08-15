@@ -269,12 +269,6 @@ class Keys:
 
         passphrase = _assert_strong_passphrase(passphrase, mangleFunction)
 
-        # create a directory to hold all of the keys
-        #tmpdir = _tempfile.mkdtemp()
-
-        #privkey = "%s/credentials.pem" % tmpdir
-        #pubkey = "%s/credentials_public.pem" % tmpdir
-
         # use pyca cryptography to generate the private key
         private_key = _generate_private_key()
 
@@ -287,9 +281,6 @@ class Keys:
                                                      passphrase.encode("utf-8")))
 
         privkey = privkey_bytes
-        #with open(_os.open(privkey,
-        #          _os.O_CREAT | _os.O_WRONLY, 0o700), 'wb') as FILE:
-        #    FILE.write(privkey_bytes)
 
         # now generate the public key
         public_key = private_key.public_key()
@@ -298,8 +289,6 @@ class Keys:
                             format=_serialization.PublicFormat.SubjectPublicKeyInfo)
 
         pubkey = pubkey_bytes
-        #with open(pubkey, "wb") as FILE:
-        #    FILE.write(pubkey_bytes)
 
         if create_secret and _has_pyotp:
             otp_secret = _pyotp.random_base32()

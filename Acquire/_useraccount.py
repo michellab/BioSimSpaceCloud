@@ -1,9 +1,4 @@
 
-try:
-    import pyotp as _pyotp
-    _has_pyotp = True
-except:
-    _has_pyotp = False
 
 import base64 as _base64
 

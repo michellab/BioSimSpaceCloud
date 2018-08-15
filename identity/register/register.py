@@ -2,7 +2,7 @@
 import json
 import fdk
 
-from Acquire import ObjectStore, Keys, UserAccount, PrivateKey, PublicKey
+from Acquire import ObjectStore, Keys, UserAccount, PrivateKey, PublicKey, OTP
 from identityaccount import loginToIdentityAccount
 
 class ExistingAccountError(Exception):
@@ -19,6 +19,7 @@ def handler(ctx, data=None, loop=None):
 
     status = 0
     message = None
+    provisioning_uri = None
 
     try:
         data = json.loads(data)
@@ -29,9 +30,21 @@ def handler(ctx, data=None, loop=None):
         # generate a sanitised version of the username
         user_account = UserAccount(username)
 
-        # generate the encryption keys using the passed password
-        (privkey, pubkey, secret) = Keys.create_key_pair(password, create_secret=True)
-        user_account.set_keys(privkey, pubkey, secret)
+        # generate the encryption keys and otp secret
+        privkey = PrivateKey()
+        pubkey = privkey.public_key()
+        otp = OTP()
+
+        provisioning_uri = otp.provisioning_uri(username)
+
+        # save the encrypted private key (encrypted using the user's password)
+        # and encrypted OTP secret (encrypted using the public key)
+        user_account.set_keys(privkey.bytes(password), pubkey.bytes(), 
+                              otp.encrypt(pubkey))
+
+        # remove the key and password from memory
+        privkey = None
+        password = None
 
         # now log into the central identity account to either register
         # the user, or to update to a new password
@@ -92,6 +105,9 @@ def handler(ctx, data=None, loop=None):
     response = {}
     response["status"] = status
     response["message"] = message
+
+    if provisioning_uri:
+        response["provisioning_uri"] = provisioning_uri
 
     return json.dumps(response).encode("utf-8")
 
