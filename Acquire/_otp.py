@@ -57,7 +57,7 @@ class OTP:
         # it is valid for 3 minutes (1 minute before and after). This
         # improves usability and tolerance for clock drift with only
         # minor increase in OTP validity time
-        if not self._totp().verify(code, window=1):
+        if not self._totp().verify(code, valid_window=1):
             raise OTPError("The passed OTP code is incorrect")
 
         # note that, ideally, we need to save whether or not this code

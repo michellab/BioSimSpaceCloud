@@ -135,6 +135,11 @@ class LoginSession:
                     "that doesn't have a valid public key or certificate. "
                     "Perhaps you have already denied or logged out?")
 
+            if self.status() != "unapproved":
+                raise LoginSessionError("You cannot approve a login session "
+                    "that is not in the 'unapproved' state. This login session "
+                    "is in the '%s' state." % self.status())
+
             self._login_datetime = _datetime.datetime.utcnow()
             self._status = "approved"
 
