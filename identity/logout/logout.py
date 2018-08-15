@@ -22,8 +22,6 @@ def handler(ctx, data=None, loop=None):
 
     status = 0
     message = None
-    session_status = None
-
     log = []
 
     try:
@@ -51,17 +49,22 @@ def handler(ctx, data=None, loop=None):
                            ObjectStore.get_object_from_json( bucket, 
                                                              user_session_key ) )
 
-        # get the signing certificate from the login session and
-        # validate that the permission object has been signed by
-        # the user requesting the logout
-        cert = PublicKey.read_bytes( login_session.public_certificate() )
+        if login_session:
+            # get the signing certificate from the login session and
+            # validate that the permission object has been signed by
+            # the user requesting the logout
+            cert = PublicKey.read_bytes( login_session.public_certificate() )
 
-        cert.verify(signature, permission)
+            cert.verify(signature, permission)
 
-        # the signature was correct, so log the user out. For record 
-        # keeping purposes we change the loginsession to a logout state
-        # and move it to another part of the object store
-        login_session.logout()
+            # the signature was correct, so log the user out. For record 
+            # keeping purposes we change the loginsession to a logout state
+            # and move it to another part of the object store
+            if login_session.is_approved():
+                login_session.logout()
+        else:
+            # this session no longer exists...
+            log.append("Session %s no longer exists..." % user_session_key)
         
         try:
              ObjectStore.delete_object(bucket, user_session_key)
@@ -75,15 +78,17 @@ def handler(ctx, data=None, loop=None):
              log.append(str(e))
              pass
 
-        user_session_key = "expired_sessions/%s/%s" % \
-                               (user_account.sanitised_name(), session_uid)
+        # only save sessions that were successfully approved
+        if login_session:
+            if login_session.is_logged_out():
+                user_session_key = "expired_sessions/%s/%s" % \
+                                       (user_account.sanitised_name(), session_uid)
 
-        ObjectStore.set_object_from_json(bucket, user_session_key, 
-                                         login_session.to_data())
+                ObjectStore.set_object_from_json(bucket, user_session_key, 
+                                                 login_session.to_data())
 
         status = 0
-        message = "Success: Status = %s" % login_session.status()
-        session_status = login_session.status()
+        message = "Successfully logged out"
 
     except Exception as e:
         status = -1
@@ -96,9 +101,6 @@ def handler(ctx, data=None, loop=None):
     if len(log) > 0:
         response["log"] = log
     
-    if session_status:
-        response["session_status"] = session_status
-
     return json.dumps(response).encode("utf-8")
 
 if __name__ == "__main__":

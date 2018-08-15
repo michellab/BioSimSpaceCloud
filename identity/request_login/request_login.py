@@ -30,21 +30,36 @@ def prune_expired_sessions(bucket, user_account, root, sessions):
 
         if session:
             should_delete = False
+            should_logout = False
 
             try:
                 session = LoginSession.from_data(session)
-                if session.status() == "approved":
+                if session.is_approved() or session.is_suspicious():
                     if session.hours_since_creation() > user_account.login_timeout():
+                        should_logout = True
                         should_delete = True
-                elif session.status() == "denied" or session.status() == "logged_out":
-                    should_delete = True
                 else:
                     if session.hours_since_creation() > user_account.login_request_timeout():
+                        message.append("Expired login request: %s > %s" % \
+                              (session.hours_since_creation(),
+                               user_account.login_request_timeout()))
                         should_delete = True
-            except:
+            except Exception as e:
                 # this is corrupt - delete it
+                message.append("Deleting session as corrupt? %s" % str(e))
                 should_delete = True
 
+            if should_logout:
+                # auto-logout expired sessions
+                message.append("Auto-logging out expired session '%s'" % key)
+                session.logout()
+                expire_session_key = "expired_sessions/%s/%s" % \
+                                       (user_account.sanitised_name(), session.uuid())
+
+                ObjectStore.set_object_from_json(bucket, expire_session_key,
+                                                 session.to_data())
+            
+            # now delete any expired sessions
             if should_delete:
                 message.append("Deleting expired session '%s'" % key)
 

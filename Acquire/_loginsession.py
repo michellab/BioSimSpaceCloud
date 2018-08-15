@@ -61,13 +61,21 @@ class LoginSession:
             raise LoginSessionError("You cannot get a public key from "
                      "a logged out or otherwise denied session")
 
+        elif self.is_suspicious():
+            raise LoginSessionError("You cannot get a public key from "
+                     "a login session that has been marked as suspicious")
+
         return self._pubkey
 
     def public_certificate(self):
         """Return the public certificate"""
        	if self._pubcert is None:
-       	    raise LoginSessionError("You cannot	get a public key from "
+       	    raise LoginSessionError("You cannot	get a public certificate from "
        	       	     "a logged out or otherwise	denied session")
+
+        elif self.is_suspicious():
+       	    raise LoginSessionError("You cannot get a public certificate from "
+       	       	     "a login session that has been marked as suspicious")
 
         return self._pubcert
 
@@ -117,8 +125,8 @@ class LoginSession:
            created. This will return a float, so 1 second is 
            1 / 3600th of an hour"""
 
-        if self._datetime:
-            delta = _datetime.datetime.utcnow() - self._datetime
+        if self._request_datetime:
+            delta = _datetime.datetime.utcnow() - self._request_datetime
             return delta.total_seconds() / 3600.0
         else:
             return 0
@@ -126,6 +134,15 @@ class LoginSession:
     def status(self):
         """Return the status of this login session"""
         return self._status
+
+    def set_suspicious(self):
+        """Put this login session into a suspicious state. This
+           will be because weird activity has been detected which indicates
+           that the session may be have been cracked. A login session
+           in a suspicious state should not be granted any permissions.
+        """
+        if self._uuid:
+            self._status = "suspicious"
 
     def set_approved(self):
         """Register that this request has been approved"""
@@ -173,11 +190,25 @@ class LoginSession:
         """Convenience function to set the session into the logged out state"""
         self.set_logged_out()
 
+    def is_suspicious(self):
+        """Return whether or not this session is suspicious"""
+        if self._status:
+            return self._status == "suspicious"
+        else:
+            return False
+
     def is_approved(self):
         """Return whether or not this session is open and
            approved by the user"""
         if self._status:
             return self._status == "approved"
+        else:
+            return False
+
+    def is_logged_out(self):
+        """Return whether or not this session has logged out"""
+        if self._status:
+            return self._status == "logged_out"
         else:
             return False
 

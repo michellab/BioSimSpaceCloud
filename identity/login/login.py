@@ -1,6 +1,7 @@
 
 import json
 import fdk
+import datetime
 
 from Acquire import ObjectStore, UserAccount, LoginSession, bytes_to_string
 from identityaccount import loginToIdentityAccount
@@ -96,21 +97,62 @@ def handler(ctx, data=None, loop=None):
         # once (e.g. if the password and code have been intercepted).
         # Any sessions validated using the same code should be treated
         # as immediately suspcious
+        otproot = "otps/%s" % user_account.sanitised_name()
+        sessions = ObjectStore.get_all_strings(bucket, otproot)
 
-        otproot = "otps/%s/%s" % (user_account.sanitied_name(),otpcode)
+        utcnow = datetime.datetime.utcnow()
 
-        otpsessions = ObjectStore.get_all_strings(bucket, otproot)
+        for session in sessions:
+            otpkey = "%s/%s" % (otproot,session)
+            otpstring = ObjectStore.get_string_object(bucket, otpkey)
 
-        for otpsession in otpsessions:
-            # when was this code used? Low probability there is some recycling,
-            # but very suspicious if the code was validated within the last
-            # 10 minutes... (as 3 minute timeout of a code)
-            CHECK TIME - IF SUSPICIOUS MOVE SESSION INTO A SUSPICIOUS STATE!
+            (timestamp,code) = otpstring.split("|||")
 
-        # record the timestamp of when this otpcode was written
+            # remove all codes that are more than 10 minutes old. The
+            # otp codes are only valid for 3 minutes, so no need to record
+            # codes that have been used that are older than that...
+            if (utcnow - datetime.datetime.fromtimestamp(float(timestamp))).seconds > 600:
+                try:
+                    ObjectStore.delete_object(bucket, otpkey)
+                    log.append("Removed old otp %s" % otpkey)
+                except Exception as e:
+                    log.append("Error removing %s: %s" % (otpkey,str(e)))
+            
+            elif code == str(otpcode):
+                # Low probability there is some recycling,
+                # but very suspicious if the code was validated within the last
+                # 10 minutes... (as 3 minute timeout of a code)
+
+                suspect_key = "sessions/%s/%s" % (user_account.sanitised_name(),
+                                                  session)
+
+                suspect_session = None
+
+                try:
+                    suspect_session = LoginSession.from_data(
+                          ObjectStore.get_object_from_json( bucket, suspect_key ) )
+                except Exception as e:
+                    log.append("Cannot load suspect session '%s': %s" % \
+                                    (suspect_key,str(e)))
+
+                if suspect_session:
+                    suspect_session.set_suspicious()
+                    ObjectStore.set_object_from_json( bucket, suspect_key,
+                                                      suspect_session.to_data() )
+
+                raise LoginError( "Cannot authorise the login as the one-time-code "
+                       "you supplied has already been used within the last 10 minutes. "
+                       "The chance of this happening is really low, so we are treating "
+                       "this as a suspicious event. You need to try another code. "
+                       "Meanwhile, the other login that used this code has been put "
+                       "into a 'suspicious' state." )
+
+        # record the value and timestamp of when this otpcode was used
         otpkey = "%s/%s" % (otproot, login_session.uuid())
-        ObjectStore.set_string_object(bucket, otpkey, 
-                                      datetime.datetime.utcnow().timestamp())
+        otpstring = "%s|||%s" % (datetime.datetime.utcnow().timestamp(),
+                                 otpcode)
+
+        ObjectStore.set_string_object(bucket, otpkey, otpstring)
 
         login_session.set_approved()
 
