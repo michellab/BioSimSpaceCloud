@@ -1,103 +1,124 @@
 
 import json
 import fdk
-import oci
 
-import os
+from Acquire import ObjectStore, UserAccount, LoginSession, bytes_to_string
+from identityaccount import loginToIdentityAccount
 
-from Acquire import Account
-
-class IdentityAccountError(Exception):
-    """Used for errors associated with logging into or
-       using the central Identity Account"""
+class LoginError(Exception):
     pass
 
-def loginToIdentityAccount():
-    """This function logs into the account of the primary identity
-       manager. This is the central account that has access to 
-       all user credentials and which can authorise the creation
-       of delegated accounts on the object store. Obviously this is
-       a powerful account, so only log into it if you need it!!!
-
-       The login information should not be put into a public 
-       repository or stored in plain text. In this case,
-       the login information is held in an environment variable
-       (which should be encrypted or hidden in some way...)
-    """
-
-    # get the login information in json format from
-    # the LOGIN_JSON environment variable
-    identity_json = os.getenv("LOGIN_JSON")
-    identity_data = None
-
-    # get the bucket information in json format from
-    # the BUCKET_JSON environment variable
-    bucket_json = os.getenv("BUCKET_JSON")
-    bucket_data = None
-
-    if bucket_json and len(bucket_json) > 0:
-        try:
-            bucket_data = json.loads(bucket_json)
-            bucket_json = None
-        except:
-            raise IdentityAccountError(
-             "Cannot decode the bucket information for the central identity account")
-    else:
-        raise IdentityAccountError("You must supply valid bucket data!")
-
-    if identity_json and len(identity_json) > 0:
-        try:
-            identity_data = json.loads(identity_json)
-            identity_json = None
-        except:
-            raise IdentityAccountError(
-             "Cannot decode the login information for the central identity account")
-    else:
-        raise IdentityAccountError("You must supply valid login data!")
-
-    # now login and create/load the bucket for this account
-    try:
-        return Account.create_and_connect_to_bucket(identity_data,
-                                                    bucket_data["compartment"],
-                                                    bucket_data["bucket"])
-    except Exception as e:
-        raise IdentityAccountError(
-             "Error connecting to the identity account: %s" % str(e))
-
 def handler(ctx, data=None, loop=None):
-    """This function will read in json data that identifies the 
-       user and supplied password. The user's pem key will be
-       retrieved from the object store, password checked, and,
-       if passed, then this will be returned as a response"""
+    """This function is called by the user to log in and validate
+       that a session is authorised to connect"""
 
-    # The first step is to log into the primary identity account.
-    identity_client = loginToIdentityAccount()
+    if not (data and len(data) > 0):
+        return    
 
-    key = None
+    status = 0
+    message = None
+    log = []
 
-    if data and len(data) > 0:
+    try:
+        # data is already a decoded unicode string
+        data = json.loads(data)
+
+        short_uid = data["short_uid"]
+        username = data["username"]
+        password = data["password"]
+        otpcode = data["otpcode"]
+
+        # create the user account for the user
+        user_account = UserAccount(username)
+
+        # log into the central identity account to query
+        # the current status of this login session
+        bucket = loginToIdentityAccount()
+
+        # locate the session referred to by this uid
+        base_key = "requests/%s" % short_uid
+        session_keys = ObjectStore.get_all_object_names(bucket, base_key)
+
+        # try all of the sessions to find the one that the user
+        # may be referring to...
+        login_session_key = None
+        request_session_key = None
+
+        for session_key in session_keys:
+            request_session_key = "%s/%s" % (base_key,session_key)
+            session_user = ObjectStore.get_string_object(bucket,request_session_key)
+
+            # did the right user request this session?
+            if user_account.name() == session_user:
+                if login_session_key:
+                    # this is an extremely unlikely edge case, whereby 
+                    # two login requests within a 30 minute interval for the
+                    # same user result in the same short UID. This should be
+                    # signified as an error and the user asked to create a
+                    # new request
+                    raise LoginError("You have found an extremely rare edge-case "
+                        "whereby two different login requests have randomly "
+                        "obtained the same short UID. As we can't work out "
+                        "which request is valid, the login is denied. Please "
+                        "create a new login request, which will then have a new "
+                        "login request UID")
+                else:
+                    login_session_key = session_key
+
+        if not login_session_key:
+            raise LoginError("There is no active login request with the "
+                   "short UID '%s' for user '%s'" % (short_uid,username))
+
+        login_session_key = "sessions/%s/%s" % (user_account.sanitised_name(),
+                                                login_session_key)
+
+        # fully load the user account from the object store so that we 
+        # can validate the username and password
         try:
-            data = json.loads(data)
-
-            username = data["username"]
-            password = data["password"]
-
-            status = -1
-            message = "Either this user does not exist or the password is incorrect"
-
+            account_key = "accounts/%s" % user_account.sanitised_name()
+            user_account = UserAccount.from_data(
+                              ObjectStore.get_object_from_json(bucket, account_key))
         except Exception as e:
-            status = -2
-            message = str(e)
-    else:
+            log.append(str(e))
+            raise LoginError("No account available with username '%s'" % username)
+
+        # now try to log into this account using the supplied
+        # password and one-time-code
+        user_account.validate_password(password, otpcode)
+
+        # the user is valid - load up the actual login session
+        login_session = LoginSession.from_data(
+                           ObjectStore.get_object_from_json(bucket,
+                                                            login_session_key) )
+        
+        login_session.set_approved()
+
+        # write this session back to the object store
+        ObjectStore.set_object_from_json(bucket, login_session_key,
+                                         login_session.to_data())
+
+        # finally, remove this from the list of requested logins
+        try:
+            ObjectStore.delete_object(bucket, request_session_key)
+        except Exception as e:
+            log.append(str(e))
+            pass
+
+        status = 0
+        message = "Success: Status = %s" % login_session.status()
+
+    except Exception as e:
         status = -1
-        message = "No username so no data to check"
+        message = "Error %s: %s" % (e.__class__,str(e))
 
     response = {}
     response["status"] = status
     response["message"] = message
-    response["key"] = key
 
-    return json.dumps(response)
+    if len(log) > 0:
+        response["log"] = log
+    
+    return json.dumps(response).encode("utf-8")
 
 if __name__ == "__main__":
     from fdk import handle

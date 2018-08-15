@@ -2,12 +2,18 @@
 
 import base64 as _base64
 
+from ._keys import PrivateKey as _PrivateKey
+from ._otp import OTP as _OTP
+
 __all__ = ["UserAccount"]
 
 class UsernameError(Exception):
     pass
 
 class ExistingAccountError(Exception):
+    pass
+
+class UserValidationError(Exception):
     pass
 
 def _bytes_to_string(b):
@@ -49,6 +55,10 @@ class UserAccount:
         """Return the name of this account"""
         return self._username
 
+    def username(self):
+        """Synonym for 'name'"""
+        return self.name()
+
     def sanitised_name(self):
         """Return the sanitised username"""
         return self._sanitised_username
@@ -77,6 +87,13 @@ class UserAccount:
     def is_valid(self):
         """Return whether or not this is a valid account"""
         return not (self._status is None)
+
+    def is_active(self):
+        """Return whether or not this is an active account"""
+        if self._status is None:
+            return False
+        else:
+            return self._status == "active"
 
     def public_key(self):
         """Return the lines of the public key for this account"""
@@ -138,6 +155,20 @@ class UserAccount:
 
         return "_".join(username.split()).replace("/","") \
                   .replace("@","_AT_").replace(".","_DOT_")
+
+    def validate_password(self, password, otpcode):
+        """Validate that the passed password and one-time-code are valid.
+           If they are, then do nothing. Otherwise raise an exception."""
+
+        if not self.is_active():
+            raise UserValidationError("Cannot validate against an inactive account")
+
+        # see if we can decrypt the private key using the password
+        privkey = _PrivateKey.read_bytes(self._privkey, password)
+
+        # now decrypt the secret otp and validate the supplied otpcode
+        otp = _OTP.decrypt(self._otp_secret, privkey)
+        otp.verify(otpcode)
 
     def to_data(self):
         """Return a data representation of this object (dictionary)"""
