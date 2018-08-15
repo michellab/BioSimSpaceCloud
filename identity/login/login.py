@@ -90,7 +90,28 @@ def handler(ctx, data=None, loop=None):
         login_session = LoginSession.from_data(
                            ObjectStore.get_object_from_json(bucket,
                                                             login_session_key) )
-        
+
+        # we must record the session against which this otpcode has
+        # been validated. This is to stop us validating an otpcode more than 
+        # once (e.g. if the password and code have been intercepted).
+        # Any sessions validated using the same code should be treated
+        # as immediately suspcious
+
+        otproot = "otps/%s/%s" % (user_account.sanitied_name(),otpcode)
+
+        otpsessions = ObjectStore.get_all_strings(bucket, otproot)
+
+        for otpsession in otpsessions:
+            # when was this code used? Low probability there is some recycling,
+            # but very suspicious if the code was validated within the last
+            # 10 minutes... (as 3 minute timeout of a code)
+            CHECK TIME - IF SUSPICIOUS MOVE SESSION INTO A SUSPICIOUS STATE!
+
+        # record the timestamp of when this otpcode was written
+        otpkey = "%s/%s" % (otproot, login_session.uuid())
+        ObjectStore.set_string_object(bucket, otpkey, 
+                                      datetime.datetime.utcnow().timestamp())
+
         login_session.set_approved()
 
         # write this session back to the object store
