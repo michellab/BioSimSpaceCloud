@@ -1,6 +1,6 @@
 
-
 import base64 as _base64
+import uuid as _uuid
 
 from ._keys import PrivateKey as _PrivateKey
 from ._otp import OTP as _OTP
@@ -42,6 +42,7 @@ class UserAccount:
         self._privkey = None
         self._pubkey = None
         self._otp_secret = None
+        self._uuid = None
 
         if username is None:
             self._status = None
@@ -62,6 +63,10 @@ class UserAccount:
     def sanitised_name(self):
         """Return the sanitised username"""
         return self._sanitised_username
+
+    def uuid(self):
+        """Return the globally unique ID for this account"""
+        return self._uuid
 
     def max_open_sessions(self):
         """Return the maximum number of open login sessions
@@ -136,6 +141,12 @@ class UserAccount:
         self._pubkey = pubkey
         self._otp_secret = secret
 
+        if self._uuid is None:
+            # generate the uuid now, as this should not happen until
+            # the account has been first activated. After this point,
+            # the uuid of the account should not change
+            self._uuid = str(_uuid.uuid4())
+
         self._status = "active"
 
     @staticmethod
@@ -178,6 +189,7 @@ class UserAccount:
         data = {}
         data["username"] = self._username
         data["status"] = self._status
+        data["uuid"] = self._uuid
 
         # the keys and secret are arbitrary binary data.
         # These need to be base64 encoded and then turned into strings
@@ -200,6 +212,7 @@ class UserAccount:
         user_account._privkey = _string_to_bytes(data["private_key"])
         user_account._pubkey = _string_to_bytes(data["public_key"])
         user_account._status = data["status"]
+        user_account._uuid = data["uuid"]
 
         try:
             user_account._otp_secret = _string_to_bytes(data["otp_secret"])

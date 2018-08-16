@@ -63,6 +63,10 @@ def handler(ctx, data=None, loop=None):
             # save the new account details
             ObjectStore.set_object_from_json(bucket, account_key, 
                                              user_account.to_data())
+
+            # need to update the "whois" database with the uuid of this user
+            ObjectStore.set_string_object(bucket, "whois/%s" % user_account.uuid(),
+                                                  user_account.username())
         else:
             # The account already exists. See if this is a password change
             # request
