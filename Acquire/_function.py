@@ -14,7 +14,7 @@ import base64 as _base64
 
 __all__ = [ "call_function", "bytes_to_string", "string_to_bytes", 
             "string_to_encoded", "encoded_to_string",
-            "encrypt_response" ]
+            "encrypt_response", "decrypt_arguments" ]
 
 def string_to_encoded(s):
     """Return the passed unicode string encoded to a safely
@@ -62,6 +62,14 @@ def encrypt_response(result, key):
     response["encrypted_response"] = _bytes_to_string(key.encrypt(result))
 
     return response
+
+def decrypt_arguments(args, key):
+   """Call this to decrypt the passed arguments using the passed key"""
+
+   if "encrypted" in args and args["encrypted"]:
+       return key.decrypt( args["data"] ).decode("utf-8")
+   else:
+       return args
 
 def call_function(function_url, arg_dict, arg_key=None, response_key=None):
     """Call the remote function at 'function_url' passing
