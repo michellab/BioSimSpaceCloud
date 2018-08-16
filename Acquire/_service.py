@@ -18,7 +18,7 @@ class Service:
        will either be identity services, access services or
        accounting services.
     """
-    def __init__(self, service_type=None, service_url=None, admin_password=None):
+    def __init__(self, service_type=None, service_url=None):
         """Construct a new service of the specified type, with
            the specified URL."""
         self._service_type = service_type
@@ -35,7 +35,7 @@ class Service:
             self._privcert = _PrivateKey()
             self._pubcert = self._privcert.public_key()
 
-    def set_admin_password(self, password):
+    def set_admin_password(self, admin_password):
         """Set the admin password for this service. This returns the 
            provisioning URI for the OTP shared secret"""
         if self._admin_password:
@@ -161,7 +161,7 @@ class Service:
            and OTP if a valid password and passcode is supplied
         """
 
-        Service service
+        service = Service()
 
         if password:
             # get the private info...
