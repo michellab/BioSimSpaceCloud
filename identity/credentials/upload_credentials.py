@@ -60,3 +60,4 @@ data["bucket"] = "acquire_identity"
 print(json.dumps(data))
 
 os.system("fn config app identity BUCKET_JSON '%s'" % json.dumps(data))
+os.system("fn config app identity SERVICE_PASSWORD '%s'" % sys.argv[2])

@@ -34,6 +34,7 @@ class Service:
             self._pubkey = self._privkey.public_key()
             self._privcert = _PrivateKey()
             self._pubcert = self._privcert.public_key()
+            self._admin_password = None
 
     def set_admin_password(self, admin_password):
         """Set the admin password for this service. This returns the 
@@ -57,7 +58,7 @@ class Service:
             return
 
         key = _PrivateKey.read_bytes(self._admin_password, password)
-        otp = _OTP.decrypt(self._otc, key).verify(otpcode)
+        otp = _OTP.decrypt(self._otpsecret, key).verify(otpcode)
 
         newkey = _PrivateKey()
         self._admin_password = newkey.butes(new_password)
@@ -127,7 +128,7 @@ class Service:
             raise ServiceError("Could not log into admin account: %s" % str(e))
 
         try:
-            _OTP.decrypt(self._otc, key).verify(otpcode)
+            _OTP.decrypt(self._otpsecret, key).verify(otpcode)
         except Exception as e:
             raise ServiceError("Could not log into admin account: %s" % str(e))
 
@@ -151,8 +152,10 @@ class Service:
                                          self._privcert.bytes(password))
             data["private_key"] = _bytes_to_string(
                                          self._privkey.bytes(password))
-            data["otpsecret"] = _bytes_to_string( self._otp )
+            data["otpsecret"] = _bytes_to_string( self._otpsecret )
             data["admin_password"] = _bytes_to_string(self._admin_password)
+
+        return data
 
     @staticmethod
     def from_data(data, password=None):
@@ -166,18 +169,18 @@ class Service:
         if password:
             # get the private info...
             service._privkey = _PrivateKey.read_bytes(
-                                _string_to_bytes(data["private_key"],password))
+                                _string_to_bytes(data["private_key"]),password)
 
             service._privcert = _PrivateKey.read_bytes(
-                                _string_to_bytes(data["private_certificate"],password))
+                                _string_to_bytes(data["private_certificate"]),password)
 
-            service._otp = _string_to_bytes(data["otpsecret"])
+            service._otpsecret = _string_to_bytes(data["otpsecret"])
 
             service._admin_password = _string_to_bytes(data["admin_password"])
         else:
             service._privkey = None
             service._privcert = None
-            service._otp = None
+            service._otpsecret = None
 
         service._uuid = data["uuid"]
         service._service_type = data["service_type"]

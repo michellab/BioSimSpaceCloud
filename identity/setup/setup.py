@@ -101,7 +101,7 @@ def handler(ctx, data=None, loop=None):
     response["status"] = status
     response["message"] = message
     
-    if provisioning_url:
+    if provisioning_uri:
         response["provisioning_uri"] = provisioning_uri
 
     if log:
