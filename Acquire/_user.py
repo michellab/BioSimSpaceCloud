@@ -22,7 +22,7 @@ try:
 except:
     _has_socket = False
 
-__all__ = [ "User" ]
+__all__ = [ "User", "username_to_uuid", "uuid_to_username" ]
 
 class LoginError(Exception):
     pass
@@ -40,6 +40,26 @@ class _LoginStatus(_Enum):
 def _get_identity_url():
     """Function to discover and return the default identity url"""
     return "http://130.61.60.88:8080/r/identity"
+
+def uuid_to_username(uuid, identity_url=None):
+    """Function to return the username for the passed uuid"""
+    if identity_url is None:
+        identity_url = _get_identity_url()
+
+    response = _call_function("%s/whois" % identity_url,
+                              {"uuid" : str(uuid)})
+
+    return response["username"]
+
+def username_to_uuid(username, identity_url=None):
+    """Function to return the uuid for the passed username"""
+    if identity_url is None:
+        identity_url = _get_identity_url()
+
+    response = _call_function("%s/whois" % identity_url,
+                              {"username" : username})
+
+    return response["uuid"]
 
 class User:
     """This class holds all functionality that would be used
