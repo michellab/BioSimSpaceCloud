@@ -2,6 +2,8 @@ identity/credentials/*.pem
 accounting/credentials/*.pem
 access/credentials/*.pem
 identity/base_image/function/lib/Acquire/
+accounting/base_image/function/lib/Acquire/
+access/base_image/function/lib/Acquire/
 gromacs/function/lib/Acquire/
 gromacs/helper/__pycache__/
 Acquire/__pycache__/
