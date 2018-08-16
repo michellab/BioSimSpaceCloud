@@ -65,7 +65,7 @@ def handler(ctx, data=None, loop=None):
 
             try:
                 username = ObjectStore.get_string_object(bucket, uuid_key)
-            except:
+            except Exception as e:
                 log.append("Error looking up account by uuid: %s" % str(e))
                 raise WhoisLookupError("Cannot find an account for uuid '%s'" % \
                                            uuid)
