@@ -1,0 +1,7 @@
+name: node-accounting-status
+version: 0.0.2
+runtime: docker
+type: sync
+format: json
+timeout: 20
+path: /
