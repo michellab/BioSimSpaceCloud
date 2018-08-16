@@ -1,5 +1,5 @@
 name: node-identity-register
-version: 0.0.33
+version: 0.0.35
 runtime: docker
 type: sync
 format: json

@@ -108,14 +108,14 @@ class Account:
                 bucket["bucket"] = client.create_bucket(
                                             client.get_namespace().data,
                                             request).data
-            except:
+            except Exception as e1:
                 # couldn't create the bucket - likely because it already
                 # exists - try to connect to the existing bucket
                 try:
                     bucket["bucket"] = client.get_bucket(namespace, bucket_name).data
                 except Exception as e:
-                    raise AccountError("Cannot create the bucket '%s' : %s" % \
-                                       (bucket_name, str(e)))
+                    raise AccountError("Cannot access the bucket '%s' : %s (originally %s)" % \
+                                       (bucket_name, str(e), str(e1)))
         except:
             _os.remove( _os.path.abspath(login["key_file"]) )
             raise
