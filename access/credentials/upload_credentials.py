@@ -60,3 +60,4 @@ data["bucket"] = "acquire_access"
 print(json.dumps(data))
 
 os.system("fn config app access BUCKET_JSON '%s'" % json.dumps(data))
+os.system("fn config app access SERVICE_PASSWORD '%s'" % sys.argv[2])

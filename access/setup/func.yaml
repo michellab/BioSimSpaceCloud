@@ -1,7 +1,7 @@
-name: node-access-status
-version: 0.0.4
+name: node-access-setup
+version: 0.0.2
 runtime: docker
 type: sync
 format: json
 timeout: 20
-path: /
+path: /setup

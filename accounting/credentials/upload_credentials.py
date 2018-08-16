@@ -60,3 +60,4 @@ data["bucket"] = "acquire_accounting"
 print(json.dumps(data))
 
 os.system("fn config app accounting BUCKET_JSON '%s'" % json.dumps(data))
+os.system("fn config app accounting SERVICE_PASSWORD '%s'" % sys.argv[2])
