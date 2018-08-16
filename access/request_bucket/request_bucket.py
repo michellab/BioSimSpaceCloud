@@ -27,36 +27,38 @@ def handler(ctx, data=None, loop=None):
         data = json.loads(data)
 
         user_uuid = data["user_uuid"]
-        identity_service = data["identity_service"]
+        identity_service_url = data["identity_service"]
         request_data = data["request"]
         signature = string_to_bytes( data["signature"] )
 
         # log into the central access account
         bucket = loginToAccessAccount()
+        service = loginToService()
 
         # is the identity service supplied by the user one that we trust?
-        
+        identity_service = Service.from_data( ObjectStore.get_object_from_json(bucket,
+                                              "services/%s" % identity_service_url))
 
-        # first, ask the identity service to give us the public
+        if not identity_service:
+            raise RequestBucketError("You cannot request a bucket because "
+                   "this access service does not know or trust your supplied "
+                   "identity service (%s)" % identity_service_url)
+
+        if not identity_service.is_identity_service():
+            raise RequestBucketError("You cannot request a bucket because "
+                   "the passed service (%s) is not an identity service. It is "
+                   "a %s" % (identity_service_url,identity_service.service_type()))
+
+        # Since we trust this identity service, we can ask it to give us the public
         # certificate and signing certificate for this user.
+        args = { "user_uuid" : user_uuid }
 
-        user_session_key = "sessions/%s/%s" % \
-                   (user_account.sanitised_name(), session_uid)
-
-        login_session = LoginSession.from_data(
-                           ObjectStore.get_object_from_json( bucket, 
-                                                             user_session_key ) )
-
-        # only send valid keys if the user had logged in!
-        if not login_session.is_approved():
-            raise InvalidSessionError( "You cannot get the keys for a session "
-                    "for which the user has not logged in!" )
-
-        public_key = bytes_to_string(login_session.public_key())
-        public_cert = bytes_to_string(login_session.public_certificate())
+        response = call_function("%s/get_user_keys" % identity_service_url,
+                                 args, identity_service.public_key(),
+                                 service.private_key())
 
         status = 0
-        message = "Success: Status = %s" % login_session.status()
+        message = "Success: Status = %s" % str(response)
 
     except Exception as e:
         status = -1
@@ -66,12 +68,6 @@ def handler(ctx, data=None, loop=None):
     response["status"] = status
     response["message"] = message
     
-    if public_key:
-        response["public_key"] = public_key
-
-    if public_cert:
-        response["public_cert"] = public_cert
-
     return json.dumps(response).encode("utf-8")
 
 if __name__ == "__main__":
