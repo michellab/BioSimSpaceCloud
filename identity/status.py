@@ -18,7 +18,8 @@ def handler(ctx, data=None, loop=None):
         # The first step is to log into the primary identity account.
         identity_client = loginToIdentityAccount()
 
-        response = { "log" : ObjectStore.get_log(identity_client) }
+        response = { "message" : "The identity service account works :-)",
+                     "status" : 0 }
 
         return json.dumps(response).encode("utf-8")
 

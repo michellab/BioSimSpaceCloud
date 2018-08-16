@@ -15,7 +15,10 @@ def handler(ctx, data=None, loop=None):
         # The first step is to log into the primary access account.
         access_client = loginToAccessAccount()
 
-        return json.dumps( {"status" : str(0)} ).encode("utf-8")
+       	response = { "message" : "The access service account works :-)",
+       	       	     "status" :	0 }
+
+        return json.dumps(response).encode("utf-8")
 
     except Exception as e:
         response = { "error" : str(e) }

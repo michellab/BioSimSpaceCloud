@@ -1,5 +1,5 @@
 name: node-accounting-status
-version: 0.0.2
+version: 0.0.3
 runtime: docker
 type: sync
 format: json
