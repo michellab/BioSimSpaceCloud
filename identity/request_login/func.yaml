@@ -1,5 +1,5 @@
 name: node-identity-request-login
-version: 0.0.43
+version: 0.0.44
 runtime: docker
 type: sync
 format: json

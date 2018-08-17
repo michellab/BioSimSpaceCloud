@@ -2,8 +2,11 @@
 import json
 import fdk
 
-from Acquire import ObjectStore, UserAccount, LoginSession
-from identityaccount import loginToIdentityAccount
+from Acquire import ObjectStore, UserAccount, LoginSession, \
+                    Service, unpack_arguments, \
+                    create_return_value, pack_return_value, \
+                    login_to_service_account, get_service_info, \
+                    get_service_private_key
 
 class InvalidSessionError(Exception):
     pass
@@ -12,28 +15,24 @@ def handler(ctx, data=None, loop=None):
     """This function will allow anyone to query the current login
        status of the session with passed UID"""
 
-    # The very first thing to do is make sure that the user 
-    # has passed us some valid credentials...
-    if not (data and len(data) > 0):
-        return    
-
     status = 0
     message = None
     session_status = None
 
-    try:
-        # data is already a decoded unicode string
-        data = json.loads(data)
+    log = []
 
-        session_uid = data["session_uid"]
-        username = data["username"]
+    args = unpack_arguments(data, get_service_private_key)
+
+    try:
+        session_uid = args["session_uid"]
+        username = args["username"]
 
         # generate a sanitised version of the username
         user_account = UserAccount(username)
 
         # now log into the central identity account to query
         # the current status of this login session
-        bucket = loginToIdentityAccount()
+        bucket = login_to_service_account()
 
         user_session_key = "sessions/%s/%s" % \
                    (user_account.sanitised_name(), session_uid)
@@ -50,14 +49,12 @@ def handler(ctx, data=None, loop=None):
         status = -1
         message = "Error %s: %s" % (e.__class__,str(e))
 
-    response = {}
-    response["status"] = status
-    response["message"] = message
-    
-    if session_status:
-        response["session_status"] = session_status
+    return_value = create_return_value(status, message, log)
 
-    return json.dumps(response).encode("utf-8")
+    if session_status:
+        return_value["session_status"] = session_status
+
+    return pack_return_value(return_value, args)
 
 if __name__ == "__main__":
     from fdk import handle

@@ -2,8 +2,11 @@
 import json
 import fdk
 
-from Acquire import ObjectStore, UserAccount, LoginSession, bytes_to_string
-from identityaccount import loginToIdentityAccount
+from Acquire import ObjectStore, UserAccount, LoginSession, bytes_to_string, \
+                    Service, unpack_arguments, \
+                    create_return_value, pack_return_value, \
+                    login_to_service_account, get_service_info, \
+                    get_service_private_key
 
 class InvalidSessionError(Exception):
     pass
@@ -13,30 +16,26 @@ def handler(ctx, data=None, loop=None):
        keys for the passed login session of a user with
        a specified login UID"""
 
-    # The very first thing to do is make sure that the user 
-    # has passed us some valid credentials...
-    if not (data and len(data) > 0):
-        return    
-
     status = 0
     message = None
 
     public_key = None
     public_cert = None
 
-    try:
-        # data is already a decoded unicode string
-        data = json.loads(data)
+    log = []
 
-        session_uid = data["session_uid"]
-        username = data["username"]
+    args = unpack_arguments(data, get_service_private_key)
+
+    try:
+        session_uid = args["session_uid"]
+        username = args["username"]
 
         # generate a sanitised version of the username
         user_account = UserAccount(username)
 
         # now log into the central identity account to query
         # the current status of this login session
-        bucket = loginToIdentityAccount()
+        bucket = login_to_service_account()
 
         user_session_key = "sessions/%s/%s" % \
                    (user_account.sanitised_name(), session_uid)
@@ -60,17 +59,15 @@ def handler(ctx, data=None, loop=None):
         status = -1
         message = "Error %s: %s" % (e.__class__,str(e))
 
-    response = {}
-    response["status"] = status
-    response["message"] = message
-    
+    return_value = create_return_value(status, message, log)    
+
     if public_key:
-        response["public_key"] = public_key
+        return_value["public_key"] = public_key
 
     if public_cert:
-        response["public_cert"] = public_cert
+        return_value["public_cert"] = public_cert
 
-    return json.dumps(response).encode("utf-8")
+    return pack_return_value(return_value, args)
 
 if __name__ == "__main__":
     from fdk import handle

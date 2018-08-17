@@ -1,5 +1,5 @@
 name: node-identity-get-keys
-version: 0.0.6
+version: 0.0.7
 runtime: docker
 type: sync
 format: json

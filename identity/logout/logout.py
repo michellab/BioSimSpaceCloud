@@ -2,10 +2,12 @@
 import json
 import fdk
 
-from Acquire import ObjectStore, UserAccount, LoginSession, PublicKey
-from Acquire import string_to_bytes, bytes_to_string
-
-from identityaccount import loginToIdentityAccount
+from Acquire import ObjectStore, UserAccount, LoginSession, \
+                    PublicKey, string_to_bytes, bytes_to_string, \
+                    Service, unpack_arguments, \
+                    create_return_value, pack_return_value, \
+                    login_to_service_account, get_service_info, \
+                    get_service_private_key
 
 class InvalidSessionError(Exception):
     pass
@@ -15,30 +17,24 @@ def handler(ctx, data=None, loop=None):
        a logout from the current session - this will be authorised
        by signing the request to logout"""
 
-    # The very first thing to do is make sure that the user 
-    # has passed us some valid credentials...
-    if not (data and len(data) > 0):
-        return    
-
     status = 0
     message = None
     log = []
 
-    try:
-        # data is already a decoded unicode string
-        data = json.loads(data)
+    args = unpack_arguments(data, get_service_private_key)
 
-        session_uid = data["session_uid"]
-        username = data["username"]
-        permission = data["permission"]
-        signature = string_to_bytes( data["signature"] )
+    try:
+        session_uid = args["session_uid"]
+        username = args["username"]
+        permission = args["permission"]
+        signature = string_to_bytes( args["signature"] )
 
         # generate a sanitised version of the username
         user_account = UserAccount(username)
 
         # now log into the central identity account to query
         # the current status of this login session
-        bucket = loginToIdentityAccount()
+        bucket = login_to_service_account()
 
         user_session_key = "sessions/%s/%s" % \
                    (user_account.sanitised_name(), session_uid)
@@ -94,14 +90,9 @@ def handler(ctx, data=None, loop=None):
         status = -1
         message = "Error %s: %s" % (e.__class__,str(e))
 
-    response = {}
-    response["status"] = status
-    response["message"] = message
-
-    if len(log) > 0:
-        response["log"] = log
+    return_value = create_return_value(status, message, log)
     
-    return json.dumps(response).encode("utf-8")
+    return pack_return_value(return_value, args)
 
 if __name__ == "__main__":
     from fdk import handle

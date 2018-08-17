@@ -2,8 +2,11 @@
 import json
 import fdk
 
-from Acquire import ObjectStore, Keys, UserAccount, PrivateKey, PublicKey, OTP
-from identityaccount import loginToIdentityAccount
+from Acquire import ObjectStore, UserAccount, PrivateKey, PublicKey, \
+                    OTP, Service, unpack_arguments, \
+                    create_return_value, pack_return_value, \
+                    login_to_service_account, get_service_info, \
+                    get_service_private_key
 
 class ExistingAccountError(Exception):
     pass
@@ -12,20 +15,16 @@ def handler(ctx, data=None, loop=None):
     """This function will allow a user to register an account with a 
        username and password"""
 
-    # The very first thing to do is make sure that the user 
-    # has passed us some valid credentials...
-    if not (data and len(data) > 0):
-        return    
-
     status = 0
     message = None
     provisioning_uri = None
+    log = []
+
+    args = unpack_arguments(data, get_service_private_key)
 
     try:
-        data = json.loads(data)
-
-        username = data["username"]
-        password = data["password"]
+        username = args["username"]
+        password = args["password"]
 
         # generate a sanitised version of the username
         user_account = UserAccount(username)
@@ -48,7 +47,7 @@ def handler(ctx, data=None, loop=None):
 
         # now log into the central identity account to either register
         # the user, or to update to a new password
-        bucket = loginToIdentityAccount()
+        bucket = login_to_service_account()
         account_key = "accounts/%s" % user_account.sanitised_name()
 
         try:
@@ -73,7 +72,7 @@ def handler(ctx, data=None, loop=None):
             old_password = None
 
             try:
-                old_password = data["old_password"]
+                old_password = args["old_password"]
             except:
                 raise ExistingAccountError("An account by this name already exists!")
 
@@ -106,14 +105,12 @@ def handler(ctx, data=None, loop=None):
         status = -1
         message = "Error: %s" % str(e)
 
-    response = {}
-    response["status"] = status
-    response["message"] = message
+    return_value = create_return_value(status, message, log)
 
     if provisioning_uri:
-        response["provisioning_uri"] = provisioning_uri
+        return_value["provisioning_uri"] = provisioning_uri
 
-    return json.dumps(response).encode("utf-8")
+    return pack_return_value(return_value, args)
 
 if __name__ == "__main__":
     from fdk import handle
