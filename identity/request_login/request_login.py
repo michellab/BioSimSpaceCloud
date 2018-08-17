@@ -2,21 +2,21 @@
 import json
 import fdk
 
-from Acquire import ObjectStore, UserAccount, LoginSession
-from identityaccount import loginToIdentityAccount
-
-from Acquire import bytes_to_string, string_to_bytes
+from Acquire import ObjectStore, UserAccount, LoginSession, \
+                    bytes_to_string, string_to_bytes, \
+                    Service, unpack_arguments, \
+                    create_return_value, pack_return_value, \
+                    login_to_service_account, get_service_info, \
+                    get_service_private_key
 
 class InvalidLoginError(Exception):
     pass
 
-def prune_expired_sessions(bucket, user_account, root, sessions):
+def prune_expired_sessions(bucket, user_account, root, sessions, log):
     """This function will scan through all open requests and 
        login sessions and will prune away old, expired or otherwise
        weird sessions. It will also use the ipaddress of the source
        to rate limit or blacklist sources"""
-
-    message = []
 
     for name in sessions:
         key = "%s/%s" % (root,name)
@@ -25,7 +25,7 @@ def prune_expired_sessions(bucket, user_account, root, sessions):
         try:
             session = ObjectStore.get_object_from_json(bucket, key)
         except:
-            message.append("Session %s does not exist!" % name)
+            log.append("Session %s does not exist!" % name)
             session = None
 
         if session:
@@ -40,18 +40,18 @@ def prune_expired_sessions(bucket, user_account, root, sessions):
                         should_delete = True
                 else:
                     if session.hours_since_creation() > user_account.login_request_timeout():
-                        message.append("Expired login request: %s > %s" % \
+                        log.append("Expired login request: %s > %s" % \
                               (session.hours_since_creation(),
                                user_account.login_request_timeout()))
                         should_delete = True
             except Exception as e:
                 # this is corrupt - delete it
-                message.append("Deleting session as corrupt? %s" % str(e))
+                log.append("Deleting session as corrupt? %s" % str(e))
                 should_delete = True
 
             if should_logout:
                 # auto-logout expired sessions
-                message.append("Auto-logging out expired session '%s'" % key)
+                log.append("Auto-logging out expired session '%s'" % key)
                 session.logout()
                 expire_session_key = "expired_sessions/%s/%s" % \
                                        (user_account.sanitised_name(), session.uuid())
@@ -61,7 +61,7 @@ def prune_expired_sessions(bucket, user_account, root, sessions):
             
             # now delete any expired sessions
             if should_delete:
-                message.append("Deleting expired session '%s'" % key)
+                log.append("Deleting expired session '%s'" % key)
 
                 try:
                     ObjectStore.delete_object(bucket, key)
@@ -73,8 +73,6 @@ def prune_expired_sessions(bucket, user_account, root, sessions):
                 except:
                     pass
 
-    return message
-
 def handler(ctx, data=None, loop=None):
     """This function will allow a user to request a new session
        that will be validated by the passed public key and public
@@ -82,41 +80,35 @@ def handler(ctx, data=None, loop=None):
        must connect to to then log in and validate that request.
     """
 
-    # The very first thing to do is make sure that the user 
-    # has passed us some valid credentials...
-    if not (data and len(data) > 0):
-        return    
-
     status = 0
     message = None
-    prune_message = None
     login_url = None
     login_uid = None
+    log = []
+
+    args = unpack_arguments(data, get_service_private_key)
 
     try:
-        # data is already a decoded unicode string
-        data = json.loads(data)
-
-        username = data["username"]
-        public_key = string_to_bytes( data["public_key"] )
-        public_cert = string_to_bytes( data["public_certificate"] )
+        username = args["username"]
+        public_key = string_to_bytes( args["public_key"] )
+        public_cert = string_to_bytes( args["public_certificate"] )
 
         ip_addr = None
         hostname = None
         login_message = None
 
         try:
-            ip_addr = data["ipaddr"]
+            ip_addr = args["ipaddr"]
         except:
             pass
 
         try:
-            hostname = data["hostname"]
+            hostname = args["hostname"]
         except:
             pass
 
         try:
-            login_message = data["message"]
+            login_message = args["message"]
         except:
             pass
 
@@ -129,7 +121,7 @@ def handler(ctx, data=None, loop=None):
 
         # now log into the central identity account to record
         # that a request to open a login session has been opened
-        bucket = loginToIdentityAccount()
+        bucket = login_to_service_account()
 
         # first, make sure that the user exists...
         account_key = "accounts/%s" % user_account.sanitised_name()
@@ -152,8 +144,8 @@ def handler(ctx, data=None, loop=None):
                                                          user_session_root)
 
         # take the opportunity to prune old user login sessions
-        prune_message = prune_expired_sessions(bucket, user_account, 
-                                               user_session_root, open_sessions)
+        prune_expired_sessions(bucket, user_account, 
+                               user_session_root, open_sessions, log)
 
         # this is the key for the session in the object store
         user_session_key = "%s/%s" % (user_session_root,
@@ -183,20 +175,17 @@ def handler(ctx, data=None, loop=None):
         status = -1
         message = "Error %s: %s" % (e.__class__,str(e))
 
-    response = {}
-    response["status"] = status
-    response["message"] = message
-    response["session_uid"] = login_uid
+    return_value = create_return_value(status, message, log)
+
+    if login_uid:
+        return_value["session_uid"] = login_uid
 
     if login_url:
-        response["login_url"] = login_url
+        return_value["login_url"] = login_url
     else:
-        response["login_url"] = None
+        return_value["login_url"] = None
 
-    if prune_message:
-        response["prune_message"] = prune_message
-
-    return json.dumps(response).encode("utf-8")
+    return pack_return_value(return_value, args)
 
 if __name__ == "__main__":
     from fdk import handle

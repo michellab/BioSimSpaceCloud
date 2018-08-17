@@ -2,9 +2,10 @@
 import json
 import fdk
 
-from Acquire import ObjectStore, UserAccount, LoginSession, bytes_to_string
-from accessaccount import loginToAccessAccount, getServicePrivateKey,
-                          getServicePrivateCertificate
+from Acquire import ObjectStore, Service, unpack_arguments, call_function, \
+                    create_return_value, pack_return_value, \
+                    login_to_service_account, get_service_info, \
+                    get_service_private_key
 
 class RequestBucketError(Exception):
     pass
@@ -15,26 +16,22 @@ def handler(ctx, data=None, loop=None):
        or read-write access. Access is granted based on a permission
        list"""
 
-    if not (data and len(data) > 0):
-        return    
-
     status = 0
     message = None
+    log = []
 
     access_token = None
 
-    try:
-        # data is already a decoded unicode string
-        data = json.loads(data)
+    args = unpack_arguments(data, get_service_private_key)
 
-        user_uuid = data["user_uuid"]
-        identity_service_url = data["identity_service"]
-        request_data = data["request"]
-        signature = string_to_bytes( data["signature"] )
+    try:
+        user_uuid = args["user_uuid"]
+        identity_service_url = args["identity_service"]
+        request_data = args["request"]
+        signature = string_to_bytes( args["signature"] )
 
         # log into the central access account
-        bucket = loginToAccessAccount()
-        service = loginToService()
+        bucket = login_to_service_account()
 
         # is the identity service supplied by the user one that we trust?
         identity_service = Service.from_data( ObjectStore.get_object_from_json(bucket,
@@ -54,9 +51,11 @@ def handler(ctx, data=None, loop=None):
         # certificate and signing certificate for this user.
         args = { "user_uuid" : user_uuid }
 
+        service = get_service_info(bucket, need_private_access=True)
+
         response = call_function("%s/get_user_keys" % identity_service_url,
-                                 args, identity_service.public_key(),
-                                 service.private_key())
+                                 args, args_key=identity_service.public_key(),
+                                 response_key=service.private_key())
 
         status = 0
         message = "Success: Status = %s" % str(response)
@@ -65,11 +64,12 @@ def handler(ctx, data=None, loop=None):
         status = -1
         message = "Error %s: %s" % (e.__class__,str(e))
 
-    response = {}
-    response["status"] = status
-    response["message"] = message
-    
-    return json.dumps(response).encode("utf-8")
+    return_value = create_return_value(status, message, log)
+
+    if access_token:
+        return_value["access_token"] = access_token
+
+    return pack_return_value(return_value, args)
 
 if __name__ == "__main__":
     from fdk import handle

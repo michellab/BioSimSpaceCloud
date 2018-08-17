@@ -1,5 +1,5 @@
 name: node-identity-login
-version: 0.0.25
+version: 0.0.26
 runtime: docker
 type: sync
 format: json

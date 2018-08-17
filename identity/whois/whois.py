@@ -2,8 +2,11 @@
 import json
 import fdk
 
-from Acquire import ObjectStore, UserAccount, LoginSession
-from identityaccount import loginToIdentityAccount
+from Acquire import ObjectStore, UserAccount, LoginSession, \
+                    Service, unpack_arguments, \
+                    create_return_value, pack_return_value, \
+                    login_to_service_account, get_service_info, \
+                    get_service_private_key
 
 class WhoisLookupError(Exception):
     pass
@@ -12,9 +15,6 @@ def handler(ctx, data=None, loop=None):
     """This function will allow anyone to query who matches
        the passed UID or username (map from one to the other)"""
 
-    if not (data and len(data) > 0):
-        return    
-
     status = 0
     message = None
     uuid = None
@@ -22,17 +22,16 @@ def handler(ctx, data=None, loop=None):
 
     log = []
 
-    try:
-        # data is already a decoded unicode string
-        data = json.loads(data)
+    args = unpack_arguments(data, get_service_private_key)
 
+    try:
         try:
-            uuid = data["uuid"]
+            uuid = args["uuid"]
         except:
             pass
 
         try:
-            username = data["username"]
+            username = args["username"]
         except:
             pass
 
@@ -43,7 +42,7 @@ def handler(ctx, data=None, loop=None):
         elif uuid is None:
             # look up the uuid from the username
             user_account = UserAccount(username)
-            bucket = loginToIdentityAccount()
+            bucket = login_to_service_account()
             user_key = "accounts/%s" % user_account.sanitised_name()
 
             try:
@@ -59,7 +58,7 @@ def handler(ctx, data=None, loop=None):
 
         elif username is None:
             # look up the username from the uuid
-            bucket = loginToIdentityAccount()
+            bucket = login_to_service_account()
 
             uuid_key = "whois/%s" % uuid
 
@@ -81,20 +80,15 @@ def handler(ctx, data=None, loop=None):
         status = -1
         message = "Error %s: %s" % (e.__class__,str(e))
 
-    response = {}
-    response["status"] = status
-    response["message"] = message
-    
+    return_value = create_return_value(status, message, log)
+
     if uuid:
-        response["uuid"] = uuid
+        return_value["uuid"] = uuid
 
     if username:
-        response["username"] = username
+        return_value["username"] = username
 
-    if log:
-        response["log"] = log
-
-    return json.dumps(response).encode("utf-8")
+    return pack_return_value(return_value, args)
 
 if __name__ == "__main__":
     from fdk import handle

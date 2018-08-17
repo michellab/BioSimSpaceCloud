@@ -17,7 +17,8 @@ except:
 __all__ = [ "ObjectStore", "get_service_info",
             "login_to_service_account", "get_service_private_key",
             "get_service_private_certificate", "get_service_public_key",
-            "get_service_public_certificate" ]
+            "get_service_public_certificate",
+            "ServiceAccountError", "MissingServiceAccountError" ]
 
 class ObjectStoreError(Exception):
     pass
@@ -319,11 +320,8 @@ class ObjectStore:
 class ServiceAccountError(Exception):
    pass
 
-class MissingServiceAccountError(Exception):
+class MissingServiceAccountError(ServiceAccountError):
    pass
-
-_public_service_info = None
-_private_service_info = None
 
 def get_service_info(bucket=None, need_private_access=False):
     """Return the service info object for this service. If private
@@ -334,16 +332,6 @@ def get_service_info(bucket=None, need_private_access=False):
 
     if bucket is None:
         bucket = login_to_service_account()
-
-    global _public_service_info
-    global _private_service_info
-
-    if _private_service_info:
-        return _private_service_info
-
-    if not need_private_access:
-        if _public_service_info:
-            return _public_service_info
 
     # find the service info from the object store
     service_key = "_service_info"
@@ -361,14 +349,10 @@ def get_service_info(bucket=None, need_private_access=False):
             raise ServiceAccountError("You must supply a $SERVICE_PASSWORD")
 
         service = _Service.from_data(service, service_password)
-        _private_service_info = service
     else:
         service = _Service.from_data(service)
-        _public_service_info = service
 
     return service
-
-_account_bucket = None
 
 def login_to_service_account():
     """This function logs into the object store account of the service account.
@@ -382,11 +366,6 @@ def login_to_service_account():
        the login information is held in an environment variable
        (which should be encrypted or hidden in some way...)
     """
-
-    global _account_bucket
-
-    if _account_bucket:
-        return _account_bucket
 
     # get the login information in json format from
     # the LOGIN_JSON environment variable
@@ -420,14 +399,14 @@ def login_to_service_account():
 
     # now login and create/load the bucket for this account
     try:
-        _account_bucket = _Account.create_and_connect_to_bucket(access_data,
-                                                     bucket_data["compartment"],
-                                                     bucket_data["bucket"])
+        account_bucket = _Account.create_and_connect_to_bucket(access_data,
+                                                    bucket_data["compartment"],
+                                                    bucket_data["bucket"])
     except Exception as e:
         raise ServiceAccountError(
              "Error connecting to the service account: %s" % str(e))
 
-    return _account_bucket
+    return account_bucket
 
 def get_service_private_key():
     """This function returns the private key for this service"""

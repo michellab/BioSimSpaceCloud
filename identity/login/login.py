@@ -3,8 +3,11 @@ import json
 import fdk
 import datetime
 
-from Acquire import ObjectStore, UserAccount, LoginSession, bytes_to_string
-from identityaccount import loginToIdentityAccount
+from Acquire import ObjectStore, UserAccount, LoginSession, bytes_to_string, \
+                    Service, unpack_arguments, \
+                    create_return_value, pack_return_value, \
+                    login_to_service_account, get_service_info, \
+                    get_service_private_key
 
 class LoginError(Exception):
     pass
@@ -13,28 +16,24 @@ def handler(ctx, data=None, loop=None):
     """This function is called by the user to log in and validate
        that a session is authorised to connect"""
 
-    if not (data and len(data) > 0):
-        return    
-
     status = 0
     message = None
     log = []
 
-    try:
-        # data is already a decoded unicode string
-        data = json.loads(data)
+    args = unpack_arguments(data, get_service_private_key)
 
-        short_uid = data["short_uid"]
-        username = data["username"]
-        password = data["password"]
-        otpcode = data["otpcode"]
+    try:
+        short_uid = args["short_uid"]
+        username = args["username"]
+        password = args["password"]
+        otpcode = args["otpcode"]
 
         # create the user account for the user
         user_account = UserAccount(username)
 
         # log into the central identity account to query
         # the current status of this login session
-        bucket = loginToIdentityAccount()
+        bucket = login_to_service_account()
 
         # locate the session referred to by this uid
         base_key = "requests/%s" % short_uid
@@ -174,14 +173,9 @@ def handler(ctx, data=None, loop=None):
         status = -1
         message = "Error %s: %s" % (e.__class__,str(e))
 
-    response = {}
-    response["status"] = status
-    response["message"] = message
-
-    if len(log) > 0:
-        response["log"] = log
+    return_value = create_return_value(status, message, log)
     
-    return json.dumps(response).encode("utf-8")
+    return pack_return_value(return_value, args)
 
 if __name__ == "__main__":
     from fdk import handle
