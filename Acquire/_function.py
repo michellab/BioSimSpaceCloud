@@ -15,7 +15,7 @@ import base64 as _base64
 __all__ = [ "call_function", "bytes_to_string", "string_to_bytes", 
             "string_to_encoded", "encoded_to_string",
             "pack_arguments", "unpack_arguments",
-            "create_return_value", "pack_return_value" ]
+            "create_return_value", "pack_return_value", "unpack_return_value" ]
 
 def string_to_encoded(s):
     """Return the passed unicode string encoded to a safely
@@ -116,16 +116,21 @@ def pack_arguments(args, key=None, response_key=None):
 
 def unpack_arguments(args, key=None):
     """Call this to unpack the passed arguments that have been encoded
-       as a json string, packed using pack_arguments"""
+       as a json string, packed using pack_arguments. This will always
+       return a dictionary. If there are no arguments, then an empty
+       dictionary will be returned
+    """
     if not (args and len(args) > 0):
-        return None
+        return {}
 
-    # args is a json-encoded utf-8 string
+    # args should be a json-encoded utf-8 string
     data = _json.loads(args)
 
-    if not isinstance(data,dict):
-        raise PackingError("The arguments should have been a dictionary. "
-                 "Instead they are an object of type %s" % str(data.__class__))
+    while not isinstance(data,dict):
+        if not (data and len(data) > 0):
+            return {}
+
+        data = _json.loads(data)
 
     try:
         is_encrypted = data["encrypted"]
@@ -137,6 +142,11 @@ def unpack_arguments(args, key=None):
                                     string_to_bytes(data["data"]).decode("utf-8") ) )
     else:
         return data
+
+def unpack_return_value(return_value, key=None):
+    """Call this to unpack the passed arguments that have been encoded
+       as a json string, packed using pack_arguments"""
+    return unpack_arguments(return_value, key)
 
 def call_function(function_url, args, args_key=None, response_key=None):
     """Call the remote function at 'function_url' passing
@@ -173,10 +183,10 @@ def call_function(function_url, args, args_key=None, response_key=None):
 
     # Now unpack the results
     try:
-        result = unpack_result( buffer.getvalue().decode("utf-8"), response_key )
+        result = unpack_return_value( buffer.getvalue().decode("utf-8"), response_key )
     except Exception as e:
         raise RemoteFunctionCallError("Error calling '%s'. Server returned a "
-               "result that could not be decoded: %s" % str(e))
+               "result that could not be decoded: %s" % (function_url,str(e)))
 
     if len(result) == 1 and "error" in result:
         raise RemoteFunctionCallError("Error calling '%s'. Server returned the "

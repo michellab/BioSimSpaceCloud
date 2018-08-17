@@ -1,6 +1,6 @@
 
 import uuid as _uuid
-from copy import deepcopy as _deepcopy
+from copy import copy as _copy
 
 from ._keys import PrivateKey as _PrivateKey
 from ._keys import PublicKey as _PublicKey
@@ -226,9 +226,9 @@ class IdentityService(Service):
     """This is a specialisation of Service for Identity Services"""
     def __init__(self, other=None):
         if isinstance(other,Service):
-            self.__dict__ = _deepcopy(other.__dict__)
+            self.__dict__ = _copy(other.__dict__)
 
-            if self.is_identity_service():
+            if not self.is_identity_service():
                 raise ServiceError("Cannot construct an IdentityService from "
                         "a service which is not an identity service!")
         else:
@@ -238,9 +238,9 @@ class AccessService(Service):
     """This is a specialisation of Service for Access Services"""
     def __init__(self,other=None):
         if isinstance(other,Service):
-            self.__dict__ = _deepcopy(other.__dict__)
+            self.__dict__ = _copy(other.__dict__)
 
-            if self.is_access_service():
+            if not self.is_access_service():
                 raise ServiceError("Cannot construct an	AccessService from "
        	       	       	"a service which is not	an access service!")
         else:
@@ -250,9 +250,9 @@ class AccountingService(Service):
     """This is a specialisation of Service for Accounting Services"""
     def __init__(self,other=None):
         if isinstance(other,Service):
-            self.__dict__ = _deepcopy(other.__dict__)
+            self.__dict__ = _copy(other.__dict__)
 
-            if self.is_accounting_service():
+            if not self.is_accounting_service():
                 raise ServiceError("Cannot construct an	AccountingService from "
        	       	       	"a service which is not	an accounting service!")
         else:
