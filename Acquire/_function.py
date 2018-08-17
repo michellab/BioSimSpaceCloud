@@ -15,7 +15,7 @@ import base64 as _base64
 __all__ = [ "call_function", "bytes_to_string", "string_to_bytes", 
             "string_to_encoded", "encoded_to_string",
             "pack_arguments", "unpack_arguments",
-            "pack_return_value" ]
+            "create_return_value", "pack_return_value" ]
 
 def string_to_encoded(s):
     """Return the passed unicode string encoded to a safely
@@ -69,6 +69,24 @@ def _get_key(key):
             pass
 
     return key
+
+def create_return_value(status, message, log=None):
+    """Convenience functiont that creates the start of the
+       return_value dictionary, setting the "status" key
+       to the value of 'status', the "message" key to the
+       value of 'message' and the "log" key to the value
+       of 'log'. This returns a simple dictionary, which 
+       is ready to be packed into a json string
+    """
+
+    return_value = {}
+    return_value["status"] = status
+    return_value["message"] = message
+
+    if log:
+        return_value["log"] = log
+
+    return return_value
 
 def pack_return_value(result, key=None, response_key=None):
     """Pack the passed result into a json string, optionally
