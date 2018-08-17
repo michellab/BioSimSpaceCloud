@@ -3,6 +3,8 @@ from ._function import call_function as _call_function
 from ._function import bytes_to_string as _bytes_to_string
 from ._function import string_to_bytes as _string_to_bytes
 
+from ._service import Service as _Service
+
 from ._keys import PrivateKey as _PrivateKey
 
 from ._qrcode import create_qrcode as _create_qrcode
@@ -40,6 +42,28 @@ class _LoginStatus(_Enum):
 def _get_identity_url():
     """Function to discover and return the default identity url"""
     return "http://130.61.60.88:8080/r/identity"
+
+def _get_identity_service(identity_url = None):
+    """Function to return the identity service for the system"""
+    if identity_url is None:
+        identity_url = _get_identity_url()
+
+    privkey = _PrivateKey()
+    response = _call_function(identity_url, {}, response_key=privkey)
+
+    try:
+        service = _Service.from_data(response["service_info"])
+    except:
+        raise LoginError("Have not received the identity service info from "
+                         "the identity service at '%s' - got '%s'" % \
+                            (identity_url,response))
+
+    if not service.is_identity_service():
+        raise LoginError("You can only use a valid identity service to log in! "
+                         "The service at '%s' is a '%s'" % \
+                           (identity_url,service.service_type()))
+
+    return service
 
 def uuid_to_username(uuid, identity_url=None):
     """Function to return the username for the passed uuid"""
@@ -135,6 +159,19 @@ class User:
         except:
             return None
 
+    def identity_service(self):
+        """Return the identity service info object for the identity
+           service used to validate the identity of this account
+        """
+        try:
+            return self._identity_service
+        except:
+            pass
+
+        self._identity_service = _get_identity_service(self.identity_service_url())
+
+        return self._identity_service
+
     def identity_service_url(self):
         """Return the URL to the identity service. This is the full URL
            to the service, minus the actual function to be called, e.g.
@@ -210,7 +247,8 @@ class User:
                      "signature" : _bytes_to_string(signature) }
 	    
             print("Logging out %s from session %s" % (self._username,self._session_uid))
-            result = _call_function("%s/logout" % identity_url, args)
+            result = _call_function("%s/logout" % identity_url, args,
+                                    args_key=self.identity_service().public_key())
             print(result)
             return result
 
@@ -229,7 +267,11 @@ class User:
         args = { "username" : self._username,
                  "password" : password }
 
-        result = _call_function("%s/register" % identity_url, args)
+        privkey = _PrivateKey()
+
+        result = _call_function("%s/register" % identity_url, args,
+                                args_key=self.identity_service().public_key(),
+                                response_key=privkey)
 
         try:
             provisioning_uri = result["provisioning_uri"]
@@ -296,7 +338,9 @@ class User:
 
         args["message"] = login_message
 
-        result = _call_function("%s/request-login" % identity_url, args)
+        result = _call_function("%s/request-login" % identity_url, args,
+                                args_key=self.identity_service().public_key(),
+                                response_key=session_key)
 
         # look for status = 0
         try:
