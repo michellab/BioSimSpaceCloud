@@ -22,7 +22,7 @@ def handler(ctx, data=None, loop=None):
 
     log = []
 
-    args = unpack_arguments(data) #, get_service_private_key)
+    args = unpack_arguments(data, get_service_private_key)
 
     try:
         try:
@@ -58,7 +58,7 @@ def handler(ctx, data=None, loop=None):
 
         if service:
             if not service.is_access_service():
-                raise ServiceSetupError("Why is the accounting service info "
+                raise ServiceSetupError("Why is the access service info "
                       "for a service of type %s" % service.service_type())
 
             service.verify_admin_user(password,otpcode)
@@ -76,9 +76,8 @@ def handler(ctx, data=None, loop=None):
                 raise ServiceSetupError("You must supply $SERVICE_PASSWORD "
                           "to setup a new service!")
 
-            service = service.to_data(service_password)
-            ObjectStore.set_object_from_json(bucket, "_service_info", service)
-            service = Service.from_data(service)
+            service_data = service.to_data(service_password)
+            ObjectStore.set_object_from_json(bucket, "_service_info", service_data)
             must_verify = False
 
         # we are definitely the admin user, so let's be introduced to
