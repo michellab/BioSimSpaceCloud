@@ -200,14 +200,14 @@ def call_function(function_url, args, args_key=None, response_key=None):
     c.perform()
     c.close()
 
+    result = buffer.getvalue().decode("utf-8")
+
     # Now unpack the results
     try:
-        result = unpack_return_value( buffer.getvalue().decode("utf-8"), response_key )
+        result = unpack_return_value( result, response_key )
     except Exception as e:
         raise RemoteFunctionCallError("Error calling '%s'. Server returned a "
                "result that could not be decoded: %s" % (function_url,str(e)))
-
-    print(result)
 
     if len(result) == 1 and "error" in result:
         raise RemoteFunctionCallError("Error calling '%s'. Server returned the "
