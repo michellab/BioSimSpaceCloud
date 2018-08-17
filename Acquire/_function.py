@@ -51,6 +51,9 @@ def string_to_bytes(s):
 class PackingError(Exception):
     pass
 
+class UnpackingError(Exception):
+    pass
+
 class RemoteFunctionCallError(Exception):
     pass
 
@@ -107,15 +110,15 @@ def pack_return_value(result, key=None, response_key=None):
     if response_key:
         result["encryption_public_key"] = bytes_to_string(response_key.bytes())
 
-    result = _json.dumps(result)
+    result = _json.dumps(result).encode("utf-8")
 
     if key:
         response = {}
-        response["data"] = bytes_to_string(key.encrypt(string_to_bytes(result)))
+        response["data"] = bytes_to_string(key.encrypt(result))
         response["encrypted"] = True
-        result = _json.dumps(response)
+        result = _json.dumps(response).encode("utf-8")
 
-    return result.encode("utf-8")
+    return result
 
 def pack_arguments(args, key=None, response_key=None):
     """Pack the passed arguments, optionally encrypted using the passed key"""
@@ -131,13 +134,21 @@ def unpack_arguments(args, key=None):
         return {}
 
     # args should be a json-encoded utf-8 string
-    data = _json.loads(args)
+    try:
+        data = _json.loads(args)
+    except Exception as e:
+        raise UnpackingError("Cannot decode json from '%s' : %s" % \
+                                 (data,str(e)))
 
     while not isinstance(data,dict):
         if not (data and len(data) > 0):
             return {}
 
-        data = _json.loads(data)
+        try:
+            data = _json.loads(data)
+        except Exception as e:
+            raise UnpackingError("Cannot decode a json dictionary from '%s' : %s" % \
+                                  (data,str(e)))
 
     try:
         is_encrypted = data["encrypted"]
@@ -147,7 +158,7 @@ def unpack_arguments(args, key=None):
     if is_encrypted:
         encrypted_data = string_to_bytes(data["data"])
         decrypted_data = _get_key(key).decrypt(encrypted_data)
-        return unpack_arguments( bytes_to_string(decrypted_data) )
+        return unpack_arguments( decrypted_data.decode("utf-8") )
     else:
         return data
 
