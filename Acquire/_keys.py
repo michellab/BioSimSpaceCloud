@@ -9,6 +9,8 @@ from cryptography.hazmat.backends import default_backend as _default_backend
 from cryptography.hazmat.primitives import hashes as _hashes
 from cryptography.hazmat.primitives.asymmetric import padding as _padding
 
+from cryptography.fernet import Fernet as _Fernet
+
 try:
     import pyotp as _pyotp
     _has_pyotp = True
@@ -24,6 +26,9 @@ class KeyManipulationError(Exception):
     pass
 
 class SignatureVerificationError(Exception):
+    pass
+
+class DecryptionError(Exception):
     pass
 
 def _assert_strong_passphrase(passphrase, mangleFunction):
@@ -98,13 +103,39 @@ class PublicKey:
              return PublicKey.read_bytes(FILE.read())
 
     def encrypt(self, message):
-        """Encrypt and return the passed message"""
-        return self._pubkey.encrypt( message,
+        """Encrypt and return the passed message. For short messages this
+           will use the private key directly. For longer messages, 
+           this will generate a random
+           symmetric key, will encrypt the message using that, and will then
+           encrypt the symmetric key. This returns some bytes
+        """
+        if isinstance(message,str):
+            message = str.encode("utf-8")
+
+        if len(message) < 0.75*self._pubkey.key_size:
+            return self._pubkey.encrypt( message,
+                                         _padding.OAEP(
+                                            mgf=_padding.MGF1(algorithm=_hashes.SHA256()),
+                                            algorithm=_hashes.SHA256(),
+                                            label=None)
+                                        )        
+
+        # this is a longer message that cannot be encoded using
+        # an asymmetric key - need to use a symmetric key
+        key = _Fernet.generate_key()
+        f = _Fernet(key)
+        token = f.encrypt(message)
+
+        encrypted_key = self._pubkey.encrypt( key,
                                      _padding.OAEP(
                                         mgf=_padding.MGF1(algorithm=_hashes.SHA256()),
                                         algorithm=_hashes.SHA256(),
                                         label=None)
                                     )
+
+        # the first 256 bytes are the encrypted key - the rest
+        # is the token, because we are using 2048 bit (256 byte) keys
+        return encrypted_key + token
 
     def verify(self, signature, message):
         """Verify that the message has been correctly signed"""
@@ -211,18 +242,55 @@ class PrivateKey:
 
         return PublicKey(self._privkey.public_key())
 
+    def key_size_in_bytes(self):
+        """Return the number of bytes in this key"""
+        if self._privkey is None:
+             return 0
+        else:
+             return int( self._privkey.key_size / 8 )
+
     def decrypt(self, message):
         """Decrypt and return the passed message"""
-        if self._privkey is None:
-            return None
+        key_size = self.key_size_in_bytes()
 
-        return self._privkey.decrypt( message,
-                                      _padding.OAEP(
-                                        mgf=_padding.MGF1(algorithm=_hashes.SHA256()),
-                                        algorithm=_hashes.SHA256(),
-                                        label=None
-                                      ),
-                                    )
+        if key_size == 0:
+            raise DecryptionError("You cannot decrypt a message "
+                                  "with a null key!")
+
+        if len(message) <= self.key_size_in_bytes():
+            # this is a small message, so should be decryptable...
+            try:
+                return self._privkey.decrypt( message,
+                                               _padding.OAEP(
+                                                 mgf=_padding.MGF1(algorithm=_hashes.SHA256()),
+                                                 algorithm=_hashes.SHA256(),
+                                                 label=None
+                                               ),
+                                            )
+            except Exception as e:
+                raise DecryptionError("Cannot decrypt the message: %s" % str(e))
+
+        # it is a larger message, so need to decrypt the secret symmetric
+        # key, and then use that to decrypt the rest of the token
+        try:
+            symkey = self._privkey.decrypt( message[0:key_size],
+                                             _padding.OAEP(
+                                               mgf=_padding.MGF1(algorithm=_hashes.SHA256()),
+                                               algorithm=_hashes.SHA256(),
+                                               label=None
+                                             ),
+                                          )
+        except Exception as e:
+            raise DecryptionError("Cannot decrypt the symmetric key used "
+                   "to encrypt the long message: %s" % str(e))
+
+        f = _Fernet(symkey)
+
+        try:
+            return f.decrypt(message[key_size:])
+        except Exception as e:
+            raise DecryptionError("Cannot decrypt the long message using the "
+                   "symmetric key: %s" % str(e))
 
     def sign(self, message):
         """Return the signature for the passed message"""

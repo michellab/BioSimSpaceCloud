@@ -61,7 +61,12 @@ def _get_key(key):
     if key is None:
         return None
     elif isinstance(key,dict):
-        key = _PublicKey.read_bytes( _string_to_bytes(key["encryption_public_key"]) )
+        try:
+            key = key["encryption_public_key"]
+        except:
+            return None
+
+        key = _PublicKey.read_bytes( _string_to_bytes(key) )
     else:
         try:
             key = key()
@@ -187,6 +192,8 @@ def call_function(function_url, args, args_key=None, response_key=None):
     except Exception as e:
         raise RemoteFunctionCallError("Error calling '%s'. Server returned a "
                "result that could not be decoded: %s" % (function_url,str(e)))
+
+    print(result)
 
     if len(result) == 1 and "error" in result:
         raise RemoteFunctionCallError("Error calling '%s'. Server returned the "
