@@ -3,8 +3,10 @@ import json
 import fdk
 import os
 
-from Acquire import ObjectStore, Service, call_function
-from accessaccount import loginToAccessAccount, get_service_info
+from Acquire import ObjectStore, Service, unpack_arguments, call_function, \
+                    create_return_value, pack_return_value, \
+                    login_to_service_account, get_service_info, \
+                    get_service_private_key, MissingServiceAccountError
 
 class ServiceSetupError(Exception):
     pass
@@ -14,42 +16,38 @@ def handler(ctx, data=None, loop=None):
        of the service, e.g. setting admin passwords,
        introducing trusted services etc."""
 
-    if not (data and len(data) > 0):
-        return    
-
     status = 0
     message = None
     provisioning_uri = None
 
     log = []
 
-    try:
-        # data is already a decoded unicode string
-        data = json.loads(data)
+    args = unpack_arguments(data) #, get_service_private_key)
 
+    try:
         try:
-            password = data["password"]
+            password = args["password"]
         except:
             password = None
 
         try:
-            otpcode = data["otpcode"]
+            otpcode = args["otpcode"]
         except:
             otpcode = None
 
         try:
-            new_service = data["new_service"]
+            new_service = args["new_service"]
         except:
             new_service = None
 
         try:
-            new_password = data["new_password"]
+            new_password = args["new_password"]
         except:
             new_password = None
 
         # first, do we have an existing Service object? If not,
         # we grant access to the first user!
-        bucket = loginToAccessAccount()
+        bucket = login_to_service_account()
 
         # The data is stored in the object store at the key _service_info
         # and is encrypted using the value of $SERVICE_PASSWORD
@@ -66,7 +64,7 @@ def handler(ctx, data=None, loop=None):
             service.verify_admin_user(password,otpcode)
         else:
             # we need to create the service
-            service_url = data["service_url"]
+            service_url = args["service_url"]
             service_type = "access"
 
             service = Service(service_type, service_url)
@@ -79,8 +77,8 @@ def handler(ctx, data=None, loop=None):
                           "to setup a new service!")
 
             service = service.to_data(service_password)
-            ObjectStore.set_object_from_json(bucket, service_key, service)
-            service = service.from_data(service_password)
+            ObjectStore.set_object_from_json(bucket, "_service_info", service)
+            service = Service.from_data(service)
             must_verify = False
 
         # we are definitely the admin user, so let's be introduced to
@@ -98,17 +96,15 @@ def handler(ctx, data=None, loop=None):
         status = -1
         message = "Error %s: %s" % (e.__class__,str(e))
 
-    response = {}
-    response["status"] = status
-    response["message"] = message
+    return_value = create_return_value(status, message, log)
     
     if provisioning_uri:
-        response["provisioning_uri"] = provisioning_uri
+        return_value["provisioning_uri"] = provisioning_uri
 
     if log:
-        response["log"] = log
+        return_value["log"] = log
 
-    return json.dumps(response).encode("utf-8")
+    return pack_return_value(return_value,args)
 
 if __name__ == "__main__":
     from fdk import handle
