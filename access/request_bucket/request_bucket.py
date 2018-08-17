@@ -3,7 +3,8 @@ import json
 import fdk
 
 from Acquire import ObjectStore, UserAccount, LoginSession, bytes_to_string
-from accessaccount import loginToAccessAccount
+from accessaccount import loginToAccessAccount, getServicePrivateKey,
+                          getServicePrivateCertificate
 
 class RequestBucketError(Exception):
     pass

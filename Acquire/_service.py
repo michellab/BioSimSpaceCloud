@@ -1,5 +1,6 @@
 
 import uuid as _uuid
+from copy import deepcopy as _deepcopy
 
 from ._keys import PrivateKey as _PrivateKey
 from ._keys import PublicKey as _PublicKey
@@ -71,6 +72,27 @@ class Service:
     def service_type(self):
         """Return the type of this service"""
         return self._service_type
+
+    def is_identity_service(self):
+        """Return whether or not this is an identity service"""
+        if self._service_type:
+            return self._service_type == "identity"
+        else:
+            return False
+
+    def is_access_service(self):
+        """Return whether or not this is an access service"""
+       	if self._service_type:
+       	    return self._service_type == "access"
+       	else:
+       	    return False
+
+    def is_accounting_service(self):
+        """Return whether or not this is an accounting service"""
+       	if self._service_type:
+       	    return self._service_type == "accounting"
+       	else:
+       	    return False
 
     def service_url(self):
         """Return the URL used to access this service"""
@@ -191,4 +213,47 @@ class Service:
         service._pubcert = _PublicKey.read_bytes(
                                 _string_to_bytes(data["public_certificate"]))
 
-        return service
+        if service.is_identity_service():
+            return IdentityService(service)
+        elif service.is_access_service():
+            return AccessService(service)
+        elif service.is_accounting_service():
+            return AccountingService(service)
+        else:
+            return service
+
+class IdentityService(Service):
+    """This is a specialisation of Service for Identity Services"""
+    def __init__(self, other=None):
+        if isinstance(other,Service):
+            self.__dict__ = _deepcopy(other.__dict__)
+
+            if self.is_identity_service():
+                raise ServiceError("Cannot construct an IdentityService from "
+                        "a service which is not an identity service!")
+        else:
+            Service.__init__(self)
+        
+class AccessService(Service):
+    """This is a specialisation of Service for Access Services"""
+    def __init__(self,other=None):
+        if isinstance(other,Service):
+            self.__dict__ = _deepcopy(other.__dict__)
+
+            if self.is_access_service():
+                raise ServiceError("Cannot construct an	AccessService from "
+       	       	       	"a service which is not	an access service!")
+        else:
+            Service.__init__(self)
+
+class AccountingService(Service):
+    """This is a specialisation of Service for Accounting Services"""
+    def __init__(self,other=None):
+        if isinstance(other,Service):
+            self.__dict__ = _deepcopy(other.__dict__)
+
+            if self.is_accounting_service():
+                raise ServiceError("Cannot construct an	AccountingService from "
+       	       	       	"a service which is not	an accounting service!")
+        else:
+            Service.__init__(self)

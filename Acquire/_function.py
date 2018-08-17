@@ -14,7 +14,8 @@ import base64 as _base64
 
 __all__ = [ "call_function", "bytes_to_string", "string_to_bytes", 
             "string_to_encoded", "encoded_to_string",
-            "encrypt_response", "decrypt_arguments" ]
+            "pack_arguments", "unpack_arguments",
+            "pack_return_value" ]
 
 def string_to_encoded(s):
     """Return the passed unicode string encoded to a safely
@@ -45,36 +46,84 @@ def string_to_bytes(s):
     else:
         return _base64.b64decode(s.encode("utf-8"))
 
+class PackingError(Exception):
+    pass
+
 class RemoteFunctionCallError(Exception):
     pass
 
-def encrypt_response(result, key):
-    """Call this to encrypt the response to a function call using
-       the passed key""
+def _get_key(key):
+    """The user may pass the key in multiple ways. It could just be 
+       a key. Or it could be a function that gets the key on demand.
+       Or it could be a dictionary that has the key stored under
+       "encryption_public_key"
+    """
+    if key is None:
+        return None
+    elif isinstance(key,dict):
+        key = _PublicKey.read_bytes( _string_to_bytes(key["encryption_public_key"]) )
+    else:
+        try:
+            key = key()
+        except:
+            pass
 
-    if isinstance(key, dict):
-        # extract the key from the data dictionary
-        key = _PublicKey.read_bytes( _string_to_bytes(key["encrypt_response_key"]) )
+    return key
+
+def pack_return_value(result, key=None, response_key=None):
+    """Pack the passed result into a json string, optionally
+       encrypting the result with the passed key, and optionally
+       supplying a public response key, with which the function 
+       being called should encrypt the response"""
+
+    key = _get_key(key)
+    response_key = _get_key(response_key)
+
+    if response_key:
+        result["encryption_public_key"] = bytes_to_string(response_key.bytes())
 
     result = _json.dumps(result).encode("utf-8")
 
-    response = {}
-    response["encrypted_response"] = _bytes_to_string(key.encrypt(result))
+    if key:
+        response = {}
+        response["data"] = bytes_to_string(key.encrypt(result))
+        response["encrypted"] = True
+        result = _json.dumps(response).encode("utf-8")
 
-    return response
+    return result
 
-def decrypt_arguments(args, key):
-   """Call this to decrypt the passed arguments using the passed key"""
+def pack_arguments(args, key=None, response_key=None):
+    """Pack the passed arguments, optionally encrypted using the passed key"""
+    return pack_return_value(args, key, response_key)
 
-   if "encrypted" in args and args["encrypted"]:
-       return key.decrypt( args["data"] ).decode("utf-8")
-   else:
-       return args
+def unpack_arguments(args, key=None):
+    """Call this to unpack the passed arguments that have been encoded
+       as a json string, packed using pack_arguments"""
+    if not (args and len(args) > 0):
+        return None
 
-def call_function(function_url, arg_dict, arg_key=None, response_key=None):
+    # args is a json-encoded utf-8 string
+    data = _json.loads(args)
+
+    if not isinstance(data,dict):
+        raise PackingError("The arguments should have been a dictionary. "
+                 "Instead they are an object of type %s" % str(data.__class__))
+
+    try:
+        is_encrypted = data["encrypted"]
+    except:
+        is_encrypted = False
+
+    if is_encrypted:
+        return unpack_arguments( _get_key(key).decrypt(
+                                    string_to_bytes(data["data"]).decode("utf-8") ) )
+    else:
+        return data
+
+def call_function(function_url, args, args_key=None, response_key=None):
     """Call the remote function at 'function_url' passing
-       in named function arguments in 'arg_dict'. If 'arg_key' is supplied,
-       the encrypt the arguments using 'arg_dict'. If 'response_key'
+       in named function arguments in 'args'. If 'args_key' is supplied,
+       then encrypt the arguments using 'args'. If 'response_key'
        is supplied, then tell the remote server to encrypt the response
        using the public version of 'response_key', so that we can
        decrypt it in the response"""
@@ -84,65 +133,40 @@ def call_function(function_url, arg_dict, arg_key=None, response_key=None):
                    "the pycurl module cannot be imported! It needs "
                    "to be installed into this python session...")
 
+    response_key = _get_key(response_key)
+
     if response_key:
-        arg_dict["encrypt_response_key"] = _bytes_to_string(
-                                              response_key.public_key().bytes() )
-
-    arg_json = _json.dumps(arg_dict)
-
-    if arg_key:
-        encrypted_args = arg_key.encrypt( arg_json.encode("utf-8") )
-        arg_json = { "encrypted" : True,
-                     "data" : encrypted_args }
-
-        arg_json = _json.dumps(arg_json)
+        args_json = pack_arguments(args, args_key, response_key.public_key())
+    else:
+        args_json = pack_arguments(args, args_key)
 
     buffer = _BytesIO()
     c = _pycurl.Curl()
     c.setopt(c.URL, function_url)
     c.setopt(c.WRITEDATA, buffer)
-    c.setopt(c.POSTFIELDS, arg_json)
+    c.setopt(c.POSTFIELDS, args_json)
+
+    args = None
+    args_json = None
+    args_key = None
+
     c.perform()
     c.close()
 
-    # All of the output from Acquire will be utf-8 encoded
-    result_json = buffer.getvalue().decode("utf-8")
+    # Now unpack the results
+    try:
+        result = unpack_result( buffer.getvalue().decode("utf-8"), response_key )
+    except Exception as e:
+        raise RemoteFunctionCallError("Error calling '%s'. Server returned a "
+               "result that could not be decoded: %s" % str(e))
 
-    # may need to multi-decode the json...
-    while isinstance(result_json,str):
-        try:
-            result_json = _json.loads(result_json)
-        except:
-            raise RemoteFunctionCallError("Error calling '%s'. Could not json decode "
-                     "the returned string: '%s'" % (function_url,result_json))
+    if len(result) == 1 and "error" in result:
+        raise RemoteFunctionCallError("Error calling '%s'. Server returned the "
+                     "error string: '%s'" % (function_url,result["error"]))
+    elif "status" in result:
+        if result["status"] != 0:
+            raise RemoteFunctionCallError("Error calling '%s'. Server returned "
+                    "error code '%d' with message '%s'" % \
+                    (function_url,result["status"],result["message"]))
 
-    # is the response actually encrypted?
-    if response_key:
-        try:
-            encrypted_response = _string_to_bytes(result_json["encrypted_response"])
-        except:
-            encrypted_response = None
-
-        if encrypted_response
-            result_json = response_key.decrypt(encrypted_response).decode("utf-8")
-
-            # may need to multi-decode the json...
-            while isinstance(result_json,str):
-                try:
-                    result_json = _json.loads(result_json)
-                except:
-                    raise RemoteFunctionCallError("Error calling '%s'. Could not json decode "
-                             "the returned string: '%s'" % (function_url,result_json))
-            
-    if isinstance(result_json,dict):
-        if len(result_json) == 1 and "error" in result_json:
-            raise RemoteFunctionCallError("Error calling '%s'. Server returned the "
-                     "error string: '%s'" % (function_url,result_json["error"]))
-        elif "status" in result_json:
-            if result_json["status"] != 0:
-                raise RemoteFunctionCallError("Error calling '%s'. Server returned "
-                     "error code '%d' with message '%s'" % \
-                        (function_url,result_json["status"],result_json["message"]))
-
-    return result_json
-
+    return result

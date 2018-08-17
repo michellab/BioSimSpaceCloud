@@ -4,17 +4,64 @@ import oci as _oci
 import os as _os
 
 from Acquire import Account as _Account
+from Acquire import ObjectStore as _ObjectStore
+from Acquire import Service as _Service
 
-class AccessAccountError(Exception):
-    """Used for errors associated with logging into or
-       using the central Access Account"""
-    pass
+class ServiceAccountError(Exception):
+   pass
 
-def loginToAccessAccount():
-    """This function logs into the account of the primary access
-       manager. This is the central account that has access to 
+class MissingServiceAccountError(Exception):
+   pass
+
+_public_service_info = None
+_private_service_info = None
+
+def get_service_info(bucket=None, need_private_access=False):
+    """Return the service info object for this service. If private
+       access is needed then this will decrypt and access the private
+       keys and signing certificates, which is slow if you just need
+       the public certificates.
+    """
+    if bucket is None:
+        bucket = login_to_service_account()
+
+    if _private_service_info:
+        return _private_service_info
+
+    if not need_private_access:
+        if _public_service_info:
+            return _public_service_info
+
+    # find the service info from the object store
+    service_key = "_service_info"
+
+    service = _ObjectStore.get_object_from_json(bucket, service_key)
+
+    if not service:
+        raise MissingServiceAccountError("You haven't yet created the service account "
+                                         "for this service. Please create an account first.")
+
+    if need_private_access:
+        service_password = os.getenv("SERVICE_PASSWORD")
+
+        if service_password is None:
+            raise ServiceAccountError("You must supply a $SERVICE_PASSWORD")
+
+        service = _Service.from_data(service, service_password)
+        _private_service_info = service
+    else:
+        service = _Service.from_data(service)
+        _public_service_info = service
+
+    return service
+
+_account_bucket = None
+
+def login_to_service_account():
+    """This function logs into the object store account of the service account.
+       Accessing the object store means being able to access 
        all resources and which can authorise the creation
-       of access to resource on the object store. Obviously this is
+       of access all resources on the object store. Obviously this is
        a powerful account, so only log into it if you need it!!!
 
        The login information should not be put into a public 
@@ -22,6 +69,9 @@ def loginToAccessAccount():
        the login information is held in an environment variable
        (which should be encrypted or hidden in some way...)
     """
+
+    if _account_bucket:
+        return _account_bucket
 
     # get the login information in json format from
     # the LOGIN_JSON environment variable
@@ -38,26 +88,44 @@ def loginToAccessAccount():
             bucket_data = _json.loads(bucket_json)
             bucket_json = None
         except:
-            raise AccessAccountError(
-             "Cannot decode the bucket information for the central access account")
+            raise ServiceAccountError(
+             "Cannot decode the bucket information for the central service account")
     else:
-        raise AccessAccountError("You must supply valid bucket data!")
+        raise ServiceAccountError("You must supply valid bucket data!")
 
     if access_json and len(access_json) > 0:
         try:
             access_data = _json.loads(access_json)
             access_json = None
         except:
-            raise AccessAccountError(
-             "Cannot decode the login information for the central access account")
+            raise ServiceAccountError(
+             "Cannot decode the login information for the central service account")
     else:
-        raise AccessAccountError("You must supply valid login data!")
+        raise ServiceAccountError("You must supply valid login data!")
 
     # now login and create/load the bucket for this account
     try:
-        return _Account.create_and_connect_to_bucket(access_data,
+        _account_bucket = _Account.create_and_connect_to_bucket(access_data,
                                                      bucket_data["compartment"],
                                                      bucket_data["bucket"])
     except Exception as e:
-        raise AccessAccountError(
-             "Error connecting to the access account: %s" % str(e))
+        raise ServiceAccountError(
+             "Error connecting to the service account: %s" % str(e))
+
+    return _account_bucket
+
+def get_service_private_key():
+    """This function returns the private key for this service"""
+    return get_service_info(need_private_access=True).private_key()
+
+def get_service_private_certificate():
+    """This function returns the private signing certificate for this service"""
+   return get_service_info(need_private_access=True).private_certificate()
+
+def get_service_public_key():
+    """This function returns the public key for this service"""
+    return get_service_info(need_private_access=False).public_key()
+
+def get_service_public_certificate():
+    """This function returns the public certificate for this service"""
+    return get_service_info(need_private_access=False).public_certificate()

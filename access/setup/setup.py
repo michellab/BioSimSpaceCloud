@@ -4,7 +4,7 @@ import fdk
 import os
 
 from Acquire import ObjectStore, Service, call_function
-from accessaccount import loginToAccessAccount
+from accessaccount import loginToAccessAccount, get_service_info
 
 class ServiceSetupError(Exception):
     pass
@@ -53,16 +53,18 @@ def handler(ctx, data=None, loop=None):
 
         # The data is stored in the object store at the key _service_info
         # and is encrypted using the value of $SERVICE_PASSWORD
-        service_key = "_service_info"
-        service_password = os.getenv("SERVICE_PASSWORD")
+        try:
+            service = get_service_info(bucket, True)
+        except MissingServiceAccountError:
+            service = None
 
-        if service_password is None:
-            raise ServiceSetupError("You must supply a $SERVICE_PASSWORD")
- 
-        service = ObjectStore.get_object_from_json(bucket, service_key)
+        if service:
+            if not service.is_access_service():
+                raise ServiceSetupError("Why is the accounting service info "
+                      "for a service of type %s" % service.service_type())
 
-        must_verify = True
-        if service is None:
+            service.verify_admin_user(password,otpcode)
+        else:
             # we need to create the service
             service_url = data["service_url"]
             service_type = "access"
@@ -71,21 +73,20 @@ def handler(ctx, data=None, loop=None):
             provisioning_uri = service.set_admin_password(password)
 
             # write the service data, encrypted using the service password
+            service_password = os.getenv("SERVICE_PASSWORD")
+            if service_password is None:
+                raise ServiceSetupError("You must supply $SERVICE_PASSWORD "
+                          "to setup a new service!")
+
             service = service.to_data(service_password)
             ObjectStore.set_object_from_json(bucket, service_key, service)
+            service = service.from_data(service_password)
             must_verify = False
-
-        # decrypt and unpack the service object
-        service = Service.from_data(service, service_password)
-
-        # validate that the user-supplied password and otpcode is correct
-        if must_verify:
-            service.verify_admin_user(password,otpcode)
 
         # we are definitely the admin user, so let's be introduced to
         # the new service (if requested)
         if new_service:
-            response = call_function(new_service, {})
+            response = call_function(new_service, {}, response_key=service.private_key())
             new_service_obj = Service.from_data( response["service_info"] )
             ObjectStore.set_object_from_json(bucket, "services/%s" % new_service,
                                              new_service_obj.to_data())

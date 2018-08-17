@@ -3,14 +3,18 @@ import json
 import fdk
 import os
 
-from Acquire import ObjectStore, Service
-from accessaccount import loginToAccessAccount
+from Acquire import ObjectStore, Service, unpack_arguments,
+             pack_return_value, 
+             login_to_service_account, get_service_info,
+             get_service_private_key
 
 def handler(ctx, data=None, loop=None):
     """This function return the status and service info"""
 
-    if not (data and len(data) > 0):
-        return    
+    data = unpack_arguments(data, get_service_private_key)
+
+    if not data:
+        return
 
     status = 0
     message = None
@@ -19,17 +23,7 @@ def handler(ctx, data=None, loop=None):
     log = []
 
     try:
-        # data is already a decoded unicode string
-        data = json.loads(data)
-
-        bucket = loginToAccessAccount()
-
-        service_key = "_service_info"
-
-        service = ObjectStore.get_object_from_json(bucket, service_key)
-
-        if service:
-            service = Service.from_data(service)
+        service = get_service_info()
 
         status = 0
         message = "Success"
@@ -48,7 +42,7 @@ def handler(ctx, data=None, loop=None):
     if log:
         response["log"] = log
 
-    return json.dumps(response).encode("utf-8")
+    return pack_return_value(response, data)
 
 if __name__ == "__main__":
     from fdk import handle
