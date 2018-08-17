@@ -10,6 +10,8 @@ except:
 from urllib.parse import urlencode as _urlencode
 from io import BytesIO as _BytesIO
 
+from ._keys import PublicKey as _PublicKey
+
 import base64 as _base64
 
 __all__ = [ "call_function", "bytes_to_string", "string_to_bytes", 
@@ -61,7 +63,12 @@ def _get_key(key):
     if key is None:
         return None
     elif isinstance(key,dict):
-        key = _PublicKey.read_bytes( _string_to_bytes(key["encryption_public_key"]) )
+        try:
+            key = key["encryption_public_key"]
+        except:
+            return None
+
+        key = _PublicKey.read_bytes( string_to_bytes(key) )
     else:
         try:
             key = key()
