@@ -107,15 +107,15 @@ def pack_return_value(result, key=None, response_key=None):
     if response_key:
         result["encryption_public_key"] = bytes_to_string(response_key.bytes())
 
-    result = _json.dumps(result).encode("utf-8")
+    result = _json.dumps(result)
 
     if key:
         response = {}
-        response["data"] = bytes_to_string(key.encrypt(result))
+        response["data"] = bytes_to_string(key.encrypt(string_to_bytes(result)))
         response["encrypted"] = True
-        result = _json.dumps(response).encode("utf-8")
+        result = _json.dumps(response)
 
-    return result
+    return result.encode("utf-8")
 
 def pack_arguments(args, key=None, response_key=None):
     """Pack the passed arguments, optionally encrypted using the passed key"""
@@ -145,8 +145,9 @@ def unpack_arguments(args, key=None):
         is_encrypted = False
 
     if is_encrypted:
-        return unpack_arguments( _get_key(key).decrypt(
-                                    string_to_bytes(data["data"]).decode("utf-8") ) )
+        encrypted_data = string_to_bytes(data["data"])
+        decrypted_data = _get_key(key).decrypt(encrypted_data)
+        return unpack_arguments( bytes_to_string(decrypted_data) )
     else:
         return data
 
