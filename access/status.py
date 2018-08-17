@@ -11,16 +11,13 @@ from Acquire import ObjectStore, Service, unpack_arguments, \
 def handler(ctx, data=None, loop=None):
     """This function return the status and service info"""
 
-    data = unpack_arguments(data, get_service_private_key)
-
-    if not data:
-        return
-
     status = 0
     message = None
     service = None
 
     log = []
+
+    args = unpack_arguments(data, get_service_private_key)
 
     try:
         service = get_service_info()
@@ -37,7 +34,10 @@ def handler(ctx, data=None, loop=None):
     if service:
         return_value["service_info"] = service.to_data()
 
-    return pack_return_value(return_value, data)
+    # Pass the original arguments when creating the return value
+    # as it may specify different formats for return, or provide
+    # an encryption key to use for encrypting the result
+    return pack_return_value(return_value, args)
 
 if __name__ == "__main__":
     from fdk import handle
