@@ -112,13 +112,15 @@ class PublicKey:
         if isinstance(message,str):
             message = str.encode("utf-8")
 
-        if len(message) < 0.75*self._pubkey.key_size:
+        try:
             return self._pubkey.encrypt( message,
                                          _padding.OAEP(
                                             mgf=_padding.MGF1(algorithm=_hashes.SHA256()),
                                             algorithm=_hashes.SHA256(),
                                             label=None)
                                         )        
+        except:
+            pass
 
         # this is a longer message that cannot be encoded using
         # an asymmetric key - need to use a symmetric key
