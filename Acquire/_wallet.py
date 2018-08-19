@@ -2,17 +2,18 @@
 import os as _os
 import sys as _sys
 import getpass as _getpass
-import pickle as _pickle
 import glob as _glob
 import re as _re
 import base64 as _base64
+import pyotp as _pyotp
 
 from ._function import call_function as _call_function
 from ._function import pack_arguments as _pack_arguments
 from ._function import unpack_arguments as _unpack_arguments
+from ._function import bytes_to_string as _bytes_to_string
+from ._function import string_to_bytes as _string_to_bytes
 from ._keys import PrivateKey as _PrivateKey
 from ._otp import OTP as _OTP
-from ._useraccount import UserAccount as _UserAccount
 from ._service import Service as _Service
 
 __all__ = [ "Wallet" ]
@@ -110,7 +111,7 @@ class Wallet:
     def _get_userfile(self, username):
         """Return the userfile for the passed username"""
         return "%s/user_%s_encrypted" % (self._wallet_dir(),
-                                         UserAccount.sanitise_username(username))
+                    _base64.b64encode(username.encode("utf-8")).decode("utf-8"))
 
     def _read_userfile(self, filename):
         """Read all info from the passed userfile"""
@@ -120,7 +121,18 @@ class Wallet:
             pass
 
         with open(filename, "rb") as FILE:
-            data = _pickle.load(FILE)
+            data = _unpack_arguments(FILE.read())
+
+            try:
+                data["password"] = _string_to_bytes(data["password"])
+            except:
+                pass
+
+            try:
+                data["otpsecret"] = _string_to_bytes(data["otpsecret"])
+            except:
+                pass
+
             self._cache[filename] = data
             return data
 
@@ -198,10 +210,11 @@ class Wallet:
     def _get_otpcode(self, username):
         """Get the OTP code for this user account"""
         try:
-            secret = self._read_userinfo(username)
-            secret = self._wallet_key.decrypt(secret).encode("utf-8")
+            userinfo = self._read_userinfo(username)
+            secret = self._wallet_key.decrypt(userinfo["otpsecret"]).decode("utf-8")
             return _pyotp.totp.TOTP(secret).now()
-        except:
+        except Exception as e:
+            print(e)
             pass
 
         print("Please enter the one-time-password code: ", end="")
@@ -251,8 +264,12 @@ class Wallet:
         """Return the public encryption key for the passed identity service"""
         return self._get_service_info(identity_service).public_key()
 
-    def send_password(self, url, username=None, remember_device=False):
+    def send_password(self, url, username=None, remember_password=True,
+                                                remember_device=False):
         """Send a password and one-time code to the supplied login url"""
+
+        if not remember_password:
+            remember_device=False
 
         # the login URL is of the form "server/code"
         words = url.split("/")
@@ -276,16 +293,55 @@ class Wallet:
                  "remember_device" : remember_device,
                  "short_uid" : short_uid }
 
+        print("\nLogging in to '%s', session '%s'..." % (identity_service,short_uid),
+              end="")
+        _sys.stdout.flush()
+
         try:
             key = _PrivateKey()
             response = _call_function("%s/login" % identity_service, args,
                                       args_key=service_key, response_key=key)
+            print("SUCCEEDED!\n")
+            _sys.stdout.flush()
         except Exception as e:
-            print("Failed to log in! Error is %s" % str(e))
+            print("FAILED!\n")
+            _sys.stdout.flush()
+            raise LoginError("Failed to log in: %s" % str(e))
 
+        if remember_password:
+            try:
+                provisioning_uri = response["provisioning_uri"]
+            except:
+                provisioning_uri = None
 
+            otpsecret = None
 
-        print("Logging in to '%s', session '%s'" % (identity_service,session_uid))
+            if provisioning_uri:
+                try:
+                    otpsecret = _re.search(r"secret=([\w\d+]+)&issuer", 
+                                           provisioning_uri).groups()[0]
+                except:
+                    pass
+
+            try:
+                user_info = self._read_userinfo(username)
+            except:
+                user_info = {}
+
+            pubkey = self._wallet_key.public_key()
+
+            user_info["username"] = username.encode("utf-8").decode("utf-8")
+            user_info["password"] = _bytes_to_string(
+                                          pubkey.encrypt(
+                                              password.encode("utf-8")) )
+
+            if otpsecret:
+                user_info["otpsecret"] = _bytes_to_string(
+                                           pubkey.encrypt(
+                                              otpsecret.encode("utf-8")) )
  
+            with open(self._get_userfile(username),"wb") as FILE:
+                FILE.write( _pack_arguments(user_info) )
+
         return response
         

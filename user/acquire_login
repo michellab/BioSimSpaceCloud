@@ -12,23 +12,54 @@ parser.add_argument("url", type=str, nargs="*",
 parser.add_argument('-u', '--username', type=str, nargs='?',
                     help="Username with which to log in")
 
-parser.add_argument('--remember-device', action="store_true",
-                    help="Whether or not to remember this device (saves OTP code)")
+parser.add_argument('--remember-password', action="store_true", default=True,
+                    help="Remember the password (default on)")
 
-parser.add_argument('--no-remember-device', action="store_true",
-                    help="Don't ask whether or not to remember this device")
+parser.add_argument('--remember-device', action="store_true", default=False,
+                    help="Remember this device (saves OTP code, defaut off)")
+
+parser.add_argument('--no-remember-device', action="store_true", default=False,
+                    help="Don't remember this device, and don't ask to")
+
+parser.add_argument('--no-remember-password', action="store_true", default=False,
+                    help="Don't remember this device, and don't ask to")
 
 args = parser.parse_args()
                          
 from Acquire import Wallet
+
+if len(args.url) == 0:
+    parser.print_help(sys.stdout)
+    sys.exit(0)   
 
 remember_device = args.remember_device
 
 if args.no_remember_device:
     remember_device = False
 
+remember_password = args.remember_password
+
+if remember_password is None:
+    remember_password = True
+
+if args.no_remember_password:
+    remember_password = False
+
+if not remember_password:
+    # should not remember the otpsecret if 
+    # we don't trust this to remember the password!
+    remember_device = False
+
 wallet = Wallet()
 
 for url in args.url:
-    response = wallet.send_password(url, args.username, remember_device)
-    print(response)
+    try:
+        response = wallet.send_password(url, args.username, 
+                                        remember_password, remember_device)
+        print(response)
+
+    except Exception as e:
+        try:
+            print(e.args[0])
+        except:
+            print(str(e))
