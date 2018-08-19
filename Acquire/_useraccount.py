@@ -178,8 +178,7 @@ class UserAccount:
         otp.verify(otpcode)
 
         if remember_device:
-            return otp.provisioning_uri(self.username(), 
-                                        issuer_name=self.login_root_url())
+            return otp.provisioning_uri(self.username()) 
 
     def to_data(self):
         """Return a data representation of this object (dictionary)"""
