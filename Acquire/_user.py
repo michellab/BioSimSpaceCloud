@@ -92,10 +92,13 @@ class User:
        user-facing part of Acquire
     """
 
-    def __init__(self, username):
+    def __init__(self, username, identity_url=None):
         """Construct a null user"""
         self._username = username
         self._status = _LoginStatus.EMPTY
+
+        if identity_url:
+            self._identity_url = identity_url
 
     def __enter__(self):
         """Enter function used by 'with' statements'"""
@@ -245,7 +248,7 @@ class User:
 	             "session_uid" : self._session_uid,
                      "permission" : permission,
                      "signature" : _bytes_to_string(signature) }
-	    
+
             print("Logging out %s from session %s" % (self._username,self._session_uid))
             result = _call_function("%s/logout" % identity_url, args,
                                     args_key=self.identity_service().public_key())
@@ -282,10 +285,8 @@ class User:
         # return a QR code for the provisioning URI
         return (provisioning_uri,_create_qrcode(provisioning_uri))
 
-    def request_login(self, login_message=None, identity_url=None):
-        """Connect to the identity URL 'identity_url'
-           and request a login to the account connected to 
-           'username'. This returns a login URL that you must
+    def request_login(self, login_message=None):
+        """Request to login to this account. This returns a login URL that you must
            connect to to supply your login credentials
 
            If 'login_message' is supplied, then this is passed to
@@ -294,9 +295,6 @@ class User:
            the user validate that they have accessed the correct
            login page. Note that if the message is None,
            then a random message will be generated.
-
-           If 'identity_url' is None then it is discovered
-           from the system
         """
         self._check_for_error()
 
@@ -304,9 +302,6 @@ class User:
             raise LoginError("You cannot try to log in twice using the same "
                              "User object. Create another object if you want "
                              "to try to log in again.")
-
-        if identity_url is None:
-            identity_url = self.identity_service_url()
 
         # first, create a private key that will be used
         # to sign all requests and identify this login
@@ -338,7 +333,7 @@ class User:
 
         args["message"] = login_message
 
-        result = _call_function("%s/request-login" % identity_url, args,
+        result = _call_function("%s/request-login" % self.identity_service_url(), args,
                                 args_key=self.identity_service().public_key(),
                                 response_key=session_key)
 
@@ -390,7 +385,6 @@ class User:
 
         # now save all of the needed data
         self._login_url = result["login_url"]
-        self._identity_url = identity_url
         self._session_key = session_key
         self._signing_key = signing_key
         self._session_uid = session_uid
