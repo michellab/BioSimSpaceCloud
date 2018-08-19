@@ -141,7 +141,7 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
         if sign_result:
             # sign using the signing certificate for this service
             signature = _get_signing_certificate().sign(result_data)
-            result["signature"] = bytes_to_string(signature)
+            response["signature"] = bytes_to_string(signature)
 
         response["data"] = bytes_to_string(result_data)
         response["encrypted"] = True
@@ -185,7 +185,7 @@ def unpack_arguments(args, key=None, public_cert=None):
     except:
         if public_cert:
             raise UnpackingError("Cannot unpack the result as it should be "
-                    "signed, but it isn't! (only encrypted results are signed")
+                    "signed, but it isn't! (only encrypted results are signed)")
 
         is_encrypted = False
 
@@ -240,7 +240,7 @@ def call_function(function_url, args, args_key=None, response_key=None,
         args_json = pack_arguments(args, args_key, response_key.public_key(),
                                    public_cert=public_cert)
     else:
-        args_json = pack_arguments(args, args_key, public_cert=public_cert)
+        args_json = pack_arguments(args, args_key)
 
     buffer = _BytesIO()
     c = _pycurl.Curl()
