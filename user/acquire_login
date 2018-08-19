@@ -1,0 +1,34 @@
+#!/Users/chris/miniconda3/bin/python
+
+import argparse
+import sys
+
+parser = argparse.ArgumentParser(description="Log in to acquire",
+                                 prog="acquire_login")
+
+parser.add_argument("url", type=str, nargs="*",
+                    help="Login URL")
+
+parser.add_argument('-u', '--username', type=str, nargs='?',
+                    help="Username with which to log in")
+
+parser.add_argument('--remember-device', action="store_true",
+                    help="Whether or not to remember this device (saves OTP code)")
+
+parser.add_argument('--no-remember-device', action="store_true",
+                    help="Don't ask whether or not to remember this device")
+
+args = parser.parse_args()
+                         
+from Acquire import Wallet
+
+remember_device = args.remember_device
+
+if args.no_remember_device:
+    remember_device = False
+
+wallet = Wallet()
+
+for url in args.url:
+    response = wallet.send_password(url, args.username, remember_device)
+    print(response)
