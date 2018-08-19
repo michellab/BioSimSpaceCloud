@@ -4,6 +4,9 @@ import uuid as _uuid
 
 from ._keys import PrivateKey as _PrivateKey
 from ._otp import OTP as _OTP
+from ._function import string_to_bytes as _string_to_bytes
+from ._function import bytes_to_string as _bytes_to_string
+from ._objstore import get_service_info as _get_service_info
 
 __all__ = ["UserAccount"]
 
@@ -15,16 +18,6 @@ class ExistingAccountError(Exception):
 
 class UserValidationError(Exception):
     pass
-
-def _bytes_to_string(b):
-    """Return the passed binary bytes safely encoded to
-       a base64 utf-8 string"""
-    return _base64.b64encode(b).decode("utf-8")
-
-def _string_to_bytes(s):
-    """Return the passed base64 utf-8 encoded binary data
-       back converted from a string back to bytes"""
-    return _base64.b64decode(s.encode("utf-8"))
 
 class UserAccount:
     """This class holds all information about a user's account,
@@ -87,7 +80,7 @@ class UserAccount:
 
     def login_root_url(self):
         """Return the root URL used to log into this account"""
-        return "https://login.biosimspace.org/auth"
+        return _get_service_info().service_url()
 
     def is_valid(self):
         """Return whether or not this is a valid account"""
@@ -167,9 +160,12 @@ class UserAccount:
         return "_".join(username.split()).replace("/","") \
                   .replace("@","_AT_").replace(".","_DOT_")
 
-    def validate_password(self, password, otpcode):
+    def validate_password(self, password, otpcode, remember_device=False):
         """Validate that the passed password and one-time-code are valid.
-           If they are, then do nothing. Otherwise raise an exception."""
+           If they are, then do nothing. Otherwise raise an exception.
+           If 'remember_device' is true, then this returns the provisioning
+           uri needed to initialise the OTP code for this account
+        """
 
         if not self.is_active():
             raise UserValidationError("Cannot validate against an inactive account")
@@ -180,6 +176,10 @@ class UserAccount:
         # now decrypt the secret otp and validate the supplied otpcode
         otp = _OTP.decrypt(self._otp_secret, privkey)
         otp.verify(otpcode)
+
+        if remember_device:
+            return otp.provisioning_uri(self.username(), 
+                                        issuer_name=self.login_root_url())
 
     def to_data(self):
         """Return a data representation of this object (dictionary)"""

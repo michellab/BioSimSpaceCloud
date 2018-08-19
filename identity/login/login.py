@@ -18,6 +18,7 @@ def handler(ctx, data=None, loop=None):
 
     status = 0
     message = None
+    provisioning_uri = None
     log = []
 
     args = unpack_arguments(data, get_service_private_key)
@@ -27,6 +28,11 @@ def handler(ctx, data=None, loop=None):
         username = args["username"]
         password = args["password"]
         otpcode = args["otpcode"]
+
+        try:
+            remember_device = args["remember_device"]
+        except:
+            remember_device = False
 
         # create the user account for the user
         user_account = UserAccount(username)
@@ -84,7 +90,8 @@ def handler(ctx, data=None, loop=None):
 
         # now try to log into this account using the supplied
         # password and one-time-code
-        user_account.validate_password(password, otpcode)
+        _provisioning_uri = user_account.validate_password(
+                                    password, otpcode, remember_device)
 
         # the user is valid - load up the actual login session
         login_session = LoginSession.from_data(
@@ -168,12 +175,16 @@ def handler(ctx, data=None, loop=None):
 
         status = 0
         message = "Success: Status = %s" % login_session.status()
+        provisioning_uri = _provisioning_uri
 
     except Exception as e:
         status = -1
         message = "Error %s: %s" % (e.__class__,str(e))
 
     return_value = create_return_value(status, message, log)
+
+    if provisioning_uri:
+        return_value["provisioning_uri"] = provisioning_uri
     
     return pack_return_value(return_value, args)
 
