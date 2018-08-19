@@ -90,8 +90,12 @@ def handler(ctx, data=None, loop=None):
 
         # now try to log into this account using the supplied
         # password and one-time-code
-        _provisioning_uri = user_account.validate_password(
-                                    password, otpcode, remember_device)
+        try:
+            _provisioning_uri = user_account.validate_password(
+                                        password, otpcode, remember_device)
+        except:
+            # don't leak info about why validation failed
+            raise LoginError("The password or OTP code is incorrect")
 
         # the user is valid - load up the actual login session
         login_session = LoginSession.from_data(
