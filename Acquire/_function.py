@@ -57,6 +57,11 @@ class UnpackingError(Exception):
 class RemoteFunctionCallError(Exception):
     pass
 
+def _get_signing_certificate():
+    """Return the signing certificate for this service"""
+    from ._objstore import get_service_private_certificate as _get_service_private_certificate
+    return _get_service_private_certificate()
+
 def _get_key(key):
     """The user may pass the key in multiple ways. It could just be 
        a key. Or it could be a function that gets the key on demand.
@@ -98,11 +103,20 @@ def create_return_value(status, message, log=None):
 
     return return_value
 
-def pack_return_value(result, key=None, response_key=None):
+def pack_return_value(result, key=None, response_key=None, public_cert=None):
     """Pack the passed result into a json string, optionally
        encrypting the result with the passed key, and optionally
        supplying a public response key, with which the function 
-       being called should encrypt the response"""
+       being called should encrypt the response. If public_cert is
+       provided then we will ask the service to sign their response.
+       Note that you can only ask the service to sign their response
+       if you provide a 'reponse_key' for them to encrypt it with too
+    """
+
+    try:
+        sign_result = key["sign_with_service_key"]
+    except:
+        sign_result = False
 
     key = _get_key(key)
     response_key = _get_key(response_key)
@@ -110,25 +124,41 @@ def pack_return_value(result, key=None, response_key=None):
     if response_key:
         result["encryption_public_key"] = bytes_to_string(response_key.bytes())
 
+        if public_cert:
+            result["sign_with_service_key"] = True
+
+    elif public_cert:
+        raise PackingError("You cannot ask the service to sign the response "
+                           "without also providing a key to encrypt it with too")
+
     result = _json.dumps(result).encode("utf-8")
 
     if key:
         response = {}
-        response["data"] = bytes_to_string(key.encrypt(result))
+
+        result_data = key.encrypt(result)
+
+        if sign_result:
+            # sign using the signing certificate for this service
+            signature = _get_signing_certificate().sign(result_data)
+            result["signature"] = bytes_to_string(signature)
+
+        response["data"] = bytes_to_string(result_data)
         response["encrypted"] = True
         result = _json.dumps(response).encode("utf-8")
 
     return result
 
-def pack_arguments(args, key=None, response_key=None):
+def pack_arguments(args, key=None, response_key=None, public_cert=None):
     """Pack the passed arguments, optionally encrypted using the passed key"""
-    return pack_return_value(args, key, response_key)
+    return pack_return_value(args, key, response_key, public_cert)
 
-def unpack_arguments(args, key=None):
+def unpack_arguments(args, key=None, public_cert=None):
     """Call this to unpack the passed arguments that have been encoded
        as a json string, packed using pack_arguments. This will always
        return a dictionary. If there are no arguments, then an empty
-       dictionary will be returned
+       dictionary will be returned. If 'public_cert' is supplied then
+       a signature of the result will be verified using 'public_cert'
     """
     if not (args and len(args) > 0):
         return {}
@@ -153,27 +183,51 @@ def unpack_arguments(args, key=None):
     try:
         is_encrypted = data["encrypted"]
     except:
+        if public_cert:
+            raise UnpackingError("Cannot unpack the result as it should be "
+                    "signed, but it isn't! (only encrypted results are signed")
+
         is_encrypted = False
+
+    if public_cert:
+        try:
+            signature = string_to_bytes(data["signature"])
+        except:
+            raise UnpackingError("We requested that the data was signed "
+                    "but a signature was not provided!")
 
     if is_encrypted:
         encrypted_data = string_to_bytes(data["data"])
+
+        if public_cert:
+            try:
+                public_cert.verify(signature, encrypted_data)
+            except Exception as e:
+                raise UnpackingError("The signature of the returned data "
+                        "is incorrect and does not match what we know! %s" % str(e))
+
         decrypted_data = _get_key(key).decrypt(encrypted_data)
         return unpack_arguments( decrypted_data.decode("utf-8") )
     else:
         return data
 
-def unpack_return_value(return_value, key=None):
+def unpack_return_value(return_value, key=None, public_cert=None):
     """Call this to unpack the passed arguments that have been encoded
        as a json string, packed using pack_arguments"""
-    return unpack_arguments(return_value, key)
+    return unpack_arguments(return_value, key, public_cert)
 
-def call_function(function_url, args, args_key=None, response_key=None):
+def call_function(function_url, args, args_key=None, response_key=None,
+                  public_cert=None):
     """Call the remote function at 'function_url' passing
        in named function arguments in 'args'. If 'args_key' is supplied,
        then encrypt the arguments using 'args'. If 'response_key'
        is supplied, then tell the remote server to encrypt the response
        using the public version of 'response_key', so that we can
-       decrypt it in the response"""
+       decrypt it in the response. If 'public_cert' is supplied then
+       we will ask the service to sign their response using their
+       service signing certificate, and we will validate the 
+       signature using 'public_cert'
+    """
 
     if not has_pycurl:
         raise RemoteFunctionCallError("Cannot call remote functions as "
@@ -183,9 +237,10 @@ def call_function(function_url, args, args_key=None, response_key=None):
     response_key = _get_key(response_key)
 
     if response_key:
-        args_json = pack_arguments(args, args_key, response_key.public_key())
+        args_json = pack_arguments(args, args_key, response_key.public_key(),
+                                   public_cert=public_cert)
     else:
-        args_json = pack_arguments(args, args_key)
+        args_json = pack_arguments(args, args_key, public_cert=public_cert)
 
     buffer = _BytesIO()
     c = _pycurl.Curl()
@@ -204,7 +259,7 @@ def call_function(function_url, args, args_key=None, response_key=None):
 
     # Now unpack the results
     try:
-        result = unpack_return_value( result, response_key )
+        result = unpack_return_value( result, response_key, public_cert )
     except Exception as e:
         raise RemoteFunctionCallError("Error calling '%s'. Server returned a "
                "result that could not be decoded: %s" % (function_url,str(e)))

@@ -291,6 +291,10 @@ class Wallet:
         """Return the public encryption key for the passed identity service"""
         return self._get_service_info(identity_service).public_key()
 
+    def _get_service_cert(self, identity_service):
+        """Return the public signing certificaet for the passed identity service"""
+        return self._get_service_info(identity_service).public_certificate()
+
     def send_password(self, url, username=None, remember_password=True,
                                                 remember_device=None):
         """Send a password and one-time code to the supplied login url"""
@@ -308,6 +312,7 @@ class Wallet:
 
         # get the public key of this identity service
         service_key = self._get_service_key(identity_service)
+        service_cert = self._get_service_cert(identity_service)
         
         if not username:
             # choose a username from any existing files...
@@ -330,7 +335,8 @@ class Wallet:
         try:
             key = _PrivateKey()
             response = _call_function("%s/login" % identity_service, args,
-                                      args_key=service_key, response_key=key)
+                                      args_key=service_key, response_key=key,
+                                      public_cert=service_cert)
             print("SUCCEEDED!")
             _sys.stdout.flush()
         except Exception as e:

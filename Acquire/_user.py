@@ -274,7 +274,8 @@ class User:
 
         result = _call_function("%s/register" % identity_url, args,
                                 args_key=self.identity_service().public_key(),
-                                response_key=privkey)
+                                response_key=privkey,
+                                public_cert=self.identity_service().public_certificate())
 
         try:
             provisioning_uri = result["provisioning_uri"]
@@ -335,7 +336,8 @@ class User:
 
         result = _call_function("%s/request-login" % self.identity_service_url(), args,
                                 args_key=self.identity_service().public_key(),
-                                response_key=session_key)
+                                response_key=session_key,
+                                public_cert=self.identity_service().public_certificate())
 
         # look for status = 0
         try:
