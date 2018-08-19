@@ -164,7 +164,9 @@ def handler(ctx, data=None, loop=None):
         ObjectStore.set_string_object(bucket, request_key, user_account.name())
 
         status = 0
-        login_url = "%s/%s" % (user_account.login_root_url(),
+        # the login URL is the URL of this identity service plus the 
+        # short UID of the session
+        login_url = "%s/%s" % (get_service_info().service_url(),
                                login_session.short_uuid())        
 
         login_uid = login_session.uuid()
