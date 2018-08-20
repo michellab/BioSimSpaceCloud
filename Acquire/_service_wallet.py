@@ -230,7 +230,7 @@ class ServiceWallet:
         try:
             service_info = self._read_service_info(service_url)
 
-            if userinfo:
+            if service_info:
                 secret = self._wallet_key.decrypt(service_info["otpsecret"]).decode("utf-8")
                 self._manual_otpcode = False
                 return _pyotp.totp.TOTP(secret).now()
@@ -257,7 +257,7 @@ class ServiceWallet:
             pass
 
         # can we read this from a file?
-        service_file = "%s/service_%s" % (ServiceWallet._wallet_dir(), 
+        service_file = "%s/certs_%s" % (ServiceWallet._wallet_dir(), 
                          _base64.b64encode(service_url.encode("utf-8")).decode("utf-8"))
 
         try:
