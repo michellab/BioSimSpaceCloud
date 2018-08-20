@@ -27,7 +27,7 @@ def url_to_encoded(url):
     """
     return _base64.b64encode(url.encode("utf-8")).decode("utf-8")
 
-def set_trusted_service_info(bucket, service_url, service):
+def set_trusted_service_info(service_url, service):
     """Set the trusted service info for 'service_url' to 'service'"""
     _ObjectStore.set_object_from_json(bucket, 
                                       "services/%s" % url_to_encoded(service_url),
