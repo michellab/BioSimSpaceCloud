@@ -6,8 +6,8 @@ from ._keys import PrivateKey as _PrivateKey
 from ._keys import PublicKey as _PublicKey
 from ._otp import OTP as _OTP
 
-from ._function import bytes_to_string as _bytes_to_string
-from ._function import string_to_bytes as _string_to_bytes
+from ._encoding import bytes_to_string as _bytes_to_string
+from ._encoding import string_to_bytes as _string_to_bytes
 
 __all__ = [ "Service" ]
 

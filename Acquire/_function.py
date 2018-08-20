@@ -13,41 +13,11 @@ from ._service_account import get_service_private_certificate as _get_service_pr
 
 from ._keys import PublicKey as _PublicKey
 
-import base64 as _base64
+from ._encoding import bytes_to_string as _bytes_to_string
+from ._encoding import string_to_bytes as _string_to_bytes
 
-__all__ = [ "call_function", "bytes_to_string", "string_to_bytes", 
-            "string_to_encoded", "encoded_to_string",
-            "pack_arguments", "unpack_arguments",
+__all__ = [ "call_function", "pack_arguments", "unpack_arguments",
             "create_return_value", "pack_return_value", "unpack_return_value" ]
-
-def string_to_encoded(s):
-    """Return the passed unicode string encoded to a safely
-       encoded base64 utf-8 string"""
-    return bytes_to_string(s.encode("utf-8"))
-
-def encoded_to_string(b):
-    """Return the passed encoded base64 utf-8 string converted
-       back into a unicode string"""
-    return string_to_bytes(b).decode("utf-8")
-
-def bytes_to_string(b):
-    """Return the passed binary bytes safely encoded to
-       a base64 utf-8 string"""
-    if b is None:
-        return None
-    else:
-        return _base64.b64encode(b).decode("utf-8")
-
-def string_to_bytes(s):
-    """Return the passed base64 utf-8 encoded binary data
-       back converted from a string back to bytes. Note that
-       this can only convert strings that were encoded using
-       bytes_to_string - you cannot use this to convert 
-       arbitrary strings to bytes"""
-    if s is None:
-        return None
-    else:
-        return _base64.b64decode(s.encode("utf-8"))
 
 class PackingError(Exception):
     pass

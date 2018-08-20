@@ -10,8 +10,8 @@ import pyotp as _pyotp
 from ._function import call_function as _call_function
 from ._function import pack_arguments as _pack_arguments
 from ._function import unpack_arguments as _unpack_arguments
-from ._function import bytes_to_string as _bytes_to_string
-from ._function import string_to_bytes as _string_to_bytes
+from ._encoding import bytes_to_string as _bytes_to_string
+from ._encoding import string_to_bytes as _string_to_bytes
 from ._keys import PrivateKey as _PrivateKey
 from ._otp import OTP as _OTP
 from ._service import Service as _Service

@@ -1,7 +1,7 @@
 
 from ._function import call_function as _call_function
-from ._function import bytes_to_string as _bytes_to_string
-from ._function import string_to_bytes as _string_to_bytes
+from ._encoding import bytes_to_string as _bytes_to_string
+from ._encoding import string_to_bytes as _string_to_bytes
 
 from ._service import Service as _Service
 
