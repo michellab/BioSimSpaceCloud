@@ -3,3 +3,4 @@ oci
 pyotp
 pycurl
 qrcode[pil]
+cachetools

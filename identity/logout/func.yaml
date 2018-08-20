@@ -1,5 +1,5 @@
 name: node-identity-logout
-version: 0.0.22
+version: 0.0.24
 runtime: docker
 type: sync
 format: json
