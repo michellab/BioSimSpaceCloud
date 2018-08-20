@@ -27,7 +27,7 @@ def handler(ctx, data=None, loop=None):
     try:
         user_uuid = args["user_uuid"]
         identity_service_url = args["identity_service"]
-        request_data = args["request"]
+        request_data = string_to_bytes( args["request"] )
         signature = string_to_bytes( args["signature"] )
 
         # log into the central access account

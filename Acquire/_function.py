@@ -46,7 +46,7 @@ def _get_key(key):
         except:
             return None
 
-        key = _PublicKey.read_bytes( string_to_bytes(key) )
+        key = _PublicKey.read_bytes( _string_to_bytes(key) )
     else:
         try:
             key = key()
@@ -92,7 +92,7 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
     response_key = _get_key(response_key)
 
     if response_key:
-        result["encryption_public_key"] = bytes_to_string(response_key.bytes())
+        result["encryption_public_key"] = _bytes_to_string(response_key.bytes())
 
         if public_cert:
             result["sign_with_service_key"] = True
@@ -111,9 +111,9 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
         if sign_result:
             # sign using the signing certificate for this service
             signature = _get_signing_certificate().sign(result_data)
-            response["signature"] = bytes_to_string(signature)
+            response["signature"] = _bytes_to_string(signature)
 
-        response["data"] = bytes_to_string(result_data)
+        response["data"] = _bytes_to_string(result_data)
         response["encrypted"] = True
         result = _json.dumps(response).encode("utf-8")
 
@@ -161,13 +161,13 @@ def unpack_arguments(args, key=None, public_cert=None):
 
     if public_cert:
         try:
-            signature = string_to_bytes(data["signature"])
+            signature = _string_to_bytes(data["signature"])
         except:
             raise UnpackingError("We requested that the data was signed "
                     "but a signature was not provided!")
 
     if is_encrypted:
-        encrypted_data = string_to_bytes(data["data"])
+        encrypted_data = _string_to_bytes(data["data"])
 
         if public_cert:
             try:

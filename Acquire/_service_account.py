@@ -1,5 +1,6 @@
 
 import os as _os
+import json as _json
 
 from ._objstore import ObjectStore as _ObjectStore
 from ._service import Service as _Service
@@ -91,7 +92,7 @@ def login_to_service_account():
         try:
             bucket_data = _json.loads(bucket_json)
             bucket_json = None
-        except:
+        except Exception as e:
             raise ServiceAccountError(
              "Cannot decode the bucket information for the central service account")
     else:
