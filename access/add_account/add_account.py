@@ -6,7 +6,8 @@ import os
 from Acquire import ObjectStore, Service, unpack_arguments, call_function, \
                     create_return_value, pack_return_value, \
                     login_to_service_account, get_service_info, \
-                    get_service_private_key, MissingServiceAccountError
+                    get_service_private_key, MissingServiceAccountError, \
+                    get_trusted_service_info
 
 class AddAccountError(Exception):
     pass
@@ -31,12 +32,21 @@ def handler(ctx, data=None, loop=None):
     args = unpack_arguments(data, get_service_private_key)
 
     try:
-        user_uid = args["user_uid"]
+        try:
+            user_uid = args["user_uid"]
+        except:
+            user_uid = None
+
+        try:
+            username = args["username"]
+        except:
+            username = None
+
+        if user_uid is None and username is None:
+            raise AddAccountError("You must supply either the username or user_uid")
+
         identity_service_url = args["identity_service_url"]        
         accounting_service_url = args["accounting_service_url"]
-
-        # check that the passed services are trusted
-        bucket = login_to_service_account()
 
         identity_service = get_trusted_service_info(identity_service_url)
         accounting_service = get_trusted_service_info(accounting_service_url)
@@ -48,6 +58,11 @@ def handler(ctx, data=None, loop=None):
         if not accounting_service.is_accounting_service():
        	    raise AddAccountError("Cannot add account as '%s' is not an	accounting "
        	       	       	       	  "service" % (accounting_service_url))
+
+        # check that user exists in the identity service
+        (username, user_uid) = identity_service.whois(username, user_uid)
+
+        log.append("%s <=> %s" % (username,user_uid))
 
         status = 0
         message = "Success"

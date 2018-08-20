@@ -1,5 +1,5 @@
 name: node-access-add-account
-version: 0.0.3
+version: 0.0.6
 runtime: docker
 type: sync
 format: json
