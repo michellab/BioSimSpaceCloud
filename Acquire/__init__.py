@@ -1,6 +1,7 @@
 
 from ._service import *
 from ._account import *
+from ._service_account import *
 from ._keys import *
 from ._otp import *
 from ._qrcode import *

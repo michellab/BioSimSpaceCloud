@@ -1,9 +1,13 @@
 
-import oci as _oci
 import os as _os
 import uuid as _uuid
 
-from oci.object_storage.models import CreateBucketDetails as _CreateBucketDetails
+try:
+    import oci as _oci
+    from oci.object_storage.models import CreateBucketDetails as _CreateBucketDetails
+    _has_oci = True
+except:
+    _has_oci = False
 
 __all__ = ["Account"]
 
