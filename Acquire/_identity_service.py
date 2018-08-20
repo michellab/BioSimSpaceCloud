@@ -11,7 +11,7 @@ from ._service import Service as _Service
 
 __all__ = [ "IdentityService" ]
 
-class ServiceError(Exception):
+class IdentityServiceError(Exception):
     pass
 
 class IdentityService(_Service):
@@ -21,8 +21,58 @@ class IdentityService(_Service):
             self.__dict__ = _copy(other.__dict__)
 
             if not self.is_identity_service():
-                raise ServiceError("Cannot construct an IdentityService from "
+                raise IdentityServiceError("Cannot construct an IdentityService from "
                         "a service which is not an identity service!")
         else:
             _Service.__init__(self)
 
+    def whois(self, username=None, user_uid=None):
+        """Do a whois lookup to map from username to user_uid or
+           vice versa
+        """
+
+        if (username is None) and (user_uid is None):
+            raise IdentityServiceError("You must supply either a username "
+                    "or a user's UID for a lookup")
+
+        key = _PrivateKey()
+
+        try:
+            if username:
+                response = _call_function("%s/whois" % self.service_url(),
+                                          {"username" : username},
+                                          public_cert=self.public_certificate(),
+                                          response_key=key)
+                lookup_uid = response["uuid"]
+            else:
+                lookup_uid = None
+
+            if user_uid:
+                response = _call_function("%s/whois" % self.service_url(),
+                                          {"uuid" : user_uid},
+                                          public_cert=self.public_certificate(),
+                                          response_key=key)
+                lookup_username = response["username"]
+            else:
+                lookup_username = None
+
+        except Exception as e:
+            raise IdentityServiceError("Failed whois lookup: %s" % str(e))
+
+        if username is None:
+            username = lookup_username
+
+        elif (lookup_username is not None) and (username != lookup_username):
+            raise IdentityServiceError("Disagreement of the user who matches "
+                    "UID=%s. We think '%s', but the identity service says '%s'" % \
+                          (user_uid,username,lookup_username))
+
+        if user_uid is None:
+            user_uid = lookup_uid
+
+        elif (lookup_uid is not None) and (user_uid != lookup_uid):
+            raise IdentityServiceError("Disagreement of the user's UID for user "
+                    "'%s'. We think %s, but the identity service says %s" % \
+                         (username,user_uid,lookup_uid))
+
+        return (username,user_uid)
