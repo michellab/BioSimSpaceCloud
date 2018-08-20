@@ -218,46 +218,13 @@ class Service:
                                 _string_to_bytes(data["public_certificate"]))
 
         if service.is_identity_service():
-            return IdentityService(service)
+            from ._identity_service import IdentityService as _IdentityService
+            return _IdentityService(service)
         elif service.is_access_service():
-            return AccessService(service)
+            from ._access_service import AccessService as _AccessService
+            return _AccessService(service)
         elif service.is_accounting_service():
-            return AccountingService(service)
+            from ._accounting_service import AccountingService as _AccountingService
+            return _AccountingService(service)
         else:
             return service
-
-class IdentityService(Service):
-    """This is a specialisation of Service for Identity Services"""
-    def __init__(self, other=None):
-        if isinstance(other,Service):
-            self.__dict__ = _copy(other.__dict__)
-
-            if not self.is_identity_service():
-                raise ServiceError("Cannot construct an IdentityService from "
-                        "a service which is not an identity service!")
-        else:
-            Service.__init__(self)
-        
-class AccessService(Service):
-    """This is a specialisation of Service for Access Services"""
-    def __init__(self,other=None):
-        if isinstance(other,Service):
-            self.__dict__ = _copy(other.__dict__)
-
-            if not self.is_access_service():
-                raise ServiceError("Cannot construct an	AccessService from "
-       	       	       	"a service which is not	an access service!")
-        else:
-            Service.__init__(self)
-
-class AccountingService(Service):
-    """This is a specialisation of Service for Accounting Services"""
-    def __init__(self,other=None):
-        if isinstance(other,Service):
-            self.__dict__ = _copy(other.__dict__)
-
-            if not self.is_accounting_service():
-                raise ServiceError("Cannot construct an	AccountingService from "
-       	       	       	"a service which is not	an accounting service!")
-        else:
-            Service.__init__(self)
