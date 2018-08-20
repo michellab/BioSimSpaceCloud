@@ -138,11 +138,12 @@ class Service:
         """Decrypt the passed message"""
         return self.private_key().decrypt(message)
 
-    def verify_admin_user(self, password, otpcode):
+    def verify_admin_user(self, password, otpcode, remember_device=False):
         """Verify that we are the admin user verifying that
            the passed password and otpcode are correct. This does
            nothing if they are correct, but raises an exception
-           if they are wrong"""
+           if they are wrong. If 'remember_device' this this returns
+           the provisioning_uri for the OTP generator"""
 
         try:
             key = _PrivateKey.read_bytes(self._admin_password, password)
@@ -150,7 +151,10 @@ class Service:
             raise ServiceError("Could not log into admin account: %s" % str(e))
 
         try:
-            _OTP.decrypt(self._otpsecret, key).verify(otpcode)
+            otp = _OTP.decrypt(self._otpsecret, key)
+            otp.verify(otpcode)
+            if remember_device:
+                return otp.provisioning_uri("admin", self.service_url())
         except Exception as e:
             raise ServiceError("Could not log into admin account: %s" % str(e))
 

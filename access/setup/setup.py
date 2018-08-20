@@ -52,6 +52,11 @@ def handler(ctx, data=None, loop=None):
         except:
             new_password = None
 
+        try:
+            remember_device = args["remember_device"]
+        except:
+            remember_device = False
+
         # first, do we have an existing Service object? If not,
         # we grant access to the first user!
         bucket = login_to_service_account()
@@ -59,7 +64,7 @@ def handler(ctx, data=None, loop=None):
         # The data is stored in the object store at the key _service_info
         # and is encrypted using the value of $SERVICE_PASSWORD
         try:
-            service = get_service_info(bucket, True)
+            service = get_service_info(True)
         except MissingServiceAccountError:
             service = None
 
@@ -68,7 +73,8 @@ def handler(ctx, data=None, loop=None):
                 raise ServiceSetupError("Why is the access service info "
                       "for a service of type %s" % service.service_type())
 
-            service.verify_admin_user(password,otpcode)
+            provisioning_uri = service.verify_admin_user(password,otpcode,
+                                                         remember_device)
         else:
             # we need to create the service
             service_url = args["service_url"]

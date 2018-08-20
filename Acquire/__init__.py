@@ -14,6 +14,7 @@ from ._service_wallet import *
 from ._keys import *
 from ._get_services import *
 from ._service_account import *
+from ._login_to_objstore import *
 from ._service import *
 from ._encoding import *
 
