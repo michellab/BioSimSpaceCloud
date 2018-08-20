@@ -6,7 +6,9 @@ import os
 from Acquire import ObjectStore, Service, unpack_arguments, call_function, \
                     create_return_value, pack_return_value, \
                     login_to_service_account, get_service_info, \
-                    get_service_private_key, MissingServiceAccountError
+                    get_service_private_key, get_remote_service_info, \
+                    set_trusted_service_info, get_trusted_service_info, \
+                    remove_trusted_service_info, MissingServiceAccountError
 
 class ServiceSetupError(Exception):
     pass
@@ -39,6 +41,11 @@ def handler(ctx, data=None, loop=None):
             new_service = args["new_service"]
         except:
             new_service = None
+
+        try:
+            remove_service = args["remove_service"]
+        except:
+            remove_service = None
 
         try:
             new_password = args["new_password"]
@@ -80,13 +87,17 @@ def handler(ctx, data=None, loop=None):
             ObjectStore.set_object_from_json(bucket, "_service_info", service_data)
             must_verify = False
 
-        # we are definitely the admin user, so let's be introduced to
-        # the new service (if requested)
+        # we are definitely the admin user, so let's add or remove remote services
+        if remove_service:
+            log.append("Removing service '%s'" % remove_service)
+            remove_trusted_service_info(bucket, remove_service)
+
         if new_service:
-            response = call_function(new_service, {}, response_key=service.private_key())
-            new_service_obj = Service.from_data( response["service_info"] )
-            ObjectStore.set_object_from_json(bucket, "services/%s" % new_service,
-                                             new_service_obj.to_data())
+            service = get_remote_service_info(bucket, new_service)
+
+            if new_service:
+                log.append("Adding service '%s'" % new_service)
+                set_trusted_service_info(bucket, new_service, service)
 
         status = 0
         message = "Success"

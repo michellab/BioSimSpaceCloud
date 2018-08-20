@@ -11,6 +11,7 @@ from ._get_public_certs import *
 from ._gromacs_runner import *
 from ._wallet import *
 from ._keys import *
+from ._get_services import *
 from ._service_account import *
 from ._service import *
 from ._encoding import *
