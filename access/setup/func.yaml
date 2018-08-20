@@ -1,5 +1,5 @@
 name: node-access-setup
-version: 0.0.27
+version: 0.0.28
 runtime: docker
 type: sync
 format: json
