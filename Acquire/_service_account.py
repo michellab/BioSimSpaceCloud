@@ -26,17 +26,13 @@ class ServiceAccountError(Exception):
 class MissingServiceAccountError(ServiceAccountError):
    pass
 
-# Cache this function as the result changes very infrequently, as involves
-# lots of round trips to the object store, and it will give the same
-# result regardless of which Fn function on the service makes the call
+# Cache this function as the data will rarely change, and this
+# will prevent too many runs to the ObjectStore
 @_cached(_cache)
-def get_service_info(bucket=None, need_private_access=False):
-    """Return the service info object for this service. If private
-       access is needed then this will decrypt and access the private
-       keys and signing certificates, which is slow if you just need
-       the public certificates.
+def _get_service_info_data(bucket=None):
+    """Internal function that loads up the service info data from
+       the object store.
     """
-
     if bucket is None:
         bucket = login_to_service_account()
 
@@ -48,6 +44,16 @@ def get_service_info(bucket=None, need_private_access=False):
     if not service:
         raise MissingServiceAccountError("You haven't yet created the service account "
                                          "for this service. Please create an account first.")
+
+    return service
+
+def get_service_info(bucket=None, need_private_access=False):
+    """Return the service info object for this service. If private
+       access is needed then this will decrypt and access the private
+       keys and signing certificates, which is slow if you just need
+       the public certificates.
+    """
+    service = _get_service_info_data(bucket)
 
     if need_private_access:
         service_password = _os.getenv("SERVICE_PASSWORD")
@@ -119,22 +125,18 @@ def login_to_service_account():
 
     return account_bucket
 
-@_cached(_cache)
 def get_service_private_key():
     """This function returns the private key for this service"""
     return get_service_info(need_private_access=True).private_key()
 
-@_cached(_cache)
 def get_service_private_certificate():
     """This function returns the private signing certificate for this service"""
     return get_service_info(need_private_access=True).private_certificate()
 
-@_cached(_cache)
 def get_service_public_key():
     """This function returns the public key for this service"""
     return get_service_info(need_private_access=False).public_key()
 
-@_cached(_cache)
 def get_service_public_certificate():
     """This function returns the public certificate for this service"""
     return get_service_info(need_private_access=False).public_certificate()
