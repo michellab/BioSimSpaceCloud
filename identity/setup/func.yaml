@@ -1,5 +1,5 @@
 name: node-identity-setup
-version: 0.0.15
+version: 0.0.17
 runtime: docker
 type: sync
 format: json
