@@ -5,6 +5,7 @@ from ._objstore import ObjectStore as _ObjectStore
 from ._service import Service as _Service
 from ._keys import PrivateKey as _PrivateKey
 from ._function import call_function as _call_function
+from ._login_to_objstore import login_to_service_account as _login_to_service_account
 
 from cachetools import cached as _cached
 from cachetools import TTLCache as _TTLCache
@@ -29,12 +30,14 @@ def url_to_encoded(url):
 
 def set_trusted_service_info(service_url, service):
     """Set the trusted service info for 'service_url' to 'service'"""
+    bucket = _login_to_service_account()
     _ObjectStore.set_object_from_json(bucket, 
                                       "services/%s" % url_to_encoded(service_url),
                                       service.to_data())
 
-def remove_trusted_service_info(bucket, service_url):
+def remove_trusted_service_info(service_url):
     """Remove the passed 'service_url' from the list of trusted services"""
+    bucket = _login_to_service_account()
     try:
         _ObjectStore.delete_object(bucket,
                                    "services/%s" % url_to_encoded(service_url))
@@ -43,8 +46,9 @@ def remove_trusted_service_info(bucket, service_url):
 
 # Cached as the remove service information will not change too often
 @_cached(_cache)
-def get_trusted_service_info(bucket, service_url):
+def get_trusted_service_info(service_url):
     """Return the trusted service info for 'service_url'"""
+    bucket = _login_to_service_account()
     data = _ObjectStore.get_object_from_json(bucket,
                                      "services/%s" % url_to_encoded(service_url))
 

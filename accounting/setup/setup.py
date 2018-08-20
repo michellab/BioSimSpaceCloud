@@ -96,14 +96,14 @@ def handler(ctx, data=None, loop=None):
         # we are definitely the admin user, so let's add or remove remote services
         if remove_service:
             log.append("Removing service '%s'" % remove_service)
-            remove_trusted_service_info(bucket, remove_service)
+            remove_trusted_service_info(remove_service)
 
         if new_service:
-            service = get_remote_service_info(bucket, new_service)
+            service = get_remote_service_info(new_service)
 
             if new_service:
                 log.append("Adding service '%s'" % new_service)
-                set_trusted_service_info(bucket, new_service, service)
+                set_trusted_service_info(new_service, service)
 
         status = 0
         message = "Success"
