@@ -9,6 +9,7 @@ except:
 
 from urllib.parse import urlencode as _urlencode
 from io import BytesIO as _BytesIO
+from ._service_account import get_service_private_certificate as _get_service_private_certificate
 
 from ._keys import PublicKey as _PublicKey
 
@@ -59,7 +60,6 @@ class RemoteFunctionCallError(Exception):
 
 def _get_signing_certificate():
     """Return the signing certificate for this service"""
-    from ._objstore import get_service_private_certificate as _get_service_private_certificate
     return _get_service_private_certificate()
 
 def _get_key(key):

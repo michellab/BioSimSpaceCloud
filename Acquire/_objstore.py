@@ -11,11 +11,7 @@ try:
 except:
     has_oci = False
 
-__all__ = [ "ObjectStore", "get_service_info",
-            "login_to_service_account", "get_service_private_key",
-            "get_service_private_certificate", "get_service_public_key",
-            "get_service_public_certificate",
-            "ServiceAccountError", "MissingServiceAccountError" ]
+__all__ = [ "ObjectStore" ]
 
 class ObjectStoreError(Exception):
     pass

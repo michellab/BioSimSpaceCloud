@@ -6,7 +6,7 @@ from ._keys import PrivateKey as _PrivateKey
 from ._otp import OTP as _OTP
 from ._function import string_to_bytes as _string_to_bytes
 from ._function import bytes_to_string as _bytes_to_string
-from ._objstore import get_service_info as _get_service_info
+from ._service_account import get_service_info as _get_service_info
 
 __all__ = ["UserAccount"]
 
