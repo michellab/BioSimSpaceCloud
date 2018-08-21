@@ -1,5 +1,6 @@
 
 import json as _json
+import traceback as _traceback
 
 try:
     import pycurl as _pycurl
@@ -55,14 +56,27 @@ def _get_key(key):
 
     return key
 
-def create_return_value(status, message, log=None):
+def create_return_value(status, message, log=None, error=None):
     """Convenience functiont that creates the start of the
        return_value dictionary, setting the "status" key
        to the value of 'status', the "message" key to the
        value of 'message' and the "log" key to the value
-       of 'log'. This returns a simple dictionary, which 
+       of 'log'. If 'error' is passed, then this signifies
+       an exception, which will be packed and returned.
+       This returns a simple dictionary, which 
        is ready to be packed into a json string
     """
+
+    if error:
+        if isinstance(error,Exception):
+            status = -2
+            message = "%s: %s\nTraceback:\n%s" % \
+                  (str(error.__class__.__name__),
+                   " : ".join(error.args),
+                   "".join(_traceback.format_tb(error.__traceback__)))
+        else:
+            status = -1
+            message = str(error)
 
     return_value = {}
     return_value["status"] = status
