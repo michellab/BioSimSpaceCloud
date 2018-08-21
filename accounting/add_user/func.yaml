@@ -1,5 +1,5 @@
 name: node-accounting-add-user
-version: 0.0.3
+version: 0.0.4
 runtime: docker
 type: sync
 format: json
