@@ -14,6 +14,7 @@ def handler(ctx, data=None, loop=None):
     status = 0
     message = None
     service = None
+    error = None
 
     log = []
 
@@ -26,17 +27,13 @@ def handler(ctx, data=None, loop=None):
         message = "Success"
 
     except Exception as e:
-        status = -1
-        message = "Error %s: %s" % (e.__class__,str(e))
+        error = e
 
-    return_value = create_return_value(status, message, log)
+    return_value = create_return_value(status, message, log, error)
 
     if service:
         return_value["service_info"] = service.to_data()
 
-    # Pass the original arguments when creating the return value
-    # as it may specify different formats for return, or provide
-    # an encryption key to use for encrypting the result
     return pack_return_value(return_value, args)
 
 if __name__ == "__main__":
