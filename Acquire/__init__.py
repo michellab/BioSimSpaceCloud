@@ -21,3 +21,6 @@ from ._encoding import *
 from ._identity_service import *
 from ._accounting_service import *
 from ._access_service import *
+from ._testing_objstore import *
+from ._oci_objstore import *
+

@@ -88,5 +88,7 @@ try:
     response = wallet.call_admin_function(function, arguments,
                                           args.service, remember_password,
                                           remember_device)
+
+    print(response)
 except Exception as e:
     print(str(e))

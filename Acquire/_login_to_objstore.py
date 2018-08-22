@@ -5,6 +5,9 @@ import json as _json
 from ._objstore import ObjectStore as _ObjectStore
 from ._account import Account as _Account
 
+from ._oci_objstore import use_oci_object_store_backend as _use_oci_object_store_backend
+from ._testing_objstore import use_testing_object_store_backend as _use_testing_object_store_backend
+
 from cachetools import cached as _cached
 from cachetools import TTLCache as _TTLCache
 
@@ -45,6 +48,12 @@ def login_to_service_account():
     bucket_json = _os.getenv("BUCKET_JSON")
     bucket_data = None
 
+    if bucket_json is None and access_json is None:
+        # see if this is running in testing mode...
+        testing_mode = _os.getenv("TEST_ACQUIRE")
+        if testing_mode:
+            return _use_testing_object_store_backend()
+
     if bucket_json and len(bucket_json) > 0:
         try:
             bucket_data = _json.loads(bucket_json)
@@ -64,6 +73,10 @@ def login_to_service_account():
              "Cannot decode the login information for the central service account")
     else:
         raise ServiceAccountError("You must supply valid login data!")
+
+    # we have OCI login details, so make sure that we are using
+    # the OCI object store backend
+    _use_oci_object_store_backend()
 
     # now login and create/load the bucket for this account
     try:
