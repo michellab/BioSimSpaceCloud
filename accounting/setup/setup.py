@@ -21,6 +21,7 @@ def handler(ctx, data=None, loop=None):
     status = 0
     message = None
     provisioning_uri = None
+    error = None
 
     log = []
 
@@ -109,16 +110,12 @@ def handler(ctx, data=None, loop=None):
         message = "Success"
 
     except Exception as e:
-        status = -1
-        message = "Error %s: %s" % (e.__class__,str(e))
+        error = e
 
-    return_value = create_return_value(status, message, log)
+    return_value = create_return_value(status, message, log, error)
     
     if provisioning_uri:
         return_value["provisioning_uri"] = provisioning_uri
-
-    if log:
-        return_value["log"] = log
 
     return pack_return_value(return_value,args)
 
