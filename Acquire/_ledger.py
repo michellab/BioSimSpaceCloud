@@ -61,37 +61,88 @@ def _get_all_ledger_entries(ledger_key, start_time, end_time):
 
     return entries
 
-class LedgerEntry:
-    """This is an entry in the accounting ledger. This
-       records the timestamp of the entry and the
-       value (negative for debit, positive for credit).
+from enum import Enum as _Enum
+
+_shortcodes = [ "??", "PC", "PD", "CR", "DB" ]
+
+class TransactionCode(_Enum):
+    NONE = 0
+    PENDING_CREDIT = 1
+    PENDING_DEBIT = 2
+    CREDIT = 3
+    DEBIT = 4
+
+    def shortcode(self):
+        """Return the short (2-letter) code for this type"""
+        return _shortcodes(self.value)
+
+    def to_shortcode(self):
+        """Synonym for .shortcode()"""
+        return self.shortcode()
+
+    @staticmethod
+    def from_shortcode(code):
+        try:
+            return TransactionType(_shortcodes.index(code.upper()))
+        except:
+            raise TransactionError("Cannot recognise the short code '%s'" % code)
+
+class Transaction:
+    """This is an entry for a transaction in the accounting ledger. This
+       records the timestamp of the entry, its type, and the
+       value (always positive - the type will determine whether this
+       is a debit or credit).
+
        Each entry has a unique ID that is used to locate
-       it in the ledger
+       it in the ledger, and a timestamp for when it was created
     """
-    def __init__(self, value=0, description=None, now=None):
-        self._value = float(value)
+    def __init__(self, value=None, code=TransactionCode.NONE, 
+                 description=None, now=None):
 
-        if not description is None:
+        if value is None:
+            return
+
+        try:
+            self._value = float(value)
+        except:
+            self._value = -1
+        
+        if self._value < 0:
+            raise TransactionError("A transaction must have a numeric "
+                                   "value that is >= 0 (be positive). '%s' "
+                                   "is not a valid value!" % value)
+
+        if isinstance(code,str):
+            self._code = TransactionCode(code)
+
+        elif isinstance(type,TransactionType):
+            self._code = code
+        else:
+            raise TransactionError("A transaction must be given a valid "
+                                   "transaction type. '%s' is not valid!" % type)
+
+        if description is None:
+            self._description = None
+        else:
             self._description = str(description)
-
-        self._uid = None
-        self._timestamp = None
+        
+        self._uid = _uuid.uuid4()
 
         if now:
             self._timestamp = now.timestamp()
+        else:
+            self._timestamp = _datetime.datetime.now().timestamp()        
+
+    def code(self):
+        """Return the code of this transaction (e.g. debit, credit, etc.)"""
+        return self._code
 
     def uid(self):
         """Return the UID of this entry"""
-        if self._uid is None:
-            self._uid = str(_uuid.uuid4())
-
         return self._uid
 
     def timestamp(self):
         """Return the timestamp of this entry"""
-        if self._timestamp is None:
-            self._timestamp = _datetime.datetime.now().timestamp()
-
         return self._timestamp
 
     def description(self):
@@ -99,33 +150,19 @@ class LedgerEntry:
         return self._description
 
     def value(self):
-        """Return the value of the transaction. Positive values
-           are credits and negative values are debits
-        """
+        """Return the value of the transaction."""
         return self._value
-
-    def mirror(self):
-        """Return the double-entry mirror of this item (the item
-           with the negative of this value, i.e. the corresponding
-           credit to this debit, or debit to this credit
-        """
-        item = LedgerItem()
-        item._description = self._description
-        item._value = -(self._value)
-        item._uid = self._uid
-        item._timestamp = self._timestamp
-
-        return item
 
     def key(self):
         """Return a unique key that can be used to identify
            and search for this entry. The key is in the format
-           year-month-day/timestamp/uid
+           year-month-day/timestamp/code/uid
         """
         timestamp = self.timestamp()
         now = _datetime.datetime.fromtimestamp(timestamp)
-        return "%d-%02d-%02d/%s/%s" % (now.year,now.month,now.day,
-                                                self._timestamp,self.uid())
+        return "%d-%02d-%02d/%s/%s/%s" % (now.year,now.month,now.day,
+                                          self._timestamp,self._code.shortcode(),
+                                          self.uid())
 
     def to_data(self):
         """Return this object converted to a dictionary"""
@@ -134,16 +171,18 @@ class LedgerEntry:
         data["uid"] = self._uid
         data["description"] = self._description
         data["timestamp"] = self._timestamp 
+        data["code"] = self._code.shortcode()
 
     @staticmethod
     def from_data(data):
         """Return the object constructed from the passed data"""
-        item = LedgerItem()
+        item = Transaction()
 
         item._value = data["value"]
         item._uid = data["uid"]
         item._description = data["description"]
         item._timestamp = data["timestamp"]
+        item._code = TransactionCode(data["code"])
 
         return item
 
@@ -184,26 +223,17 @@ class Ledger:
 
         return data
 
-    def get_entries(self, start_date, end_date):
-        """Return all of the entries in the ledger"""
-        return self._get_all_entries(self.ledger_key(),
+    def get_transactions(self, start_date, end_date):
+        """Return all of the transactions in the ledger"""
+        return self._get_all_transactions(self.ledger_key(),
                                      start_date.timestamp(), end_data.timestamp())
 
-    def _get_all_entries(self, bucket, start_time, end_time):
-        """Return all of the ledger entries between start_time and end_time.
-           This matches entries that are >= start_time and < end_time"""
-        entries = []
-
-        entries = _get_all_ledger_entries(bucket, "%s/liabilities" % self.ledger_key(),
-                                          start_time, end_time)
-
-        entries += _get_all_ledger_entries(bucket, "%s/debits" % self.ledger_key(),
-                                           start_time, end_time)
-
-        entries += _get_all_ledger_entries(bucket, "%s/credits" % self.ledger_key(),
-                                           start_time, end_time)
-
-        return entries
+    def _get_all_transactions(self, bucket, start_time, end_time):
+        """Return all of the ledger transactions between start_time and end_time.
+           This matches entries that are >= start_time and < end_time
+        """
+        return _get_all_transactions(bucket, self.ledger_key(),
+                                     start_time, end_time)
 
     def _get_todays_starting_balance(self, bucket, now):
         """Return the balance of the account (including outstanding
