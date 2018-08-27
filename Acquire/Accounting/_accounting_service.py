@@ -2,12 +2,11 @@
 import uuid as _uuid
 from copy import copy as _copy
 
-from ._keys import PrivateKey as _PrivateKey
-from ._keys import PublicKey as _PublicKey
+from Acquire.Crypto import PrivateKey as _PrivateKey
+from Acquire.Crypot import PublicKey as _PublicKey
 
-from ._function import call_function as _call_function
-
-from ._service import Service as _Service
+from Acquire.Service import call_function as _call_function
+from Acquire.Service import Service as _Service
 
 __all__ = [ "AccountingService" ]
 

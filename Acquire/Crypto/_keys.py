@@ -17,7 +17,9 @@ try:
 except:
     _has_pyotp = False
 
-__all__ = ["Keys", "PrivateKey", "PublicKey"]
+__all__ = ["PrivateKey", "PublicKey", "WeakPassphraseError",
+           "KeyManipulationError", "SignatureVerificationError",
+           "DecryptionError"]
 
 class WeakPassphraseError(Exception):
     pass
@@ -310,67 +312,3 @@ class PrivateKey:
                      _hashes.SHA256() )
 
         return signature
-
-class Keys:
-    @staticmethod
-    def assert_valid_passphrase(keyfile, passphrase, mangleFunction=None):
-        """This function asserts that the supplied passphrase
-           will unlock the passed user_account"""
-
-        passphrase = _assert_strong_passphrase(passphrase, mangleFunction)
-
-        try:
-            with open(keyfile, "rb") as FILE:
-                private_key = _serialization.load_pem_private_key(
-                                 FILE.read(),
-                                 password=passphrase.encode("utf-8"),
-                                 backend=_default_backend())
-        except IOError as e:
-            raise KeyManipulationError( "Cannot read the private keyfile %s: %s" % \
-                                         (keyfile,str(e)) )
-        except Exception as e:
-            raise KeyManipulationError( "Cannot unlock key %s. Invalid Password?" % \
-                                         (keyfile) )
-
-    @staticmethod
-    def create_key_pair(passphrase, mangleFunction=None, create_secret=False):
-        """Create a public/private key pair, with the private
-           key encrypted using the passed passphrase"""
-
-        passphrase = _assert_strong_passphrase(passphrase, mangleFunction)
-
-        # use pyca cryptography to generate the private key
-        private_key = _generate_private_key()
-
-        # now write the key to disk, encrypted using the
-        # supplied passphrase
-        privkey_bytes = private_key.private_bytes(
-                            encoding=_serialization.Encoding.PEM,
-                            format=_serialization.PrivateFormat.PKCS8,
-                            encryption_algorithm=_serialization.BestAvailableEncryption(
-                                                     passphrase.encode("utf-8")))
-
-        privkey = privkey_bytes
-
-        # now generate the public key
-        public_key = private_key.public_key()
-        pubkey_bytes = public_key.public_bytes(
-                            encoding=_serialization.Encoding.PEM,
-                            format=_serialization.PublicFormat.SubjectPublicKeyInfo)
-
-        pubkey = pubkey_bytes
-
-        if create_secret and _has_pyotp:
-            otp_secret = _pyotp.random_base32()
-            # encrypt this secret using the public key
-            secret = PublicKey(public_key).encrypt(otp_secret.encode("utf-8"))
-
-            #check that we can decrypt it...
-            test_secret = PrivateKey(private_key).decrypt(secret).decode("utf-8")
-
-            if otp_secret != test_secret:
-                print("WARNING: DIFFERENT SECRETS? %s vs %s" % (otp_secret,test_secret))
-
-            return (privkey,pubkey,secret)
-        else:
-            return (privkey, pubkey)
