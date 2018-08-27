@@ -7,6 +7,8 @@ import os as _os
 
 from ._objstore import set_object_store_backend as _set_object_store_backend
 
+from ._errors import ObjectStoreError
+
 try:
     import oci as _oci
     has_oci = True
@@ -14,9 +16,6 @@ except:
     has_oci = False
 
 __all__ = [ "use_oci_object_store_backend" ]
-
-class ObjectStoreError(Exception):
-    pass
 
 class _OCI_ObjectStore:
     """This is the backend that abstracts using the Oracle Cloud Infrastructure
@@ -202,9 +201,9 @@ class _OCI_ObjectStore:
          """Set the value of 'key' in 'bucket' to binary 'data'"""
          f = _io.BytesIO(data)
 
-         obj = bucket["client"].put_object(bucket["namespace"],
-                                           bucket["bucket_name"],
-                                           key, f)
+         bucket["client"].put_object(bucket["namespace"],
+                                     bucket["bucket_name"],
+                                     key, f)
 
     @staticmethod
     def set_object_from_file(bucket, key, filename):
@@ -212,9 +211,9 @@ class _OCI_ObjectStore:
            of the file located by 'filename'"""
 
         with open(filename, 'rb') as f:
-            obj = bucket["client"].put_object(bucket["namespace"], 
-                                              bucket["bucket_name"], 
-                                              key, f)
+            bucket["client"].put_object(bucket["namespace"], 
+                                        bucket["bucket_name"], 
+                                        key, f)
 
     @staticmethod
     def set_string_object(bucket, key, string_data):

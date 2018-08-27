@@ -2,12 +2,12 @@
 import uuid as _uuid
 from copy import copy as _copy
 
-from ._keys import PrivateKey as _PrivateKey
-from ._keys import PublicKey as _PublicKey
-from ._otp import OTP as _OTP
+from Acquire.Crypto import PrivateKey as _PrivateKey
+from Acquire.Crypto import PublicKey as _PublicKey
+from Acquire.Crypto import OTP as _OTP
 
-from ._encoding import bytes_to_string as _bytes_to_string
-from ._encoding import string_to_bytes as _string_to_bytes
+from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
+from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
 __all__ = [ "Service" ]
 
@@ -59,11 +59,12 @@ class Service:
             return
 
         key = _PrivateKey.read_bytes(self._admin_password, password)
-        otp = _OTP.decrypt(self._otpsecret, key).verify(otpcode)
+        otp = _OTP.decrypt(self._otpsecret, key)
+        otp.verify(otpcode)
 
         newkey = _PrivateKey()
-        self._admin_password = newkey.butes(new_password)
-        self._otpsecret = otp.encrypt(new_key.public_key())
+        self._admin_password = newkey.bytes(new_password)
+        self._otpsecret = otp.encrypt(newkey.public_key())
 
     def uuid(self):
         """Return the uuid of this service"""
@@ -124,7 +125,7 @@ class Service:
 
     def sign(self, message):
         """Sign the specified message"""
-        return self.private_certificate().sign(request)
+        return self.private_certificate().sign(message)
 
     def verify(self, signature, message):
         """Verify that this service signed the message"""
@@ -218,13 +219,13 @@ class Service:
                                 _string_to_bytes(data["public_certificate"]))
 
         if service.is_identity_service():
-            from ._identity_service import IdentityService as _IdentityService
+            from Acquire.Identity import IdentityService as _IdentityService
             return _IdentityService(service)
         elif service.is_access_service():
-            from ._access_service import AccessService as _AccessService
+            from Acquire.Access import AccessService as _AccessService
             return _AccessService(service)
         elif service.is_accounting_service():
-            from ._accounting_service import AccountingService as _AccountingService
+            from Acquire.Accounting import AccountingService as _AccountingService
             return _AccountingService(service)
         else:
             return service

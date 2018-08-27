@@ -8,3 +8,4 @@ all cryptography in Acquire uses best practice
 
 from ._keys import *
 from ._otp import *
+from ._errors import *

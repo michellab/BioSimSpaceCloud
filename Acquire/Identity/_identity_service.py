@@ -2,17 +2,16 @@
 import uuid as _uuid
 from copy import copy as _copy
 
-from ._keys import PrivateKey as _PrivateKey
-from ._keys import PublicKey as _PublicKey
+from Acquire.Crypto import PrivateKey as _PrivateKey
+from Acquire.Crypto import PublicKey as _PublicKey
 
-from ._function import call_function as _call_function
+from Acquire.Service import call_function as _call_function
+from Acquire.Service import Service as _Service
+from Acquire.Service import ServiceError
 
-from ._service import Service as _Service
+from ._errors import IdentityServiceError
 
 __all__ = [ "IdentityService" ]
-
-class IdentityServiceError(Exception):
-    pass
 
 class IdentityService(_Service):
     """This is a specialisation of Service for Identity Services"""

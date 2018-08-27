@@ -8,10 +8,9 @@ import glob as _glob
 
 from ._objstore import set_object_store_backend as _set_object_store_backend
 
-__all__ = ["use_testing_object_store_backend"]
+from ._errors import ObjectStoreError
 
-class ObjectStoreError(Exception):
-    pass
+__all__ = ["use_testing_object_store_backend"]
 
 class _Testing_ObjectStore:
     """This is a dummy object store that writes objects to

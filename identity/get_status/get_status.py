@@ -1,12 +1,12 @@
 
 import json
-import fdk
 
-from Acquire import ObjectStore, UserAccount, LoginSession, \
-                    Service, unpack_arguments, \
-                    create_return_value, pack_return_value, \
-                    login_to_service_account, get_service_info, \
-                    get_service_private_key
+from Acquire.Service import get_service_private_key, unpack_arguments, login_to_service_account
+from Acquire.Service import create_return_value, pack_return_value
+
+from Acquire.ObjectStore import ObjectStore
+
+from Acquire.Identity import UserAccount, LoginSession
 
 class InvalidSessionError(Exception):
     pass
@@ -57,5 +57,9 @@ def handler(ctx, data=None, loop=None):
     return pack_return_value(return_value, args)
 
 if __name__ == "__main__":
-    from fdk import handle
-    handle(handler)
+    try:
+        from fdk import handle
+        handle(handler)
+    except Exception as e:
+        print("Error running function: %s" % str(e))
+        raise

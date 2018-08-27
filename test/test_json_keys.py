@@ -1,6 +1,7 @@
 
 
-from Acquire import PrivateKey, pack_arguments, unpack_arguments
+from Acquire.Crypto import PrivateKey
+from Acquire.Service import pack_arguments, unpack_arguments
 
 import random
 

@@ -1,5 +1,5 @@
 
-from Acquire import get_remote_service_info
+from Acquire.Service import get_remote_service_info
 
 root_url = "http://130.61.60.88:8080/r"
 

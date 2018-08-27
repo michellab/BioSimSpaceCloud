@@ -1,21 +1,23 @@
 
-from ._function import call_function as _call_function
-from ._encoding import bytes_to_string as _bytes_to_string
-from ._encoding import string_to_bytes as _string_to_bytes
-
-from ._service import Service as _Service
-
-from ._keys import PrivateKey as _PrivateKey
-
-from ._qrcode import create_qrcode as _create_qrcode
-from ._qrcode import has_qrcode as _has_qrcode
-
 import os as _os
 
 from enum import Enum as _Enum
 
 from datetime import datetime as _datetime
 import time as _time
+
+from Acquire.Service import call_function as _call_function
+from Acquire.Service import Service as _Service
+
+from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
+from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
+
+from Acquire.Crypto import PrivateKey as _PrivateKey
+
+from ._qrcode import create_qrcode as _create_qrcode
+from ._qrcode import has_qrcode as _has_qrcode
+
+from ._errors import AccountError, LoginError
 
 # If we can, import socket to get the hostname and IP address
 try:
@@ -25,12 +27,6 @@ except:
     _has_socket = False
 
 __all__ = [ "User", "username_to_uuid", "uuid_to_username" ]
-
-class LoginError(Exception):
-    pass
-
-class AccountError(Exception):
-    pass
 
 class _LoginStatus(_Enum):
     EMPTY = 0
@@ -96,6 +92,7 @@ class User:
         """Construct a null user"""
         self._username = username
         self._status = _LoginStatus.EMPTY
+        self._identity_service = None
 
         if identity_url:
             self._identity_url = identity_url
@@ -104,7 +101,7 @@ class User:
         """Enter function used by 'with' statements'"""
         pass
 
-    def __exit__(self):
+    def __exit__(self, exception_type, exception_value, traceback):
         """Ensure that we logout"""
         self.logout()
 
@@ -119,7 +116,7 @@ class User:
         if status == "approved":
             self._status = _LoginStatus.LOGGED_IN
         elif status == "denied":
-            self._setErrorState("Permission to log in was denied!")
+            self._set_error_state("Permission to log in was denied!")
         elif status == "logged_out":
             self._status = _LoginStatus.LOGGED_OUT
 
@@ -166,11 +163,9 @@ class User:
         """Return the identity service info object for the identity
            service used to validate the identity of this account
         """
-        try:
+        if self._identity_service:
             return self._identity_service
-        except:
-            pass
-
+        
         self._identity_service = _get_identity_service(self.identity_service_url())
 
         return self._identity_service
@@ -368,8 +363,8 @@ class User:
             login_url = None
 
         if login_url is None:
-            error = "Failed to login. Could not extract the login URL! " % \
-                             "Result is %s" % (str(result))
+            error = "Failed to login. Could not extract the login URL! " \
+                    "Result is %s" % (str(result))
             self._set_error_state(error)
             raise LoginError(error)
 

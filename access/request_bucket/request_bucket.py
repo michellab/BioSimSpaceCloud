@@ -1,11 +1,13 @@
 
 import json
-import fdk
 
-from Acquire import ObjectStore, Service, unpack_arguments, call_function, \
-                    create_return_value, pack_return_value, \
-                    login_to_service_account, get_service_info, \
-                    get_service_private_key
+from Acquire.Service import unpack_arguments, create_return_value, pack_return_value
+from Acquire.Service import login_to_service_account, Service, get_service_private_key
+from Acquire.Service import call_function
+
+from Acquire.Crypto import PrivateKey
+
+from Acquire.ObjectStore import ObjectStore, string_to_bytes
 
 class RequestBucketError(Exception):
     pass
@@ -51,11 +53,11 @@ def handler(ctx, data=None, loop=None):
         # certificate and signing certificate for this user.
         args = { "user_uuid" : user_uuid }
 
-        service = get_service_info(bucket, need_private_access=True)
+        key = PrivateKey()
 
         response = call_function("%s/get_user_keys" % identity_service_url,
                                  args, args_key=identity_service.public_key(),
-                                 response_key=service.private_key())
+                                 response_key=key)
 
         status = 0
         message = "Success: Status = %s" % str(response)
@@ -72,5 +74,9 @@ def handler(ctx, data=None, loop=None):
     return pack_return_value(return_value, args)
 
 if __name__ == "__main__":
-    from fdk import handle
-    handle(handler)
+    try:
+        from fdk import handle
+        handle(handler)
+    except Exception as e:
+        print("Error running function: %s" % str(e))
+        raise

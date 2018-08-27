@@ -2,22 +2,17 @@
 import base64 as _base64
 import uuid as _uuid
 
-from ._keys import PrivateKey as _PrivateKey
-from ._otp import OTP as _OTP
-from ._encoding import string_to_bytes as _string_to_bytes
-from ._encoding import bytes_to_string as _bytes_to_string
-from ._service_account import get_service_info as _get_service_info
+from Acquire.Crypto import PrivateKey as _PrivateKey
+from Acquire.Crypto import OTP as _OTP
 
-__all__ = ["UserAccount"]
+from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
+from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 
-class UsernameError(Exception):
-    pass
+from Acquire.Service import get_service_info as _get_service_info
 
-class ExistingAccountError(Exception):
-    pass
+from ._errors import UsernameError, ExistingAccountError, UserValidationError
 
-class UserValidationError(Exception):
-    pass
+__all__ = [ "UserAccount" ]
 
 class UserAccount:
     """This class holds all information about a user's account,

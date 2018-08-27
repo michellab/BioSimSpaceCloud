@@ -2,14 +2,16 @@
 import os as _os
 import json as _json
 
-from ._objstore import ObjectStore as _ObjectStore
-from ._account import Account as _Account
-
-from ._oci_objstore import use_oci_object_store_backend as _use_oci_object_store_backend
-from ._testing_objstore import use_testing_object_store_backend as _use_testing_object_store_backend
-
 from cachetools import cached as _cached
 from cachetools import TTLCache as _TTLCache
+
+from Acquire.ObjectStore import ObjectStore as _ObjectStore
+from Acquire.ObjectStore import use_oci_object_store_backend as _use_oci_object_store_backend
+from Acquire.ObjectStore import use_testing_object_store_backend as _use_testing_object_store_backend
+
+from ._account import Account as _Account
+
+from ._errors import ServiceAccountError
 
 # The cache can hold a maximum of 50 objects, and will be renewed
 # every 300 seconds (so any changes in this service's key would
@@ -17,9 +19,6 @@ from cachetools import TTLCache as _TTLCache
 _cache = _TTLCache(maxsize=50, ttl=300) 
 
 __all__ = [ "login_to_service_account" ]
-
-class ServiceAccountError(Exception):
-    pass
 
 # Cache this function as the result changes very infrequently, as involves 
 # lots of round trips to the object store, and it will give the same

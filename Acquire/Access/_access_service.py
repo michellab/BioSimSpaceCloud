@@ -2,17 +2,15 @@
 import uuid as _uuid
 from copy import copy as _copy
 
-from ._keys import PrivateKey as _PrivateKey
-from ._keys import PublicKey as _PublicKey
+from Acquire.Crypto import PrivateKey as _PrivateKey
+from Acquire.Crypto import PublicKey as _PublicKey
 
-from ._function import call_function as _call_function
+from Acquire.Service import call_function as _call_function
+from Acquire.Service import Service as _Service
 
-from ._service import Service as _Service
+from ._errors import AccessServiceError
 
 __all__ = [ "AccessService" ]
-
-class ServiceError(Exception):
-    pass
 
 class AccessService(_Service):
     """This is a specialisation of Service for Access Services"""
@@ -21,8 +19,7 @@ class AccessService(_Service):
             self.__dict__ = _copy(other.__dict__)
 
             if not self.is_access_service():
-                raise ServiceError("Cannot construct an IdentityService from "
+                raise AccessServiceError("Cannot construct an AccessService from "
                         "a service which is not an access service!")
         else:
             _Service.__init__(self)
-

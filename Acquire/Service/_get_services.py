@@ -1,14 +1,18 @@
 
 import base64 as _base64
 
-from ._objstore import ObjectStore as _ObjectStore
-from ._service import Service as _Service
-from ._keys import PrivateKey as _PrivateKey
-from ._function import call_function as _call_function
-from ._login_to_objstore import login_to_service_account as _login_to_service_account
-
 from cachetools import cached as _cached
 from cachetools import TTLCache as _TTLCache
+
+from Acquire.ObjectStore import ObjectStore as _ObjectStore
+from Acquire.Crypto import PrivateKey as _PrivateKey
+
+from ._service import Service as _Service
+from ._function import call_function as _call_function
+
+from ._login_to_objstore import login_to_service_account as _login_to_service_account
+
+from ._errors import ServiceError, ServiceAccountError
 
 # The cache can hold a maximum of 50 objects, and will be renewed
 # every 300 seconds (so any changes in this service's key would
@@ -17,10 +21,7 @@ _cache = _TTLCache(maxsize=50, ttl=300)
 
 __all__ = [ "url_to_encoded", "get_trusted_service_info",
             "set_trusted_service_info", "remove_trusted_service_info",
-            "get_remote_service_info", "ServiceError" ]
-
-class ServiceError(Exception):
-   pass
+            "get_remote_service_info" ]
 
 def url_to_encoded(url):
     """Return an encoding of the passed url that is safe to use 

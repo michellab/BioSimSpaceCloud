@@ -7,10 +7,9 @@ except:
 
 from ._keys import PublicKey as _PublicKey
 
-__all__ = [ "OTP" ]
+from ._errors import OTPError
 
-class OTPError(Exception):
-    pass
+__all__ = [ "OTP" ]
 
 class OTP:
     """This class handles everything to do with obtaining and
@@ -22,6 +21,10 @@ class OTP:
                   "pyotp module is not available. Please install and try again")
 
         self._secret = _pyotp.random_base32()
+
+    def __str__(self):
+        """Return a string representation of this OTP"""
+        return "OTP()"
 
     @staticmethod
     def decrypt(secret, key):

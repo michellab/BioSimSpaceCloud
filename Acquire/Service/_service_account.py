@@ -2,12 +2,15 @@
 import os as _os
 import json as _json
 
-from ._objstore import ObjectStore as _ObjectStore
+from cachetools import cached as _cached
+from cachetools import TTLCache as _TTLCache
+
+from Acquire.ObjectStore import ObjectStore as _ObjectStore
+
 from ._service import Service as _Service
 from ._login_to_objstore import login_to_service_account as _login_to_service_account
 
-from cachetools import cached as _cached
-from cachetools import TTLCache as _TTLCache
+from ._errors import ServiceError, ServiceAccountError, MissingServiceAccountError
 
 # The cache can hold a maximum of 50 objects, and will be renewed
 # every 300 seconds (so any changes in this service's key would
@@ -16,14 +19,7 @@ _cache = _TTLCache(maxsize=50, ttl=300)
 
 __all__ = [ "get_service_info", "get_service_private_key",
             "get_service_private_certificate", "get_service_public_key",
-            "get_service_public_certificate",
-            "ServiceAccountError", "MissingServiceAccountError" ]
-
-class ServiceAccountError(Exception):
-   pass
-
-class MissingServiceAccountError(ServiceAccountError):
-   pass
+            "get_service_public_certificate" ]
 
 # Cache this function as the data will rarely change, and this
 # will prevent too many runs to the ObjectStore

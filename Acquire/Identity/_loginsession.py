@@ -4,13 +4,12 @@ import uuid as _uuid
 
 import base64 as _base64
 
-from ._encoding import string_to_bytes as _string_to_bytes
-from ._encoding import bytes_to_string as _bytes_to_string
+from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
+from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 
-__all__ = [ "LoginSession" ]
+from ._errors import LoginSessionError
 
-class LoginSessionError(Exception):
-    pass
+__all__ = [ "LoginSession", "LoginSessionError" ]
 
 class LoginSession:
     """This class holds all details of a single login session"""

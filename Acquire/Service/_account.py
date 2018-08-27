@@ -9,10 +9,9 @@ try:
 except:
     _has_oci = False
 
-__all__ = ["Account"]
+from ._errors import AccountError
 
-class AccountError(Exception):
-    pass
+__all__ = ["Account"]
 
 class Account:
     @staticmethod

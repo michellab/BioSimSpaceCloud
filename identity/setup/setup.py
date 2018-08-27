@@ -1,14 +1,13 @@
 
 import json
-import fdk
 import os
 
-from Acquire import ObjectStore, Service, unpack_arguments, call_function, \
-                    create_return_value, pack_return_value, \
-                    login_to_service_account, get_service_info, \
-                    get_service_private_key, get_remote_service_info, \
-                    set_trusted_service_info, get_trusted_service_info, \
-                    remove_trusted_service_info, MissingServiceAccountError
+from Acquire.Service import set_trusted_service_info, call_function, create_return_value
+from Acquire.Service import unpack_arguments, login_to_service_account, get_service_info
+from Acquire.Service import get_service_private_key, MissingServiceAccountError, Service
+from Acquire.Service import remove_trusted_service_info, pack_return_value, get_remote_service_info
+
+from Acquire.ObjectStore import ObjectStore
 
 class ServiceSetupError(Exception):
     pass
@@ -91,7 +90,6 @@ def handler(ctx, data=None, loop=None):
 
             service_data = service.to_data(service_password)
             ObjectStore.set_object_from_json(bucket, "_service_info", service_data)
-            must_verify = False
 
         # we are definitely the admin user, so let's add or remove remote services
         if remove_service:
@@ -123,5 +121,9 @@ def handler(ctx, data=None, loop=None):
     return pack_return_value(return_value,args)
 
 if __name__ == "__main__":
-    from fdk import handle
-    handle(handler)
+    try:
+        from fdk import handle
+        handle(handler)
+    except Exception as e:
+        print("Error running function: %s" % str(e))
+        raise

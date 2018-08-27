@@ -33,7 +33,7 @@ parser.add_argument('--remove-service', type=str, nargs="*",
 
 args = parser.parse_args()
                          
-from Acquire import ServiceWallet
+from Acquire.Client import ServiceWallet
 
 remember_device = args.remember_device
 
@@ -60,12 +60,12 @@ if args.remove_service:
         do_nothing = False
         print("Removing locally stored information about service '%s'" % service)
         try:
-            Wallet.remove_service_info(service)
+            ServiceWallet.remove_service_info(service)
         except Exception as e:
             print(e)
             pass
         try:
-            Wallet.remove_service(service)
+            ServiceWallet.remove_service(service)
         except Exception as e:
             print(e)
             pass

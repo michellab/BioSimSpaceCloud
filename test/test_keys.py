@@ -1,7 +1,8 @@
 
 import random
+import os
 
-from Acquire import PublicKey, PrivateKey
+from Acquire.Crypto import PublicKey, PrivateKey
 
 class AssertationError(Exception):
     pass
@@ -50,3 +51,4 @@ if m != long_message:
     print(long_message[0:32], m[0:32])
     raise AssertationError()
 
+os.unlink("test.pem")

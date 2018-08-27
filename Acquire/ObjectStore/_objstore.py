@@ -5,10 +5,9 @@ import uuid as _uuid
 import json as _json
 import os as _os
 
-__all__ = [ "ObjectStore", "set_object_store_backend" ]
+from ._errors import ObjectStoreError
 
-class ObjectStoreError(Exception):
-    pass
+__all__ = [ "ObjectStore", "set_object_store_backend" ]
 
 _objstore_backend = None
 

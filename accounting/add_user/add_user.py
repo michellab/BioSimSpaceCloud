@@ -1,13 +1,9 @@
 
 import json
-import fdk
 import os
 
-from Acquire import ObjectStore, Service, unpack_arguments, call_function, \
-                    create_return_value, pack_return_value, \
-                    login_to_service_account, get_service_info, \
-                    get_service_private_key, MissingServiceAccountError, \
-                    get_trusted_service_info
+from Acquire.Service import unpack_arguments, get_service_private_key, get_trusted_service_info
+from Acquire.Service import create_return_value, pack_return_value
 
 class AddUserError(Exception):
     pass
@@ -63,5 +59,9 @@ def handler(ctx, data=None, loop=None):
     return pack_return_value(return_value,args)
 
 if __name__ == "__main__":
-    from fdk import handle
-    handle(handler)
+    try:
+        from fdk import handle
+        handle(handler)
+    except Exception as e:
+        print("Error running function: %s" % str(e))
+        raise

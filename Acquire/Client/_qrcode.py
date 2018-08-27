@@ -7,10 +7,9 @@ try:
 except:
     _has_qrcode = False
 
-__all__ = [ "create_qrcode", "has_qrcode" ]
+from ._errors import QRCodeError
 
-class QRCodeError(Exception):
-    pass
+__all__ = [ "create_qrcode", "has_qrcode" ]
 
 def has_qrcode():
     """Return whether or not we support creating QR codes"""

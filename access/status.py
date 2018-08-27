@@ -1,12 +1,9 @@
 
 import json
-import fdk
 import os
 
-from Acquire import ObjectStore, Service, unpack_arguments, \
-                    create_return_value, pack_return_value, \
-                    login_to_service_account, get_service_info, \
-                    get_service_private_key
+from Acquire.Service import unpack_arguments, get_service_private_key, create_return_value
+from Acquire.Service import get_service_info, pack_return_value
 
 def handler(ctx, data=None, loop=None):
     """This function return the status and service info"""
@@ -40,5 +37,9 @@ def handler(ctx, data=None, loop=None):
     return pack_return_value(return_value, args)
 
 if __name__ == "__main__":
-    from fdk import handle
-    handle(handler)
+    try:
+        from fdk import handle
+        handle(handler)
+    except Exception as e:
+        print("Error running function: %s" % str(e))
+        raise

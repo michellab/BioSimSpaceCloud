@@ -11,27 +11,16 @@ from cryptography.hazmat.primitives.asymmetric import padding as _padding
 
 from cryptography.fernet import Fernet as _Fernet
 
+from ._errors import WeakPassphraseError, KeyManipulationError, SignatureVerificationError
+from ._errors import DecryptionError
+
 try:
     import pyotp as _pyotp
     _has_pyotp = True
 except:
     _has_pyotp = False
 
-__all__ = ["PrivateKey", "PublicKey", "WeakPassphraseError",
-           "KeyManipulationError", "SignatureVerificationError",
-           "DecryptionError"]
-
-class WeakPassphraseError(Exception):
-    pass
-
-class KeyManipulationError(Exception):
-    pass
-
-class SignatureVerificationError(Exception):
-    pass
-
-class DecryptionError(Exception):
-    pass
+__all__ = ["PrivateKey", "PublicKey"]
 
 def _assert_strong_passphrase(passphrase, mangleFunction):
     """This function returns whether or not the passed  
@@ -79,6 +68,10 @@ class PublicKey:
         return self._pubkey.public_bytes(
                             encoding=_serialization.Encoding.PEM,
                             format=_serialization.PublicFormat.SubjectPublicKeyInfo)
+
+    def __str__(self):
+        """Return a string representation of this key"""
+        return "PublicKey('%s')" % self.bytes().decode("utf-8")
 
     def write(self, filename):
         """Write this public key to 'filename'"""
@@ -171,6 +164,10 @@ class PrivateKey:
             self._privkey = _generate_private_key()
         else:
             self._privkey = private_key
+
+    def __str__(self):
+        """Return a string representation of this key"""
+        return "PrivateKey( public_key='%s' )" % self.public_key().bytes().decode("utf-8")
 
     @staticmethod
     def read_bytes(data, passphrase, mangleFunction=None):

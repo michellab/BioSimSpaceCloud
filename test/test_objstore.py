@@ -5,7 +5,8 @@
 import os
 os.environ["TEST_ACQUIRE"] = "1"
 
-from Acquire import login_to_service_account, ObjectStore
+from Acquire.ObjectStore import ObjectStore
+from Acquire.Service import login_to_service_account
 
 bucket = login_to_service_account()
 

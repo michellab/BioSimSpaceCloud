@@ -7,19 +7,20 @@ import re as _re
 import base64 as _base64
 import pyotp as _pyotp
 
-from ._function import call_function as _call_function
-from ._function import pack_arguments as _pack_arguments
-from ._function import unpack_arguments as _unpack_arguments
-from ._encoding import bytes_to_string as _bytes_to_string
-from ._encoding import string_to_bytes as _string_to_bytes
-from ._keys import PrivateKey as _PrivateKey
-from ._otp import OTP as _OTP
-from ._service import Service as _Service
+from Acquire.Service import call_function as _call_function
+from Acquire.Service import pack_arguments as _pack_arguments
+from Acquire.Service import unpack_arguments as _unpack_arguments
+from Acquire.Service import Service as _Service
+
+from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
+from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
+
+from Acquire.Crypto import PrivateKey as _PrivateKey
+from Acquire.Crypto import OTP as _OTP
+
+from ._errors import LoginError
 
 __all__ = [ "Wallet" ]
-
-class LoginError(Exception):
-    pass
 
 class Wallet:
     """This class holds a wallet that can be used to simplify
@@ -36,6 +37,7 @@ class Wallet:
         self._service_info = {}
         self._manual_password = False
         self._manual_otpcode = False
+        self._wallet_key = None
 
     @staticmethod
     def _wallet_dir():
@@ -76,10 +78,8 @@ class Wallet:
         """Return the private key used to encrypt everything in the wallet.
            This will ask for the users password
         """
-        try:
+        if self._wallet_key:
             return self._wallet_key
-        except:
-            pass
 
         wallet_dir = Wallet._wallet_dir()
 
