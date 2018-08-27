@@ -1,6 +1,4 @@
 
-from Acquire.ObjectStore import ObjectStore as _ObjectStore
-from Acquire.Service import login_to_service_account as _login_to_service_account
 
 from cachetools import cached as _cached
 from cachetools import TTLCache as _TTLCache
@@ -8,19 +6,17 @@ from cachetools import TTLCache as _TTLCache
 import datetime as _datetime
 import uuid as _uuid
 
+from Acquire.ObjectStore import ObjectStore as _ObjectStore
+from Acquire.Service import login_to_service_account as _login_to_service_account
+
+from ._errors import LedgerError, TransactionError
+
 # The cache can hold a maximum of 200 objects, and will be renewed
 # every 300 seconds (so any changes in this service's key would
 # cause problems for a maximum of 300 seconds)
 _cache = _TTLCache(maxsize=50, ttl=300)
 
-__all__ = ["Ledger", "LedgerAccount", "LedgerError",
-           "Transaction", "TransactionCode", "TransactionError" ]
-
-class LedgerError(Exception):
-    pass
-
-class TransactionError(Exception):
-    pass
+__all__ = ["Ledger", "Account", "Transaction", "TransactionCode" ]
 
 @_cached(_cache)
 def _get_transaction(key):
@@ -52,7 +48,7 @@ def _get_all_transactions(ledger_key, start_time, end_time):
 
     for day in range(start_day, end_day+1):
         daytime = _datetime.datetime.fromordinal(day)
-        day_key = "%s/%d-%02d-%02d" % (daytime.year,daytime.month,daytime.day)
+        day_key = "%s/%d-%02d-%02d" % (ledger_key, daytime.year,daytime.month,daytime.day)
       
         entries = _ObjectStore.get_all_object_names(bucket, day_key)
 
@@ -80,7 +76,7 @@ class TransactionCode(_Enum):
 
     def shortcode(self):
         """Return the short (2-letter) code for this type"""
-        return _shortcodes(self.value)
+        return _shortcodes[int(self.value)]
 
     def to_shortcode(self):
         """Synonym for .shortcode()"""
@@ -200,7 +196,7 @@ class Transaction:
 
         return item
 
-class LedgerAccount:
+class Account:
     """This class holds information about a single account in
        the ledger. Accounts are classified using the American
        system into Assets, Capital, Liabilities, Incomes 
@@ -267,9 +263,9 @@ class LedgerAccount:
     def from_data(data):
         """Return this account created from the passed decoded json dictionary"""
         if data is None:
-            return LedgerAccount()
+            return Account()
         
-        l = LedgerAccount()
+        l = Account()
         
         l._name = data["name"]
         l._description = data["description"]
@@ -293,7 +289,7 @@ class Ledger:
 
     def ledger_key(self):
         """Return the root key for items in the ledger"""
-        return "ledger/%s" % self._user_id
+        return "ledger"
 
     @staticmethod
     def from_data(data):
@@ -317,5 +313,4 @@ class Ledger:
         """Return all of the ledger transactions between start_time and end_time.
            This matches entries that are >= start_time and < end_time
         """
-        return _get_all_transactions(bucket, self.ledger_key(),
-                                     start_time, end_time)
+        return _get_all_transactions(self.ledger_key(), start_time, end_time)

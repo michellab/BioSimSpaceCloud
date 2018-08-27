@@ -32,12 +32,12 @@ class Wallet:
        that is unlocked by a password supplied by the user locally.
     """
     def __init__(self):
+        self._wallet_key = None
         self._get_wallet_key()
         self._cache = {}
         self._service_info = {}
         self._manual_password = False
         self._manual_otpcode = False
-        self._wallet_key = None
 
     @staticmethod
     def _wallet_dir():
