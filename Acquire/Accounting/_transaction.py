@@ -6,12 +6,218 @@ from copy import copy as _copy
 from Acquire.Service import login_to_service_account as _login_to_service_account
 from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
-from ._errors import TransactionError
+from ._account import Account as _Account
 
-__all__ = [ "Transaction", "TransactionRecord" ]
+from ._errors import TransactionError, UnbalancedLedgerError
+
+__all__ = [ "Transaction", "TransactionRecord", "DebitNote", "CreditNote", "Receipt" ]
 
 def _transaction_root():
     return "transactions"
+
+class Receipt:
+    """This class holds the receipt for a provisional transaction. This is sent
+       by the credited account to receipt that the service has been performed,
+       and thus payment that is held as liability should now be paid. OR it
+       sends back the fact that the service was not performed, and so the
+       refund should be issued
+    """
+    def __init__(self, transaction_uid=None, authorisation=None, receipted_value=None):
+        """Create a receipt for the transaction with the passed UID. This will 
+           receipt the full value of the transaction, unless 'receipted_value'
+           is passed, in which case only that value will be receipted (and the
+           rest of the liability will be cancelled). Note that you cannot
+           receipt for more than the value of the original transaction
+        """
+        # lots to do here!
+
+class CreditNote:
+    """This class holds all of the information about a completed credit. This
+       is combined with a debit note of equal value to form a transaction record
+    """
+    def __init__(self, debit_note=None, account=None):
+        """Create the corresponding credit note for the passed debit note. This will
+           credit value from the note to the passed account. The credit will
+           use the same UID as the credit, and the same timestamp. This will then
+           be paired with the debit note to form a TransactionRecord that can be
+           written to the ledger
+        """
+        if debit_note is None or account is None:
+            self._account_uid = None
+            return
+
+        if not isinstance(debit_note, DebitNote):
+            raise TypeError("You can only create a CreditNote with a DebitNote")
+
+        if not isinstance(account, _Account):
+            raise TypeError("You can only creata a CreditNote with a value Account")
+
+        account._credit(debit_note)
+        self._account_uid = account.uid()
+
+    def __str__(self):
+        if self.is_null():
+            return "CreditNote::null"
+        else:
+            return "CreditNote>>%s" % self.account()
+
+    def is_null(self):
+        """Return whether or not this note is null"""
+        return self._account_uid is None
+
+    def account(self):
+        """Return the UID of the account to which the value was credited"""
+        if self.is_null():
+            return None
+        else:
+            return self._account_uid
+
+    @staticmethod
+    def from_data(data):
+        """Construct and return a new CreditNote from the passed json-decoded
+            dictionary
+        """
+        note = CreditNote()
+
+        if (data and len(data) > 0):
+            note._account_uid = data["account_uid"]
+
+        return note
+
+    def to_data(self):
+        """Return this credit note as a dictionary that can be encoded to json"""
+        data = {}
+
+        if not self.is_null():
+            data["account_uid"] = self._account_uid
+
+        return data
+
+class DebitNote:
+    """This class holds all of the information about a completed debit. This
+       is combined with credit note of equal value to form a transaction record
+    """
+    def __init__(self, transaction=None, account=None, authorisation=None, is_provisional=False):
+        """Create a debit note for the passed transaction will debit value from the
+           passed account. The note will create a unique ID (uid)
+           for the debit, plus the timestamp of the time that value was drawn 
+           from the debited account. This debit note will be paired with a corresponding
+           credit note from the account that received the value from the transaction
+           so that a balanced TransactionRecord can be written to the ledger
+        """
+        if transaction is None or account is None:
+            self._transaction = None
+            return
+
+        if not isinstance(transaction, Transaction):
+            raise TypeError("You can only create a DebitNote with a Transaction")
+
+        if not isinstance(account, _Account):
+            raise TypeError("You can only create a DebitNote with a valid Account")
+
+        self._transaction = transaction
+        self._account_uid = account.uid()
+        self._authorisation = str(authorisation)
+        self._is_provisional = is_provisional
+
+        (timestamp, uid) = account._debit(transaction.value())
+
+        self._timestamp = float(timestamp)
+        self._uid = str(uid)
+
+    def __str__(self):
+        if self.is_null():
+            return "DebitNote::null"
+        else:
+            return "DebitNote<<%s [%s]" % (self.account(),self.value())
+
+    def is_null(self):
+        """Return whether or not this is a null note"""
+        return self._transaction is None
+
+    def uid(self):
+        """Return the UID for this note. This has the format
+           dd:mm:yyyy/unique_string
+        """
+        if self.is_null():
+            return None
+        else:
+            return self._uid
+
+    def timestamp(self):
+        """Return the timestamp for when value was debited from the account"""
+        if self.is_null():
+            return None
+        else:
+            return self._timestamp
+
+    def account(self):
+        """Return the UID of the account that was debited"""
+        if self.is_null():
+            return None
+        else:
+            return self._account_uid
+
+    def transaction(self):
+        """Return the transaction related to this debit note"""
+        if self.is_null():
+            return None
+        else:
+            return self._transaction
+
+    def value(self):
+        """Return the value of this note"""
+        if self.is_null():
+            return 0
+        else:
+            return self.transaction().value()
+
+    def authorisation(self):
+        """Return the authorisation that was used successfully to withdraw
+           value from the debited account
+        """
+        if self.is_null():
+            return None
+        else:
+            return self._authorisation
+
+    def is_provisional(self):
+        """Return whether or not the debit was provisional. Provisional debits
+           are listed as liabilities
+        """
+        if self.is_null():
+            return False
+        else:
+            return self._is_provisional
+
+    def to_data(self):
+        """Return this DebitNote as a dictionary that can be encoded as json"""
+        data = {}
+
+        if not self.is_null():
+            data["transaction"] = self._transaction.to_data()
+            data["account_uid"] = self._account_uid
+            data["authorisation"] = self._authorisation
+            data["is_provisional"] = self._is_provisional
+            data["timestamp"] = self._timestamp
+            data["uid"] = self._uid
+
+        return data
+
+    @staticmethod
+    def from_data(data):
+        """Return a DebitNote that has been extracted from the passed json-decoded dictionary"""
+        d = DebitNote()
+
+        if (data and len(data) > 0):
+            d._transaction = data["transaction"]
+            d._account_uid = data["account_uid"]
+            d._authorisation = data["authorisation"]
+            d._is_provisional = data["is_provisional"]
+            d._timestamp = data["timestamp"]
+            d._uid = data["uid"]
+
+        return d
 
 class Transaction:
     """This class provides basic information about a transaction - namely
@@ -23,7 +229,7 @@ class Transaction:
 
         if self._value < 0:
             raise TransactionError("You cannot create a transaction (%s) with a "
-                                   "negative value! %2" % (description,value))
+                                   "negative value! %s" % (description,value))
 
         if self._description is None and self._value > 0:
             raise TransactionError("You must give a description to all non-zero transactions! %s" % \
@@ -33,6 +239,10 @@ class Transaction:
 
     def __str__(self):
         return "%s [%s]" % (self.value(),self.description())
+
+    def is_null(self):
+        """Return whether or not this is a null transaction"""
+        return self._value == 0 and self._description is None
 
     def value(self):
         """Return the value of this transaction. This will be always greater
@@ -51,16 +261,20 @@ class Transaction:
         """
         transaction = Transaction()
 
-        transaction._value = data["value"]
-        transaction._description = data["description"]
+        if (data and len(data) > 0):
+            transaction._value = data["value"]
+            transaction._description = data["description"]
 
         return transaction
 
     def to_data(self):
         """Return this transaction as a dictionary that can be encoded to json"""
         data = {}
-        data["value"] = self._value
-        data["description"] = self._description
+
+        if (data and len(data) > 0):
+            data["value"] = self._value
+            data["description"] = self._description
+        
         return data
 
 class TransactionRecord:
@@ -82,60 +296,116 @@ class TransactionRecord:
         if uid:
             self._load_transaction(uid)
         else:
-            self._transaction = None
-            self._debit_record = None
-            self._credit_record = None
+            self._debit_note = None
+            self._credit_note = None
             self._is_receipted = False
 
     def __str__(self):
         """Return a string representation of this transaction"""
-        if self._uid is None or self._credit_account is None:
-            return "%s | unapplied" % str(self.transaction())
+        if self.is_null():
+            return "TransactionRecord::null"
 
-        elif self._is_receipted:
-            return "%s [%s] from %s to %s | receipted" % \
-                        (str(self.transaction()), self.debit_account(), self.credit_account())
+        s = "%s : %s transferred from %s to %s" % (self.description(),self.value(),
+                                   self.debit_note().account(),
+                                   self.credit_note().account())
 
+        if self._is_receipted:
+            return "%s | receipted" % s
         else:
-            return "%s [%s] from %s to %s | PROVISIONAL" % \
-                        (str(self.transaction()), self.debit_account(), self.credit_account())
+            return "%s | PROVISIONAL" % s
+
+    def is_null(self):
+        """Return whether or not this is a null record"""
+        return self._debit_note is None
+
+    def description(self):
+        """Return the description of this transaction"""
+        if self.is_null():
+            return None
+        else:
+            return self.transaction().description()
+
+    def value(self):
+        """Return the value of this transaction"""
+        if self.is_null():
+            return 0
+        else:
+            return self.transaction().value()
 
     def uid(self):
         """Return the UID for this transaction record"""
-        return self._uid
+        if self.is_null():
+            return None
+        else:
+            return self.debit_note().uid()
 
     def transaction(self):
         """Return the transaction underlying this record"""
-        return self._transaction
+        if self.is_null():
+            return None
+        else:
+            return self.debit_note().transaction()
 
     def credit_account(self):
-        return self._credit_record.credit_account()
+        """Return the UID of the account to which value has been credited"""
+        if self.is_null():
+            return None
+        else:
+            return self.credit_note().account()
+
+    def credit_note(self):
+        """Return the credit note for this transaction. This is the note recording
+           that value has been credited to an account. A TransactionRecord is the pairing
+           of a DebitNote with a CreditNote
+        """
+        return self._credit_note
+
+    def debit_note(self):
+        """Return the debit note for this transaction. This is the note recording
+           that value has been debited to an account. A TransactionRecord is the pairing
+           of a DebitNote with a CreditNote
+        """
+        return self._debit_note
 
     def debit_account(self):
-        return self._debit_record.debit_account()
+        """Return the UID of the account from which value has been debited"""
+        if self.is_null():
+            return None
+        else:
+            return self.debit_note().account()
 
     def key(self, uid=None):
         """Return the key for this transaction in the object store"""
-        if uid is None:
-            uid = self._uid
-
-        return "%s/%s" % (_transaction_root(), uid)
+        if self.is_null():
+            return None
+        else:
+            return "%s/%s" % (_transaction_root(), self.debit_note().uid())
 
     def timestamp(self):
         """Return the timestamp when this transaction was applied"""
-        return self._timestamp
-
-    def is_applied(self):
-        """Return whether or not this transaction has already been applied"""
-        return not (self._debit_account is None)
+        if self.is_null():
+            return None
+        else:
+            return self.debit_note().timestamp()
 
     def is_receipted(self):
         """Return whether or not this transaction has been receipted"""
-        return self._is_receipted
+        if self.is_null():
+            return False
+        else:
+            return self._is_receipted
 
     def is_provisional(self):
         """Return whether or not this transaction is provisional"""
-        return not (self.is_applied() or self.is_receipted())
+        return not (self.is_null() or self.is_receipted())
+
+    def is_refund(self):
+        """Return whether or not this transaction is a refund"""
+        return not (self._refund_reason is None)
+
+    def refund_reason(self):
+        """Return the reason for the refund"""
+        return self._refund_reason
 
     @staticmethod
     def receipt(receipt):
@@ -152,7 +422,7 @@ class TransactionRecord:
             raise TransactionError("It is an error to try to receipt a transaction twice! %s | %s" % \
                             (str(transaction), str(receipt)))
 
-        return TransactionRecord()
+        return transaction
 
     @staticmethod
     def perform(transaction, debit_account, credit_account, authorisation, is_provisional=False):
@@ -168,27 +438,41 @@ class TransactionRecord:
             # no point recording zero transactions
             return TransactionRecord()
 
-        # try to debit the account using this record
-        debit_record = debit_account.debit(transaction, authorisation, is_provisional)
-        debit_record.assert_succeeded()
+        # create a debit note for this transaction. This will debit the account,
+        # thereby transferring value into the returned debit_note. If this fails
+        # then an exception will have been raised
+        debit_note = DebitNote(transaction, debit_account, authorisation, is_provisional)
 
-        credit_record = credit_account.credit(transaction, debit_record)
+        # now create a credit note for this transaction. This will credit the account,
+        # thereby transferring value from the debit_note to that account. If this fails
+        # then the debit_note needs to be refunded
+        try:
+            credit_note = CreditNote(debit_note, credit_account)
+            credit_error = None
+        except Exception as e:
+            try:
+                credit_note = CreditNote(debit_note, debit_account)
+                credit_error = str(e)
+            except Exception as e2:
+                raise UnbalancedLedgerError("We have an unbalanced ledger as it was not "
+                   "possible to refund a refused credit (%s): Credit refuseal error = %s. "
+                   "Refund error = %s" % (str(debit_note),str(e),str(e2)))
 
-        if not credit_record.succeeded():
-            # reverse the debit...
-            debit_account.reverse_debit(debit_record)
-
-            raise TransactionError("Failed to complete the transaction...")
-
-        #save everything to the object store immediately
+        # The debit and credit have succeeded, so we now need to write the combined
+        # notes as a TransactionRecord in the ledger
         record = TransactionRecord()
-        record._transaction = transaction
-        record._debit_record = debit_record
-        record._credit_record = credit_record
-        record._is_receipted = not is_provisional
+        record._debit_note = debit_note
+        record._credit_note = credit_note
 
+        record._is_receipted = not is_provisional
+        record._refund_reason = credit_error
         record._save_transaction()
-        return record
+
+        if is_provisional and credit_error:
+            # must receipt provisional transactions that are immediately refunded
+            return TransactionRecord.receipt( Receipt(record.uid()) )
+        else:
+            return record
 
     def _load_transaction(self, uid):
         """Load this transaction from the object store"""
@@ -209,10 +493,12 @@ class TransactionRecord:
         record = TransactionRecord()
 
         if (data and len(data) > 0):
-            record._transaction = Transaction.from_data(data["transaction"])
-            record._credit_record = CreditRecord.from_data(data["credit_record"])
-            record._debit_record = DebitRecord.from_data(data["debit_record"])
+            record._credit_note = CreditNote.from_data(data["credit_note"])
+            record._debit_note = DebitNote.from_data(data["debit_note"])
             record._is_receipted = data["is_receipted"]
+            
+            if "refund_reason" in data:
+                record._refund_reason = data["refund_reason"]
 
         return record
 
@@ -220,10 +506,12 @@ class TransactionRecord:
         """Return this transaction as a dictionary that can be encoded to json"""
         data = {}
 
-        if not self._transaction is None:
-            data["transaction"] = self._transaction.to_data()
-            data["credit_record"] = self._credit_record.to_data()
-            data["debit_record"] = self._debit_record.to_data()
+        if not self.is_null():
+            data["credit_note"] = self._credit_note.to_data()
+            data["debit_note"] = self._debit_note.to_data()
             data["is_receipted"] = self._is_receipted
+
+            if not (self._refund_reason is None):
+                data["refund_reason"] = self._refund_reason
 
         return data
