@@ -18,9 +18,9 @@ class Transaction:
            a single too-large transaction into a list of smaller
            transactions
         """
-        value = float(value)
+        value = Transaction.round(value)
 
-        if value >= Transaction.maximum_transaction_value():
+        if value > Transaction.maximum_transaction_value():
             raise TransactionError(
                 "You cannot create a transaction (%s) with a "
                 "value greater than %s. Please "
@@ -29,7 +29,7 @@ class Transaction:
                 (description, Transaction.maximum_transaction_value(), value))
 
         # ensure that the value is limited in resolution to 6 decimal places
-        self._value = float("%13.6f" % value)
+        self._value = value
 
         if self._value < 0:
             raise TransactionError(
@@ -51,6 +51,31 @@ class Transaction:
     def __str__(self):
         return "%s [%s]" % (self.value(), self.description())
 
+    def __eq__(self, other):
+        if isinstance(other, Transaction):
+            return self.value() == other.value() and \
+                   self.description() == other.description()
+        else:
+            return self.value() == other
+
+    def __lt__(self, other):
+        if isinstance(other, Transaction):
+            return self.value() < other.value()
+        else:
+            return self.value() < other
+
+    def __gt__(self, other):
+        if isinstance(other, Transaction):
+            return self.value() > other.value()
+        else:
+            return self.value() > other
+
+    def __ge__(self, other):
+        return self.__eq__(other) or self.__gt__(other)
+
+    def __le__(self, other):
+        return self.__eq__(other) or self.__lt__(other)
+
     def is_null(self):
         """Return whether or not this is a null transaction"""
         return self._value == 0 and self._description is None
@@ -60,6 +85,10 @@ class Transaction:
            than or equal to zero
         """
         return self._value
+
+    def description(self):
+        """Return the description of this transaction"""
+        return self._description
 
     @staticmethod
     def maximum_transaction_value():
@@ -75,9 +104,12 @@ class Transaction:
         """
         return "%013f.6" % self._value
 
-    def description(self):
-        """Return the description of this transaction"""
-        return self._description
+    @staticmethod
+    def round(value):
+        """Round the passed floating point value to the precision
+           level of the transaction (currently 6 decimal places)
+        """
+        return float("%.6f" % value)
 
     @staticmethod
     def split(value, description):
@@ -89,17 +121,45 @@ class Transaction:
             t = Transaction(value, description)
             return [t]
         else:
+            # truncate the value to 6 decimal places
+            value = Transaction.round(value)
+
+            orig_value = value
             values = []
 
             while value > Transaction.maximum_transaction_value():
                 values.append(Transaction.maximum_transaction_value())
                 value -= Transaction.maximum_transaction_value()
 
+            if value > 0:
+                values.append(value)
+
+            total = 0
+            for value in values:
+                total += value
+
+            if total != orig_value:
+                values[-1] -= (total - orig_value)
+
             transactions = []
 
             for i in range(0, len(values)):
                 transactions.append(Transaction(values[i], "%s: %d of %d" %
                                     (description, i+1, len(values))))
+
+            values = None
+
+            total = 0
+            for transaction in transactions:
+                total += transaction.value()
+
+            # ensure that the total is also rounded to 6 dp
+            total = Transaction.round(total)
+
+            if total != orig_value:
+                raise TransactionError(
+                    "Error as split sum (%s) is not equal to the original "
+                    "value (%s)" % (total, orig_value))
 
             return transactions
 
@@ -122,7 +182,7 @@ class Transaction:
         """
         data = {}
 
-        if (data and len(data) > 0):
+        if not self.is_null():
             data["value"] = self._value
             data["description"] = self._description
 
