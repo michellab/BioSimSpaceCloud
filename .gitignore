@@ -8,3 +8,5 @@ gromacs/function/lib/Acquire/
 gromacs/helper/__pycache__/
 Acquire/__pycache__/
 user/notebooks/.ipynb_checkpoints/
+oracle-k8s/kubeconfig
+.vscode
