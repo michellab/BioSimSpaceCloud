@@ -10,3 +10,5 @@ Acquire/__pycache__/
 user/notebooks/.ipynb_checkpoints/
 oracle-k8s/kubeconfig
 .vscode
+.pytest_cache
+

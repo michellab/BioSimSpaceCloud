@@ -29,20 +29,24 @@ class Transaction:
                 (description, Transaction.maximum_transaction_value(), value))
 
         # ensure that the value is limited in resolution to 6 decimal places
-        self._value = float("13.6f" % value)
+        self._value = float("%13.6f" % value)
 
         if self._value < 0:
             raise TransactionError(
                 "You cannot create a transaction (%s) with a "
                 "negative value! %s" % (description, value))
 
-        if self._description is None and self._value > 0:
-            raise TransactionError(
-                "You must give a description to all non-zero transactions! %s"
-                % self.value())
-
-        # ensure we are using utf-8 encoded strings
-        self._description = str(description).encode("utf-8").decode("utf-8")
+        if description is None:
+            if self._value > 0:
+                raise TransactionError(
+                    "You must give a description to all non-zero "
+                    "transactions! %s" % self.value())
+            else:
+                self._description = None
+        else:
+            # ensure we are using utf-8 encoded strings
+            self._description = str(description).encode("utf-8") \
+                                                .decode("utf-8")
 
     def __str__(self):
         return "%s [%s]" % (self.value(), self.description())
