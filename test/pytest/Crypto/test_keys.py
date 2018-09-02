@@ -1,54 +1,50 @@
 
+import pytest
+
 import random
 import os
 
-from Acquire.Crypto import PublicKey, PrivateKey
+from Acquire.Crypto import PublicKey, PrivateKey, SignatureVerificationError
 
-class AssertationError(Exception):
-    pass
 
-privkey = PrivateKey()
-pubkey = privkey.public_key()
+def test_keys():
+    privkey = PrivateKey()
+    pubkey = privkey.public_key()
 
-message = "Hello World"
+    message = "Hello World"
 
-sig = privkey.sign(message.encode("utf-8"))
-pubkey.verify(sig, message.encode("utf-8"))
+    sig = privkey.sign(message.encode("utf-8"))
+    pubkey.verify(sig, message.encode("utf-8"))
 
-c = pubkey.encrypt(message.encode("utf-8"))
+    c = pubkey.encrypt(message.encode("utf-8"))
 
-m = privkey.decrypt(c).decode("utf-8")
-if message != m:
-    raise AssertationError()
+    m = privkey.decrypt(c).decode("utf-8")
+    assert(m == message)
 
-privkey2 = PrivateKey()
-sig2 = privkey2.sign(message.encode("utf-8"))
+    privkey2 = PrivateKey()
+    sig2 = privkey2.sign(message.encode("utf-8"))
 
-try:
-    pubkey.verify(sig2, message.encode("utf-8"))
-    raise AssertationError()
-except:
-    pass
+    with pytest.raises(SignatureVerificationError):
+        pubkey.verify(sig2, message.encode("utf-8"))
 
-bytes = privkey.bytes("testPass32")
+    bytes = privkey.bytes("testPass32")
 
-privkey3 = PrivateKey.read_bytes(bytes, "testPass32")
+    PrivateKey.read_bytes(bytes, "testPass32")
 
-privkey.write("test.pem", "testPass32")
+    privkey.write("test.pem", "testPass32")
 
-privkey3 = PrivateKey.read("test.pem", "testPass32")
+    PrivateKey.read("test.pem", "testPass32")
 
-bytes = pubkey.bytes()
-pubkey2 = PublicKey.read_bytes(bytes)
+    bytes = pubkey.bytes()
+    pubkey2 = PublicKey.read_bytes(bytes)
 
-long_message = str([random.getrandbits(8) for _ in range(4096)]).encode("utf-8")
+    long_message = str([random.getrandbits(8)
+                       for _ in range(4096)]).encode("utf-8")
 
-c = pubkey.encrypt(long_message)
+    c = pubkey.encrypt(long_message)
 
-m = privkey.decrypt(c)
+    m = privkey.decrypt(c)
 
-if m != long_message:
-    print(long_message[0:32], m[0:32])
-    raise AssertationError()
+    assert(m == long_message)
 
-os.unlink("test.pem")
+    os.unlink("test.pem")

@@ -1,46 +1,51 @@
 
+import pytest
+
 # Testing mode is switched on using this environment variable.
 # This tells Acquire not to try to log into the cloud, but to
 # instead create and use a fake object store locally
 import os
-os.environ["TEST_ACQUIRE"] = "1"
 
 from Acquire.ObjectStore import ObjectStore
 from Acquire.Service import login_to_service_account
 
-bucket = login_to_service_account()
+os.environ["TEST_ACQUIRE"] = "1"
 
-keys = []
 
-message = "ƒƒƒ Hello World ∂∂∂"
+def test_objstore():
+    bucket = login_to_service_account()
 
-ObjectStore.set_string_object(bucket, "test", message)
-keys.append("test")
+    keys = []
 
-assert( message == ObjectStore.get_string_object(bucket, "test") )
+    message = "ƒƒƒ Hello World ∂∂∂"
 
-message = "€€#¢∞ Hello ˚ƒ´πµçµΩ"
+    ObjectStore.set_string_object(bucket, "test", message)
+    keys.append("test")
 
-ObjectStore.set_string_object(bucket, "test/something", message)
-keys.append("test/something")
+    assert(message == ObjectStore.get_string_object(bucket, "test"))
 
-assert( message == ObjectStore.get_string_object(bucket, "test/something") )
+    message = "€€#¢∞ Hello ˚ƒ´πµçµΩ"
 
-data = {"cat" : "mieow",
-        "dog" : "woof",
-        "sounds" : [1, 2, 3, 4, 5],
-        "flag" : True}
+    ObjectStore.set_string_object(bucket, "test/something", message)
+    keys.append("test/something")
 
-ObjectStore.set_object_from_json(bucket, "test/object", data)
-keys.append("test/object")
+    assert(message == ObjectStore.get_string_object(bucket, "test/something"))
 
-assert( data == ObjectStore.get_object_from_json(bucket, "test/object") )
+    data = {"cat": "mieow",
+            "dog": "woof",
+            "sounds": [1, 2, 3, 4, 5],
+            "flag": True}
 
-names = ObjectStore.get_all_object_names(bucket)
+    ObjectStore.set_object_from_json(bucket, "test/object", data)
+    keys.append("test/object")
 
-assert( len(names) == len(keys) )
+    assert(data == ObjectStore.get_object_from_json(bucket, "test/object"))
 
-for name in names:
-    assert( name in keys )
+    names = ObjectStore.get_all_object_names(bucket)
 
-ObjectStore.delete_all_objects(bucket)
+    assert(len(names) == len(keys))
+
+    for name in names:
+        assert(name in keys)
+
+    ObjectStore.delete_all_objects(bucket)
