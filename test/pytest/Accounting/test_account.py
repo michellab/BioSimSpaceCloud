@@ -9,8 +9,7 @@ from Acquire.Service import login_to_service_account
 @pytest.fixture(scope="module")
 def bucket(tmpdir_factory):
     d = tmpdir_factory.mktemp("objstore")
-    bucket = login_to_service_account(str(d))
-    return bucket
+    return login_to_service_account(str(d))
 
 
 def test_account(bucket):
@@ -30,3 +29,5 @@ def test_account(bucket):
 
     assert(account2.name() == name)
     assert(account2.description() == description)
+
+    assert(account.balance() == 0)

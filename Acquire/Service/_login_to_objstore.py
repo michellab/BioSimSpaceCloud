@@ -24,6 +24,9 @@ _cache = _TTLCache(maxsize=50, ttl=300)
 __all__ = ["login_to_service_account"]
 
 
+_current_testing_objstore = None
+
+
 # Cache this function as the result changes very infrequently, as involves
 # lots of round trips to the object store, and it will give the same
 # result regardless of which Fn function on the service makes the call
@@ -45,38 +48,46 @@ def login_to_service_account(testing_dir=None):
     # the LOGIN_JSON environment variable
     access_json = _os.getenv("LOGIN_JSON")
     access_data = None
+    has_access_data = False
 
     # get the bucket information in json format from
     # the BUCKET_JSON environment variable
     bucket_json = _os.getenv("BUCKET_JSON")
     bucket_data = None
+    has_bucket_data = False
 
-    if bucket_json is None and access_json is None:
+    if (bucket_json is None) or (access_json is None):
         # see if this is running in testing mode...
         if testing_dir:
+            global _current_testing_objstore
+            _current_testing_objstore = testing_dir
             return _use_testing_object_store_backend(testing_dir)
+        elif _current_testing_objstore:
+            return _use_testing_object_store_backend(_current_testing_objstore)
 
     if bucket_json and len(bucket_json) > 0:
         try:
             bucket_data = _json.loads(bucket_json)
             bucket_json = None
-        except Exception as e:
-            raise ServiceAccountError(
-             "Cannot decode the bucket information for the central "
-             "service account")
-    else:
-        raise ServiceAccountError("You must supply valid bucket data!")
+            has_bucket_data = True
+        except:
+            pass
 
     if access_json and len(access_json) > 0:
         try:
             access_data = _json.loads(access_json)
             access_json = None
+            has_access_data = True
         except:
+            pass
+
+    if not (has_access_data and has_bucket_data):
+        if testing_dir:
+            return _use_testing_object_store_backend(testing_dir)
+        else:
             raise ServiceAccountError(
-             "Cannot decode the login information for the central service "
-             "account")
-    else:
-        raise ServiceAccountError("You must supply valid login data!")
+                "You need to supply login credentials via the 'LOGIN_JSON' "
+                "and 'BUCKET_JSON' environment variables! %s" % testing_dir)
 
     # we have OCI login details, so make sure that we are using
     # the OCI object store backend
