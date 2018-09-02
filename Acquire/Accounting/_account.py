@@ -3,6 +3,10 @@ import uuid as _uuid
 from copy import copy as _copy
 import datetime as _datetime
 import time as _time
+import re as _re
+
+from decimal import Decimal as _Decimal
+from decimal import Context as _Context
 
 from Acquire.Service import login_to_service_account \
                         as _login_to_service_account
@@ -16,6 +20,54 @@ __all__ = ["Account", "LineItem"]
 
 def _account_root():
     return "accounts"
+
+
+def _getcontext():
+    """Return the context used for all decimals in transactions. This
+       context rounds to 6 decimal places and provides sufficient precision
+       to support any value between 0 and 999,999,999,999,999.999,999,999
+       (i.e. everything up to just under one quadrillion - I doubt we will
+        ever have an account that has more than a trillion units in it!)
+    """
+    return _Context(prec=24)
+
+
+def _create_decimal(value):
+    """Create a decimal from the passed value. This is a decimal that
+       has 6 decimal places and is clamped between
+       -1 quadrillion < value < 1 quadrillion
+    """
+    d = _Decimal("%.6f" % value, _getcontext())
+
+    if d <= -1000000000000:
+        raise AccountError(
+                "You cannot create a balance with a value less than "
+                "-1 quadrillion! (%s)" % (value))
+
+    elif d >= 1000000000000000:
+        raise AccountError(
+                "You cannot create a balance with a value greater than "
+                "1 quadrillion! (%s)" % (value))
+
+    return d
+
+
+def _get_key_from_day(start, datetime):
+    """Return a key encoding the passed date, starting the key with 'start'"""
+    return "%s/%4d-%02d-%02d" % (start, datetime.year,
+                                 datetime.month, datetime.day)
+
+
+def _get_day_from_key(key):
+    """Return the date that is encoded in the passed key"""
+    m = _re.search(r"/(\d\d\d\d)-(\d\d)-(\d\d)", key)
+
+    if m:
+        return _datetime.datetime(year=int(m.groups()[0]),
+                                  month=int(m.groups()[1]),
+                                  day=int(m.groups()[2]))
+    else:
+        raise AccountError("Could not find a date in the key '%s'" % key)
 
 
 class Authorisation:
@@ -117,8 +169,147 @@ class Account:
         self._overdraft_limit = 0
         self._maximum_daily_limit = None
 
+        # initialise the account with a balance of zero
+        bucket = _login_to_service_account()
+        self._record_daily_balance(0, 0, bucket)
         # make sure that this is saved to the object store
-        self._save_account()
+        self._save_account(bucket)
+
+    def _get_balance_key(self, datetime=None):
+        """Return the balance key for the passed time. This is the key
+           into the object store of the object that holds the starting
+           balance for the account on the day of the passed datetime.
+           If datetime is None, then today's key is returned
+        """
+        if self.is_null():
+            return None
+
+        if datetime is None:
+            datetime = _datetime.datetime.now()
+
+        return _get_key_from_day("%s/balance" % self.key(),
+                                 datetime)
+
+    def _record_daily_balance(self, credit_balance, outstanding_liabilities,
+                              datetime=None, bucket=None):
+        """Record the starting balance for the day containing 'datetime'
+           as 'credit_balance' with the starting outstanding liabilities at
+           'outstanding_liabilities'. If 'datetime' is none, then the balance
+           for today is set.
+        """
+        if self.is_null():
+            return
+
+        if datetime is None:
+            datetime = _datetime.datetime.now()
+
+        credit_balance = _create_decimal(credit_balance)
+        outstanding_liabilities = _create_decimal(outstanding_liabilities)
+
+        balance_key = self._get_balance_key(datetime)
+
+        if bucket is None:
+            bucket = _login_to_service_account()
+
+        data = {"balance": str(credit_balance),
+                "liability": str(outstanding_liabilities)}
+
+        _ObjectStore.set_object_from_json(bucket, balance_key, data)
+
+    def _reconcile_daily_accounts(self, bucket=None):
+        """Internal function used to reconcile the daily accounts.
+           This ensures that every line item transaction is summed up
+           so that the starting balance for each day is recorded into
+           the object store
+        """
+        if self.is_null():
+            return
+
+        if bucket is None:
+            bucket = _login_to_service_account()
+
+        # work back from today to the first day of the account to calculate
+        # all of the daily balances... We need to record every day of the
+        # account to support quick lookups
+        today = _datetime.datetime.now().toordinal()
+        day = today
+        last_data = None
+        num_missing_days = 0
+
+        while last_data is None:
+            daytime = _datetime.datetime.fromordinal(day)
+            key = self._get_balance_key(daytime)
+            last_data = _ObjectStore.get_object_from_json(bucket, key)
+
+            if last_data is None:
+                day -= 1
+                num_missing_days += 1
+
+                if num_missing_days > 100:
+                    # we need another strategy to find the last balance
+                    break
+
+        if last_data is None:
+            # find the latest day by reading the keys in the object
+            # store directly
+            keys = _ObjectStore.get_all_object_names(
+                        bucket, "%s/balance" % self.key())
+
+            if keys is None or len(keys) == 0:
+                raise AccountError(
+                    "There is no daily balance recorded for "
+                    "the account with UID %s" % self.uid())
+
+            # the encoding of the keys is such that, when sorted, the
+            # last key must be the latest balance
+            keys.sort()
+
+            last_data = _ObjectStore.get_object_from_json(bucket, keys[-1])
+            day = _get_day_from_key(keys[-1]).toordinal()
+
+        # ok, now we go from the last day until today and sum up the
+        # transactions from each day to create the daily balances...
+        raise NotImplementedError(
+                    "WILL NEED TO SUM UP INTERACTIONS FROM "
+                    "%s until %s" % (_datetime.datetime.fromordinal(day)),
+                    _datetime.datetime.fromordinal(today))
+
+    def _get_daily_balance(self, bucket=None, datetime=None):
+        """Get the daily starting balance for the passed datetime. This
+           returns a tuple of (credit_balance,outstanding_liabilities).
+           If datetime is None then todays daily balance is returned. The
+           daily balance is the balance at the start of the day. The
+           actual balance at a particular time will be this starting
+           balance plus/minus all of the transactions between the start
+           of that day and the specified datetime
+        """
+        if self.is_null():
+            return
+
+        if bucket is None:
+            bucket = _login_to_service_account()
+
+        if datetime is None:
+            datetime = _datetime.datetime.now()
+
+        balance_key = self._get_balance_key(datetime)
+
+        data = _ObjectStore.get_object_from_json(bucket, balance_key)
+
+        if data is None:
+            # there is no balance for this day. This means that we haven'y
+            # yet calculated that day's balance. Do the accounting necessary
+            # to construct that day's starting balance
+            self._reconcile_daily_accounts(bucket)
+
+        data = _ObjectStore.get_object_from_json(bucket, balance_key)
+
+        if data is None:
+            raise AccountError("The daily balance for account at date %s "
+                               "is not available" % str(datetime))
+
+        return (_Decimal(data["balance"]),
+                _Decimal(data["liability"]))
 
     def is_null(self):
         """Return whether or not this is a null account"""
@@ -303,7 +494,9 @@ class Account:
         if bucket is None:
             bucket = _login_to_service_account()
 
-        pass
+        (balance, liability) = self._get_daily_balance(bucket)
+
+        return balance - liability
 
     def overdraft_limit(self):
         """Return the overdraft limit of this account"""
