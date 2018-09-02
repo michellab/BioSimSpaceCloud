@@ -1,7 +1,39 @@
 
+from decimal import Decimal as _Decimal
+from decimal import Context as _Context
+
 from ._errors import TransactionError
 
 __all__ = ["Transaction"]
+
+
+def _getcontext():
+    """Return the context used for all decimals in transactions. This
+       context rounds to 6 decimal places and provides sufficient precision
+       to support any value between 0 and 999,999,999,999,999.999,999,999
+       (i.e. everything up to just under one quadrillion - I doubt we will
+        ever have an account that has more than a trillion units in it!)
+    """
+    return _Context(prec=24)
+
+
+def _create_decimal(value):
+    """Create a decimal from the passed value. This is a decimal that
+       has 6 decimal places and is clamped between 0 <= value < 1 quadrillion
+    """
+    d = _Decimal("%.6f" % value, _getcontext())
+
+    if d < 0:
+        raise TransactionError(
+                "You cannot create a transaction with a negative value (%s)"
+                % (value))
+
+    elif d >= 1000000000000000:
+        raise TransactionError(
+                "You cannot create a transaction with a value greater than "
+                "1 quadrillion! (%s)" % (value))
+
+    return d
 
 
 class Transaction:
@@ -18,7 +50,7 @@ class Transaction:
            a single too-large transaction into a list of smaller
            transactions
         """
-        value = Transaction.round(value)
+        value = _create_decimal(value)
 
         if value > Transaction.maximum_transaction_value():
             raise TransactionError(
@@ -56,19 +88,19 @@ class Transaction:
             return self.value() == other.value() and \
                    self.description() == other.description()
         else:
-            return self.value() == other
+            return self.value() == _create_decimal(other)
 
     def __lt__(self, other):
         if isinstance(other, Transaction):
             return self.value() < other.value()
         else:
-            return self.value() < other
+            return self.value() < _create_decimal(other)
 
     def __gt__(self, other):
         if isinstance(other, Transaction):
             return self.value() > other.value()
         else:
-            return self.value() > other
+            return self.value() > _create_decimal(other)
 
     def __ge__(self, other):
         return self.__eq__(other) or self.__gt__(other)
@@ -95,21 +127,21 @@ class Transaction:
         """Return the maximum value for a single transaction. Currently this
            is 999999.999999 so that a transaction fits into a f013.6 string
         """
-        return 999999.999999
+        return _create_decimal(999999.999999)
 
     def value_string(self):
         """Return the value of this transaction as a standard-formatted string.
            This will be a string that is formatted as F13.6, with zero padding
            front and back
         """
-        return "%013f.6" % self._value
+        return "%013.6f" % self._value
 
     @staticmethod
     def round(value):
         """Round the passed floating point value to the precision
            level of the transaction (currently 6 decimal places)
         """
-        return float("%.6f" % value)
+        return _create_decimal(value)
 
     @staticmethod
     def split(value, description):
@@ -117,13 +149,12 @@ class Transaction:
            'value' into a list of transactions that fit the maximum transaction
            limit.
         """
+        value = _create_decimal(value)
+
         if value < Transaction.maximum_transaction_value():
             t = Transaction(value, description)
             return [t]
         else:
-            # truncate the value to 6 decimal places
-            value = Transaction.round(value)
-
             orig_value = value
             values = []
 
@@ -153,8 +184,8 @@ class Transaction:
             for transaction in transactions:
                 total += transaction.value()
 
-            # ensure that the total is also rounded to 6 dp
-            total = Transaction.round(total)
+            # ensure that the total is also rounded to 6 dp
+            total = _create_decimal(total)
 
             if total != orig_value:
                 raise TransactionError(
@@ -171,7 +202,7 @@ class Transaction:
         transaction = Transaction()
 
         if (data and len(data) > 0):
-            transaction._value = data["value"]
+            transaction._value = _create_decimal(_Decimal(data["value"]))
             transaction._description = data["description"]
 
         return transaction
@@ -183,7 +214,7 @@ class Transaction:
         data = {}
 
         if not self.is_null():
-            data["value"] = self._value
+            data["value"] = self.value_string()
             data["description"] = self._description
 
         return data
