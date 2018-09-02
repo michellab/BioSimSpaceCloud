@@ -137,7 +137,8 @@ class DebitNote:
         self._authorisation = str(authorisation)
         self._is_provisional = is_provisional
 
-        (timestamp, uid) = account._debit(transaction, authorisation)
+        (timestamp, uid) = account._debit(transaction, authorisation,
+                                          is_provisional)
 
         self._timestamp = float(timestamp)
         self._uid = str(uid)

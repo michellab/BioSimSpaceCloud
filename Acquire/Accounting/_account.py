@@ -15,7 +15,7 @@ from Acquire.ObjectStore import ObjectStore as _ObjectStore
 from ._transaction import Transaction as _Transaction
 from ._errors import AccountError, InsufficientFundsError
 
-__all__ = ["Account", "LineItem"]
+__all__ = ["Account", "LineItem", "Authorisation"]
 
 
 def _account_root():
@@ -79,17 +79,25 @@ class Authorisation:
 
 class LineItem:
     """This class holds the data for a line item in the account. This holds
-       basic information about the item, e.g. its UID, timestamp,
-       authorisation etc.
+       basic information about the item, e.g. its UID and authorisation
     """
-    def __init__(self, uid=None, timestamp=None, authorisation=None):
+    def __init__(self, uid=None, authorisation=None):
         self._uid = uid
-        self._timestamp = timestamp
         self._authorisation = authorisation
 
     def is_null(self):
         """Return whether or not this is a null line item"""
         return self._uid is None
+
+    def uid(self):
+        """Return the UID of the TransactionRecord that provides
+           more information about this line item in the ledger
+        """
+        return self._uid
+
+    def authorisation(self):
+        """Return the authorisation that was used to authorise this action"""
+        return self._authorisation
 
     def to_data(self):
         """Return this object as a dictionary that can be serialised to json"""
@@ -97,7 +105,6 @@ class LineItem:
 
         if not self.is_null():
             data["uid"] = self._uid
-            data["timestamp"] = self._timestamp
             data["authorisation"] = self._authorisation
 
         return data
@@ -109,7 +116,6 @@ class LineItem:
 
         if (data and len(data) > 0):
             l._uid = data["uid"]
-            l._timestamp = data["timestamp"]
             l._authorisation = data["authorisation"]
 
         return l
@@ -167,11 +173,11 @@ class Account:
         self._name = str(name)
         self._description = str(description)
         self._overdraft_limit = 0
-        self._maximum_daily_limit = None
+        self._maximum_daily_limit = 0
 
         # initialise the account with a balance of zero
         bucket = _login_to_service_account()
-        self._record_daily_balance(0, 0, bucket)
+        self._record_daily_balance(0, 0, 0, bucket=bucket)
         # make sure that this is saved to the object store
         self._save_account(bucket)
 
@@ -187,14 +193,15 @@ class Account:
         if datetime is None:
             datetime = _datetime.datetime.now()
 
-        return _get_key_from_day("%s/balance" % self.key(),
+        return _get_key_from_day("%s/balance" % self._key(),
                                  datetime)
 
-    def _record_daily_balance(self, credit_balance, outstanding_liabilities,
+    def _record_daily_balance(self, balance, liability, receivable,
                               datetime=None, bucket=None):
         """Record the starting balance for the day containing 'datetime'
-           as 'credit_balance' with the starting outstanding liabilities at
-           'outstanding_liabilities'. If 'datetime' is none, then the balance
+           as 'balance' with the starting outstanding liabilities at
+           'liability' and starting outstanding accounts receivable at
+           'receivable' If 'datetime' is none, then the balance
            for today is set.
         """
         if self.is_null():
@@ -203,16 +210,18 @@ class Account:
         if datetime is None:
             datetime = _datetime.datetime.now()
 
-        credit_balance = _create_decimal(credit_balance)
-        outstanding_liabilities = _create_decimal(outstanding_liabilities)
+        balance = _create_decimal(balance)
+        liability = _create_decimal(liability)
+        receivable = _create_decimal(receivable)
 
         balance_key = self._get_balance_key(datetime)
 
         if bucket is None:
             bucket = _login_to_service_account()
 
-        data = {"balance": str(credit_balance),
-                "liability": str(outstanding_liabilities)}
+        data = {"balance": str(balance),
+                "liability": str(liability),
+                "receivable": str(receivable)}
 
         _ObjectStore.set_object_from_json(bucket, balance_key, data)
 
@@ -253,7 +262,7 @@ class Account:
             # find the latest day by reading the keys in the object
             # store directly
             keys = _ObjectStore.get_all_object_names(
-                        bucket, "%s/balance" % self.key())
+                        bucket, "%s/balance" % self._key())
 
             if keys is None or len(keys) == 0:
                 raise AccountError(
@@ -276,7 +285,14 @@ class Account:
 
     def _get_daily_balance(self, bucket=None, datetime=None):
         """Get the daily starting balance for the passed datetime. This
-           returns a tuple of (credit_balance,outstanding_liabilities).
+           returns a tuple of
+           (balance, liability, receivable).
+
+           where 'balance' is the current real balance of the account,
+           neglecting any outstanding liabilities or accounts receivable,
+           where 'liability' is the current total liabilities,
+           where 'receivable' is the current total accounts receivable, and
+
            If datetime is None then todays daily balance is returned. The
            daily balance is the balance at the start of the day. The
            actual balance at a particular time will be this starting
@@ -309,7 +325,103 @@ class Account:
                                "is not available" % str(datetime))
 
         return (_Decimal(data["balance"]),
-                _Decimal(data["liability"]))
+                _Decimal(data["liability"]),
+                _Decimal(data["receivable"]))
+
+    def _get_balance(self, bucket=None, datetime=None):
+        """Get the balance of the account for the passed datetime. This
+           returns a tuple of
+
+           (balance, liability, receivable)
+
+           where 'balance' is the current real balance of the account,
+           neglecting any outstanding liabilities or accounts receivable,
+           where 'liability' is the current total liabilities,
+           where 'receivable' is the current total accounts receivable
+
+           If datetime is None then the balance "now" is returned
+        """
+        if datetime is None:
+            return self._get_current_balance(bucket)
+
+        raise NotImplementedError("NOT IMPLEMENTED!")
+
+    def _recalculate_current_balance(self, bucket, now):
+        """Internal function that implements _get_current_balance
+           by recalculating the total from today from scratch
+        """
+        # where were we at the start of today?
+        (balance, liability, receivable) = self._get_daily_balance(bucket, now)
+
+        # now sum up all of the transactions from today
+        transaction_keys = self._get_transaction_keys_between(
+                            _datetime.datetime.fromordinal(now.toordinal),
+                            now)
+
+        # summing transactions...
+        # DR - DEBIT, CR - CREDIT,
+        # CL - CURRENT LIABILITY, AR - ACCOUNT RECEIVABLE
+
+        spent_today = _create_decimal(0)
+
+        result = (balance, liability, receivable, spent_today)
+
+        self._last_update_ordinal = now.toordinal()
+        self._last_update_timestamp = now.timestamp()
+        self._last_update = result
+
+        return result
+
+    def _update_current_balance(self, bucket, now):
+        """Internal function that implements _get_current_balance
+           by updating the balance etc. from transactions that have
+           occurred since the last update
+        """
+        (balance, liability, receivable, spent_today) = self._last_update
+
+        # now sum up all of the transactions since the last update
+        transaction_keys = self._get_transaction_keys_between(
+                                            self._last_update_timestamp,
+                                            now)
+
+        # summing transactions
+
+        result = (balance, liability, receivable, spent_today)
+
+        self._last_update_ordinal = now.toordinal()
+        self._last_update_timestamp = now.timestamp()
+        self._last_update = result
+
+        return result
+
+    def _get_current_balance(self, bucket=None):
+        """Get the balance of the account now (the current balance). This
+           returns a tuple of
+           (balance, liability, receivable, spent_today).
+
+           where 'balance' is the current real balance of the account,
+           neglecting any outstanding liabilities or accounts receivable,
+           where 'liability' is the current total liabilities,
+           where 'receivable' is the current total accounts receivable, and
+           where 'spent_today' is how much has been spent today (from midnight
+           until now)
+        """
+        if bucket is None:
+            bucket = _login_to_service_account()
+
+        now = _datetime.datetime.now()
+        now_ordinal = now.toordinal()
+        now_timestamp = now.timestamp()
+
+        if self._last_update_ordinal != now_ordinal:
+            # we are on a new day since the last update, so recalculate
+            # the balance from scratch
+            return self._recalculate_current_balance(bucket, now)
+        else:
+            # we have calculated the total before today. Get the transactions
+            # since the last update and use these to update the daily spend
+            # etc.
+            return self._update_current_balance(bucket, now)
 
     def is_null(self):
         """Return whether or not this is a null account"""
@@ -333,7 +445,7 @@ class Account:
         """Return the UID for this account."""
         return self._uid
 
-    def key(self):
+    def _key(self):
         """Return the key for this account in the object store"""
         if self.is_null():
             return None
@@ -348,14 +460,14 @@ class Account:
         if bucket is None:
             bucket = _login_to_service_account()
 
-        data = _ObjectStore.get_object_from_json(bucket, self.key())
+        data = _ObjectStore.get_object_from_json(bucket, self._key())
         self.__dict__ = _copy(Account.from_data(data).__dict__)
 
     def _save_account(self, bucket=None):
         """Save this account back to the object store"""
         if bucket is None:
             bucket = _login_to_service_account()
-        _ObjectStore.set_object_from_json(bucket, self.key(), self.to_data())
+        _ObjectStore.set_object_from_json(bucket, self._key(), self.to_data())
 
     def to_data(self):
         """Return a dictionary that can be encoded to json from this object"""
@@ -394,12 +506,22 @@ class Account:
             raise TypeError("The passed authorisation must be an "
                             "Authorisation")
 
-    def _debit(self, transaction, authorisation, bucket=None):
-        """Debit the value of the passed transaction  from this account based
+    def _credit(self, debit_note, bucket=None):
+        """Credit the value in 'debit_note' to this account. If the debit_note
+           shows that the payment is provisional then this will be recorded
+           as accounts receivable. This will record the credit with the
+           same UID as the debit identified in the debit_note, so that
+           we can reconcile all credits against matching debits.
+        """
+        raise NotImplemented()
+
+    def _debit(self, transaction, authorisation, is_provisional, bucket=None):
+        """Debit the value of the passed transaction from this account based
            on the authorisation contained
            in 'authorisation'. This will create a unique ID (UID) for
            this debit and will return this together with the timestamp of the
-           debit.
+           debit. If this transaction 'is_provisional' then it will be
+           recorded as a liability.
 
            The UID will encode both the date of the debit and provide a random
            ID that together can be used to identify the transaction associated
@@ -444,19 +566,25 @@ class Account:
         timestamp = now.timestamp()
 
         # and to create a key to find this debit later. The key is made
-        # up from the date of the debit and a random string
-        day_key = "%4d-%02d-%02d" % (now.year, now.month, now.day)
-        uid = "%s/%s" % (day_key, _uuid.uuid4())
+        # up from the date and timestamp of the debit and a random string
+        day_key = "%4d-%02d-%02d/%s" % (now.year, now.month, now.day,
+                                        timestamp)
+        uid = "%s/%s" % (day_key, _uuid.uuid4()[0:8])
 
         # the key in the object store is a combination of the key for this
         # account plus the uid for the debit plus the actual debit value.
         # We record the debit value in the key so that we can accumulate
         # the balance from just the key names
-        item_key = "%s/%s/DR:%s" % (self.key(), uid,
+        if is_provisional:
+            code = "CL"
+        else:
+            code = "DR"
+
+        item_key = "%s/%s/%s:%s" % (self._key(), uid, code,
                                     transaction.value_string())
 
         # create a line_item for this debit and save it to the object store
-        line_item = LineItem(uid, timestamp, authorisation)
+        line_item = LineItem(uid, authorisation)
 
         _ObjectStore.set_object_from_json(bucket, item_key,
                                           line_item.to_data())
@@ -476,27 +604,37 @@ class Account:
     def available_balance(self, bucket=None):
         """Return the available balance of this account. This is the amount
            of value that can be spent (e.g. includes overdraft and fixed daily
-           spend limits)
+           spend limits, and except any outstanding liabilities)
         """
-        if self.is_null():
-            return 0
+        (balance, liabilities, receivables, spent_today) \
+                                     = self._get_current_balance(bucket)
 
-        if bucket is None:
-            bucket = _login_to_service_account()
+        available = balance - liabilities
 
-        pass
+        if self._maximum_daily_limit:
+            return min(available, self._maximum_daily_limit - spent_today)
+        else:
+            return available
 
     def balance(self, bucket=None):
         """Return the current balance of this account"""
-        if self.is_null():
-            return 0
+        result = self._get_current_balance(bucket)
+        return result[0]
 
-        if bucket is None:
-            bucket = _login_to_service_account()
+    def liability(self, bucket=None):
+        """Return the current total liability of this account"""
+        result = self._get_current_balance(bucket)
+        return result[1]
 
-        (balance, liability) = self._get_daily_balance(bucket)
+    def receivable(self, bucket=None):
+        """Return the current total accounts receivable of this account"""
+        result = self._get_current_balance(bucket)
+        return result[2]
 
-        return balance - liability
+    def spent_today(self, bucket=None):
+        """Return the current amount spent today on this account"""
+        result = self._get_current_balance(bucket)
+        return result[3]
 
     def overdraft_limit(self):
         """Return the overdraft limit of this account"""
@@ -509,4 +647,6 @@ class Account:
         """Return whether or not the current balance is beyond
            the overdraft limit
         """
-        return self.balance(bucket) < -(self.overdraft_limit())
+        result = self._get_current_balance(bucket)
+
+        return (result[0] - result[1]) < -(self.overdraft_limit())
