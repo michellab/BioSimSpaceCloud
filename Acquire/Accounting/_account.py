@@ -77,11 +77,26 @@ class Account:
         """Construct the account. If 'uid' is specified, then load the account
            from the object store (so 'name' and 'description' should be "None")
         """
-        if uid:
+        if uid is not None:
             self._uid = str(uid)
             self._name = None
             self._description = None
-        elif not (name is None):
+            self._load_account()
+
+            if name:
+                if name != self.name():
+                    raise AccountError(
+                        "This account name '%s' does not match what you "
+                        "expect! '%s'" % (self.name(), name))
+
+            if description:
+                if description != self.description():
+                    raise AccountError(
+                        "This account description '%s' does not match what "
+                        "you expect! '%s'" % (self.description(), description))
+
+        elif name is not None:
+            self._uid = None
             self._create_account(name, description)
         else:
             self._uid = None
@@ -96,7 +111,7 @@ class Account:
         if self._uid is not None:
             raise AccountError("You cannot create an account twice!")
 
-        self._uid = _uuid.uuid4()
+        self._uid = str(_uuid.uuid4())
         self._name = str(name)
         self._description = str(description)
         self._overdraft_limit = 0

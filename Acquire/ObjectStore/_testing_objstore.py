@@ -10,7 +10,9 @@ from ._objstore import set_object_store_backend as _set_object_store_backend
 
 from ._errors import ObjectStoreError
 
+
 __all__ = ["use_testing_object_store_backend"]
+
 
 class _Testing_ObjectStore:
     """This is a dummy object store that writes objects to
@@ -22,18 +24,18 @@ class _Testing_ObjectStore:
         """Get the object contained in the key 'key' in the passed 'bucket'
            and writing this to the file called 'filename'"""
 
-        if not _os.path.exists("%s/%s._data" % (bucket,key)):
+        if not _os.path.exists("%s/%s._data" % (bucket, key)):
             raise ObjectStoreError("No object at key '%s'" % key)
 
-        _shutil.copy("%s/%s._data" % (bucket,key), filename)
+        _shutil.copy("%s/%s._data" % (bucket, key), filename)
 
     @staticmethod
     def get_object(bucket, key):
         """Return the binary data contained in the key 'key' in the
            passed bucket"""
 
-        if _os.path.exists("%s/%s._data" % (bucket,key)):
-            return open("%s/%s._data" % (bucket,key), "rb").read()
+        if _os.path.exists("%s/%s._data" % (bucket, key)):
+            return open("%s/%s._data" % (bucket, key), "rb").read()
         else:
             raise ObjectStoreError("No object at key '%s'" % key)
 
@@ -52,7 +54,7 @@ class _Testing_ObjectStore:
         data = None
 
         try:
-            data = _Testing_ObjectStore.get_string_object(bucket,key)
+            data = _Testing_ObjectStore.get_string_object(bucket, key)
         except:
             return None
 
@@ -63,15 +65,17 @@ class _Testing_ObjectStore:
         """Returns the names of all objects in the passed bucket"""
 
         if prefix:
-            root = "%s/%s/" % (bucket,prefix)
+            root = "%s/%s/" % (bucket, prefix)
         else:
             root = "%s/" % bucket
 
-        names = [_os.path.join(dp, f) for dp, dn, filenames in _os.walk(bucket) for f in filenames if _os.path.splitext(f)[1] == '._data']
+        names = [_os.path.join(dp, f) for dp, dn, filenames in
+                 _os.walk(bucket) for f in filenames
+                 if _os.path.splitext(f)[1] == '._data']
 
         object_names = []
         for name in names:
-            object_names.append( name[0:-6].split(root)[1] )
+            object_names.append(name[0:-6].split(root)[1])
 
         return object_names
 
@@ -84,7 +88,8 @@ class _Testing_ObjectStore:
 
         if prefix:
             for name in names:
-                objects[name] = _Testing_ObjectStore.get_object(bucket, "%s/%s" % (prefix,name))
+                objects[name] = _Testing_ObjectStore.get_object(
+                                    bucket, "%s/%s" % (prefix, name))
         else:
             for name in names:
                 objects[name] = _Testing_ObjectStore.get_object(bucket, name)
@@ -110,30 +115,32 @@ class _Testing_ObjectStore:
 
     @staticmethod
     def set_object(bucket, key, data):
-         """Set the value of 'key' in 'bucket' to binary 'data'"""
+        """Set the value of 'key' in 'bucket' to binary 'data'"""
 
-         filename = "%s/%s._data" % (bucket,key)
+        filename = "%s/%s._data" % (bucket, key)
 
-         try:
-             with open(filename,'wb') as FILE:
-                 FILE.write(data)
-         except:
-             dir = "/".join(filename.split("/")[0:-1])
-             _os.makedirs(dir, exist_ok=True)
-             with open(filename,'wb') as FILE:
-                 FILE.write(data)
-         
+        try:
+            with open(filename, 'wb') as FILE:
+                FILE.write(data)
+        except:
+            dir = "/".join(filename.split("/")[0:-1])
+            _os.makedirs(dir, exist_ok=True)
+            with open(filename, 'wb') as FILE:
+                FILE.write(data)
+
     @staticmethod
     def set_object_from_file(bucket, key, filename):
         """Set the value of 'key' in 'bucket' to equal the contents
            of the file located by 'filename'"""
 
-        _Testing_ObjectStore.set_object(bucket, key, open(filename,'rb').read())
+        _Testing_ObjectStore.set_object(bucket, key,
+                                        open(filename, 'rb').read())
 
     @staticmethod
     def set_string_object(bucket, key, string_data):
         """Set the value of 'key' in 'bucket' to the string 'string_data'"""
-        _Testing_ObjectStore.set_object(bucket, key, string_data.encode("utf-8"))
+        _Testing_ObjectStore.set_object(bucket, key,
+                                        string_data.encode("utf-8"))
 
     @staticmethod
     def set_object_from_json(bucket, key, data):
@@ -143,20 +150,20 @@ class _Testing_ObjectStore:
 
     @staticmethod
     def log(bucket, message, prefix="log"):
-         """Log the the passed message to the object store in
-            the bucket with key "key/timestamp" (defaults
-            to "log/timestamp"
-         """
+        """Log the the passed message to the object store in
+           the bucket with key "key/timestamp" (defaults
+           to "log/timestamp"
+        """
 
-         _Testing_ObjectStore.set_string_object(
-                bucket, "%s/%s" % (prefix,_datetime.datetime.utcnow().timestamp()),
-                           str(message))
+        _Testing_ObjectStore.set_string_object(
+            bucket, "%s/%s" % (
+                prefix, _datetime.datetime.utcnow().timestamp()), str(message))
 
     @staticmethod
     def delete_all_objects(bucket, prefix=None):
         """Deletes all objects..."""
         if prefix:
-            _shutil.rmtree("%s/%s" % (bucket,prefix), ignore_errors=True)
+            _shutil.rmtree("%s/%s" % (bucket, prefix), ignore_errors=True)
         else:
             _shutil.rmtree(bucket, ignore_errors=True)
 
@@ -172,11 +179,11 @@ class _Testing_ObjectStore:
         timestamps.sort()
 
         for timestamp in timestamps:
-            lines.append( "<logitem>" )
-            lines.append( "<timestamp>%s</timestamp>" % \
-                    _datetime.datetime.fromtimestamp(float(timestamp)) )
-            lines.append( "<message>%s</message>" % objs[timestamp] )
-            lines.append( "</logitem>" )
+            lines.append("<logitem>")
+            lines.append("<timestamp>%s</timestamp>" %
+                         _datetime.datetime.fromtimestamp(float(timestamp)))
+            lines.append("<message>%s</message>" % objs[timestamp])
+            lines.append("</logitem>")
 
         lines.append("</log>")
 
@@ -191,7 +198,7 @@ class _Testing_ObjectStore:
     def delete_object(bucket, key):
         """Removes the object at 'key'"""
         try:
-            _os.remove("%s/%s._data" % (bucket,key))
+            _os.remove("%s/%s._data" % (bucket, key))
         except:
             pass
 
@@ -211,8 +218,9 @@ class _Testing_ObjectStore:
                     break
 
             if remove:
-                _Testing_ObjectStore.remove(bucket, key)
+                _Testing_ObjectStore.delete_object(bucket, key)
 
-def use_testing_object_store_backend():
-    _set_object_store_backend( _Testing_ObjectStore )
-    return "testing_object_store"
+
+def use_testing_object_store_backend(backend):
+    _set_object_store_backend(_Testing_ObjectStore)
+    return "%s/testing_objstore" % backend

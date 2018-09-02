@@ -9,12 +9,15 @@ import os
 from Acquire.ObjectStore import ObjectStore
 from Acquire.Service import login_to_service_account
 
-os.environ["TEST_ACQUIRE"] = "1"
+
+@pytest.fixture(scope="module")
+def bucket(tmpdir_factory):
+    d = tmpdir_factory.mktemp("objstore")
+    bucket = login_to_service_account(str(d))
+    return bucket
 
 
-def test_objstore():
-    bucket = login_to_service_account()
-
+def test_objstore(bucket):
     keys = []
 
     message = "ƒƒƒ Hello World ∂∂∂"
@@ -47,5 +50,3 @@ def test_objstore():
 
     for name in names:
         assert(name in keys)
-
-    ObjectStore.delete_all_objects(bucket)
