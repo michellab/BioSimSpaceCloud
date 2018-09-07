@@ -70,12 +70,16 @@ class _Testing_ObjectStore:
             root = "%s/" % bucket
 
         names = [_os.path.join(dp, f) for dp, dn, filenames in
-                 _os.walk(bucket) for f in filenames
+                 _os.walk(root) for f in filenames
                  if _os.path.splitext(f)[1] == '._data']
 
         object_names = []
         for name in names:
-            object_names.append(name[0:-6].split(root)[1])
+            try:
+                object_names.append(name[0:-6].split(root)[1])
+            except:
+                raise IndexError("Cannot extract from name: Root = %s, "
+                                 "name = %s" % (root, name[0:-6]))
 
         return object_names
 

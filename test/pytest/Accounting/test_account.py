@@ -7,6 +7,9 @@ from Acquire.Accounting import Account, Transaction, TransactionRecord, \
 
 from Acquire.Service import login_to_service_account
 
+account1_overdraft_limit = 1500
+account2_overdraft_limit = 2500
+
 
 @pytest.fixture(scope="module")
 def bucket(tmpdir_factory):
@@ -21,6 +24,10 @@ def account1(bucket):
     assert(uid is not None)
     assert(account.balance() == 0)
     assert(account.liability() == 0)
+
+    account.set_overdraft_limit(account1_overdraft_limit)
+    assert(account.get_overdraft_limit() == account1_overdraft_limit)
+
     return account
 
 
@@ -31,6 +38,10 @@ def account2(bucket):
     assert(uid is not None)
     assert(account.balance() == 0)
     assert(account.liability() == 0)
+
+    account.set_overdraft_limit(account2_overdraft_limit)
+    assert(account.get_overdraft_limit() == account2_overdraft_limit)
+
     return account
 
 
@@ -58,9 +69,11 @@ def test_account(bucket):
 def test_transactions(account1, account2):
     starting_balance1 = account1.balance()
     starting_liability1 = account1.liability()
+    assert(account1.get_overdraft_limit() == account1_overdraft_limit)
 
     starting_balance2 = account2.balance()
     starting_liability2 = account2.liability()
+    assert(account2.get_overdraft_limit() == account2_overdraft_limit)
 
     transaction = Transaction(100.005, "Test transaction")
 

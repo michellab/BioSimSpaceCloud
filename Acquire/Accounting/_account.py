@@ -37,6 +37,9 @@ def _create_decimal(value):
        has 6 decimal places and is clamped between
        -1 quadrillion < value < 1 quadrillion
     """
+    if isinstance(value, str):
+        value = _Decimal(value, _getcontext())
+
     d = _Decimal("%.6f" % value, _getcontext())
 
     if d <= -1000000000000:
@@ -74,7 +77,21 @@ class Authorisation:
     """This class holds the information needed to authorise a transaction
        in an account
     """
-    pass
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def from_data(data):
+        """Return an authorisation created from the json-decoded dictionary"""
+        a = Authorisation()
+
+        return a
+
+    def to_data(self):
+        """Return this object serialised to a json-encoded dictionary"""
+        data = {}
+
+        return data
 
 
 class LineItem:
@@ -105,7 +122,7 @@ class LineItem:
 
         if not self.is_null():
             data["uid"] = self._uid
-            data["authorisation"] = self._authorisation
+            data["authorisation"] = self._authorisation.to_data()
 
         return data
 
@@ -116,7 +133,7 @@ class LineItem:
 
         if (data and len(data) > 0):
             l._uid = data["uid"]
-            l._authorisation = data["authorisation"]
+            l._authorisation = Authorisation.from_data(data["authorisation"])
 
         return l
 
@@ -139,6 +156,7 @@ class Account:
             self._uid = str(uid)
             self._name = None
             self._description = None
+            self._last_update_ordinal = None
             self._load_account()
 
             if name:
@@ -159,6 +177,13 @@ class Account:
         else:
             self._uid = None
 
+    def __str__(self):
+        if self._uid is None:
+            return "Account::null"
+        else:
+            return "Account(%s|%s|%s)" % (self._name, self._description,
+                                          self._uid)
+
     def _create_account(self, name, description):
         """Create the account from scratch"""
         if name is None or description is None:
@@ -172,8 +197,9 @@ class Account:
         self._uid = str(_uuid.uuid4())
         self._name = str(name)
         self._description = str(description)
-        self._overdraft_limit = 0
+        self._overdraft_limit = _create_decimal(0)
         self._maximum_daily_limit = 0
+        self._last_update_ordinal = None
 
         # initialise the account with a balance of zero
         bucket = _login_to_service_account()
@@ -346,6 +372,51 @@ class Account:
 
         raise NotImplementedError("NOT IMPLEMENTED!")
 
+    def _get_transaction_keys_between(self, start_time, end_time,
+                                      bucket=None):
+        """Return all of the object store keys for transactions in this
+           account beteen 'start_time' and 'end_time' (inclusive, e.g.
+           start_time <= transaction <= end_time). This will return an
+           empty list if there were no transactions in this time
+        """
+        if bucket is None:
+            bucket = _login_to_service_account()
+
+        if not isinstance(start_time, _datetime.datetime):
+            raise TypeError("The start time must be a datetime object, "
+                            "not a %s" % start_time.__class__)
+
+        if not isinstance(end_time, _datetime.datetime):
+            raise TypeError("The end time must be a datetime object, "
+                            "not a %s" % end_time.__class__)
+
+        start_day = start_time.toordinal()
+        end_day = end_time.toordinal()
+
+        start_timestamp = start_time.timestamp()
+        end_timestamp = end_time.timestamp()
+
+        keys = []
+
+        for day in range(start_day, end_day+1):
+            day_date = _datetime.datetime.fromordinal(day)
+
+            prefix = "%s/%4d-%02d-%02d" % (self._key(), day_date.year,
+                                           day_date.month, day_date.day)
+
+            day_keys = _ObjectStore.get_all_object_names(bucket, prefix)
+
+            for day_key in day_keys:
+                try:
+                    timestamp = float(day_key.split("/")[0])
+                except:
+                    timestamp = 0
+
+                if timestamp >= start_timestamp and timestamp <= end_timestamp:
+                        keys.append("%s/%s" % (prefix, day_key))
+
+        return keys
+
     def _recalculate_current_balance(self, bucket, now):
         """Internal function that implements _get_current_balance
            by recalculating the total from today from scratch
@@ -355,7 +426,7 @@ class Account:
 
         # now sum up all of the transactions from today
         transaction_keys = self._get_transaction_keys_between(
-                            _datetime.datetime.fromordinal(now.toordinal),
+                            _datetime.datetime.fromordinal(now.toordinal()),
                             now)
 
         # summing transactions...
@@ -372,6 +443,16 @@ class Account:
 
         return result
 
+    def _last_update_datetime(self):
+        """Return the last time the balance was updated, as a datetime
+           object
+        """
+        if self._last_update_timestamp is None:
+            return _datetime.datetime.fromtimestamp(0)
+        else:
+            return _datetime.datetime.fromtimestamp(
+                                        self._last_update_timestamp)
+
     def _update_current_balance(self, bucket, now):
         """Internal function that implements _get_current_balance
            by updating the balance etc. from transactions that have
@@ -381,7 +462,7 @@ class Account:
 
         # now sum up all of the transactions since the last update
         transaction_keys = self._get_transaction_keys_between(
-                                            self._last_update_timestamp,
+                                            self._last_update_datetime(),
                                             now)
 
         # summing transactions
@@ -477,8 +558,8 @@ class Account:
             data["uid"] = self._uid
             data["name"] = self._name
             data["description"] = self._description
-            data["overdraft_limit"] = self._overdraft_limit
-            data["maximum_daily_limit"] = self._maximum_daily_limit
+            data["overdraft_limit"] = str(self._overdraft_limit)
+            data["maximum_daily_limit"] = str(self._maximum_daily_limit)
 
         return data
 
@@ -493,8 +574,9 @@ class Account:
             account._uid = data["uid"]
             account._name = data["name"]
             account._description = data["description"]
-            account._overdraft_limit = data["overdraft_limit"]
-            account._maximum_daily_limit = data["maximum_daily_limit"]
+            account._overdraft_limit = _create_decimal(data["overdraft_limit"])
+            account._maximum_daily_limit = _create_decimal(
+                                                data["maximum_daily_limit"])
 
         return account
 
@@ -569,7 +651,7 @@ class Account:
         # up from the date and timestamp of the debit and a random string
         day_key = "%4d-%02d-%02d/%s" % (now.year, now.month, now.day,
                                         timestamp)
-        uid = "%s/%s" % (day_key, _uuid.uuid4()[0:8])
+        uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
 
         # the key in the object store is a combination of the key for this
         # account plus the uid for the debit plus the actual debit value.
@@ -608,9 +690,9 @@ class Account:
            spend limits, and except any outstanding liabilities)
         """
         (balance, liabilities, receivables, spent_today) \
-                                     = self._get_current_balance(bucket)
+            = self._get_current_balance(bucket)
 
-        available = balance - liabilities
+        available = balance - liabilities + self.get_overdraft_limit()
 
         if self._maximum_daily_limit:
             return min(available, self._maximum_daily_limit - spent_today)
@@ -637,12 +719,37 @@ class Account:
         result = self._get_current_balance(bucket)
         return result[3]
 
-    def overdraft_limit(self):
+    def get_overdraft_limit(self):
         """Return the overdraft limit of this account"""
         if self.is_null():
             return 0
 
         return self._overdraft_limit
+
+    def set_overdraft_limit(self, limit):
+        """Set the overdraft limit of this account to 'limit'"""
+        if self.is_null():
+            return
+
+        limit = _create_decimal(limit)
+        if limit < 0:
+            raise ValueError("You cannot set the overdraft limit to a "
+                             "negative value! (%s)" % limit)
+
+        old_limit = self._overdraft_limit
+
+        if old_limit != limit:
+            self._overdraft_limit = limit
+
+            if self.is_beyond_overdraft_limit():
+                # restore the old limit
+                self._overdraft_limit = old_limit
+                raise AccountError("You cannot change the overdraft limit to "
+                                   "%s as this is greater than the current "
+                                   "balance!" % (limit))
+            else:
+                # save the new limit to the object store
+                self._save_account()
 
     def is_beyond_overdraft_limit(self, bucket=None):
         """Return whether or not the current balance is beyond
@@ -650,4 +757,4 @@ class Account:
         """
         result = self._get_current_balance(bucket)
 
-        return (result[0] - result[1]) < -(self.overdraft_limit())
+        return (result[0] - result[1]) < -(self.get_overdraft_limit())
