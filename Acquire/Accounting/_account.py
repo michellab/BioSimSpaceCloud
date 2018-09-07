@@ -513,7 +513,7 @@ class Account:
            same UID as the debit identified in the debit_note, so that
            we can reconcile all credits against matching debits.
         """
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def _debit(self, transaction, authorisation, is_provisional, bucket=None):
         """Debit the value of the passed transaction from this account based
@@ -593,6 +593,7 @@ class Account:
             # This transaction has helped push the account beyond the
             # overdraft limit. Delete the transaction and raise
             # an InsufficientFundsError
+
             _ObjectStore.delete_object(bucket, item_key)
             raise InsufficientFundsError(
                 "You cannot debit '%s' from account %s as there "
