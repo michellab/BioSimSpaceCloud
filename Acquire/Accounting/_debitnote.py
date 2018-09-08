@@ -1,7 +1,7 @@
 
 
 from ._transaction import Transaction as _Transaction
-
+from ._authorisation import Authorisation as _Authorisation
 
 __all__ = ["DebitNote"]
 
@@ -98,10 +98,6 @@ class DebitNote:
         else:
             return self.transaction().value()
 
-    def value_string(self):
-        """Return the value of this note in a stanard string format"""
-        return "%013.6f" % self.value()
-
     def authorisation(self):
         """Return the authorisation that was used successfully to withdraw
            value from the debited account
@@ -127,7 +123,7 @@ class DebitNote:
         if not self.is_null():
             data["transaction"] = self._transaction.to_data()
             data["account_uid"] = self._account_uid
-            data["authorisation"] = self._authorisation
+            data["authorisation"] = self._authorisation.to_data()
             data["is_provisional"] = self._is_provisional
             data["timestamp"] = self._timestamp
             data["uid"] = self._uid
@@ -144,7 +140,7 @@ class DebitNote:
         if (data and len(data) > 0):
             d._transaction = data["transaction"]
             d._account_uid = data["account_uid"]
-            d._authorisation = data["authorisation"]
+            d._authorisation = _Authorisation.from_data(data["authorisation"])
             d._is_provisional = data["is_provisional"]
             d._timestamp = data["timestamp"]
             d._uid = data["uid"]

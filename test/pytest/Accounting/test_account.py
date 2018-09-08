@@ -78,7 +78,7 @@ def test_transactions(account1, account2):
     transaction = Transaction(100.005, "Test transaction")
 
     TransactionRecord.perform(transaction, account1, account2,
-                              Authorisation(), is_provisional=True)
+                              Authorisation(), is_provisional=False)
 
     ending_balance1 = account1.balance()
     ending_liability1 = account1.liability()
@@ -86,8 +86,8 @@ def test_transactions(account1, account2):
     ending_balance2 = account2.balance()
     ending_liability2 = account2.liability()
 
-    assert(ending_balance1 == starting_balance1)
-    assert(ending_balance2 == starting_balance2)
+    assert(ending_balance1 == starting_balance1 - transaction.value())
+    assert(ending_balance2 == starting_balance2 + transaction.value())
 
-    assert(ending_liability1 - starting_liability1 == transaction.value())
-    assert(starting_liability2 - ending_liability2 == transaction.value())
+    assert(ending_liability1 == starting_liability1)
+    assert(starting_liability2 == ending_liability2)

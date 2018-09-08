@@ -15,3 +15,5 @@ from ._creditnote import *
 from ._debitnote import *
 from ._lineitem import *
 from ._receipt import *
+from ._decimal import *
+from ._transactioninfo import *

@@ -1,4 +1,5 @@
 
+from ._debitnote import DebitNote as _DebitNote
 
 __all__ = ["CreditNote"]
 
@@ -41,7 +42,7 @@ class CreditNote:
         if self.is_null():
             return "CreditNote::null"
         else:
-            return "CreditNote>>%s" % self.account()
+            return "CreditNote>>%s" % self.account_uid()
 
     def is_null(self):
         """Return whether or not this note is null"""

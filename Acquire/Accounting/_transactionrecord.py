@@ -228,7 +228,7 @@ class TransactionRecord:
             if len(debit_notes) > 0:
                 # record all of this to the ledger
                 TransactionRecord._record_to_ledger(
-                    debit_notes, credit_notes,
+                    _PairedNote.create(debit_notes, credit_notes),
                     is_provisional, debit_error)
 
             # raise the original error to show that, e.g. there was
@@ -273,13 +273,12 @@ class TransactionRecord:
                     "refusal error = %s. Refund error = %s" %
                     (debit_notes, str(credit_error), str(e)))
 
-
         return TransactionRecord._record_to_ledger(
                     _PairedNote.create(debit_notes, credit_notes),
                     is_provisional, credit_error)
 
     @staticmethod
-    def _record_to_ledger(debit_notes, credit_notes, is_provisional,
+    def _record_to_ledger(paired_notes, is_provisional,
                           refund_reason=None):
         """Internal function used to generate and record transaction records
            from the passed paired debit- and credit-note(s). This will write
@@ -288,28 +287,12 @@ class TransactionRecord:
            transaction that is actually a refund. Refund transactions are
            always immediately receipted if they are provisional.
         """
-        try:
-            debit_notes[0]
-        except:
-            debit_notes = [debit_notes]
-
-        try:
-            credit_notes[0]
-        except:
-            credit_notes = [credit_notes]
-
-        if len(debit_notes) != len(credit_notes):
-            raise TransactionError(
-                "You must have a matching number of debit notes (%s) "
-                "as you have credit notes (%s)" %
-                (len(debit_notes), len(credit_notes)))
-
         records = []
 
-        for i in range(0, len(debit_notes)):
+        for paired_note in paired_notes:
             record = TransactionRecord()
-            record._debit_note = debit_notes[i]
-            record._credit_note = credit_notes[i]
+            record._debit_note = paired_note.debit_note()
+            record._credit_note = paired_note.credit_note()
             record._is_receipted = not is_provisional
 
             if refund_reason:

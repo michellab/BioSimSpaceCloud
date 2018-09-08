@@ -1,5 +1,8 @@
 
+from ._authorisation import Authorisation as _Authorisation
+
 __all__ = ["LineItem"]
+
 
 class LineItem:
     """This class holds the data for a line item in the account. This holds
@@ -51,7 +54,7 @@ class LineItem:
             l._uid = data["uid"]
 
             if "authorisation" in data:
-                l._authorisation = Authorisation.from_data(
+                l._authorisation = _Authorisation.from_data(
                     data["authorisation"])
             else:
                 l._authorisation = None

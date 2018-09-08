@@ -5,9 +5,6 @@ import datetime as _datetime
 import time as _time
 import re as _re
 
-from decimal import Decimal as _Decimal
-from decimal import Context as _Context
-
 from Acquire.Service import login_to_service_account \
                         as _login_to_service_account
 from Acquire.ObjectStore import ObjectStore as _ObjectStore
@@ -17,48 +14,17 @@ from ._authorisation import Authorisation as _Authorisation
 from ._debitnote import DebitNote as _DebitNote
 from ._creditnote import CreditNote as _CreditNote
 from ._lineitem import LineItem as _LineItem
+from ._decimal import create_decimal as _create_decimal
+from ._transactioninfo import TransactionInfo as _TransactionInfo
+from ._transactioninfo import TransactionCode as _TransactionCode
 
 from ._errors import AccountError, InsufficientFundsError
-
 
 __all__ = ["Account"]
 
 
 def _account_root():
     return "accounts"
-
-
-def _getcontext():
-    """Return the context used for all decimals in transactions. This
-       context rounds to 6 decimal places and provides sufficient precision
-       to support any value between 0 and 999,999,999,999,999.999,999,999
-       (i.e. everything up to just under one quadrillion - I doubt we will
-        ever have an account that has more than a trillion units in it!)
-    """
-    return _Context(prec=24)
-
-
-def _create_decimal(value):
-    """Create a decimal from the passed value. This is a decimal that
-       has 6 decimal places and is clamped between
-       -1 quadrillion < value < 1 quadrillion
-    """
-    if isinstance(value, str):
-        value = _Decimal(value, _getcontext())
-
-    d = _Decimal("%.6f" % value, _getcontext())
-
-    if d <= -1000000000000:
-        raise AccountError(
-                "You cannot create a balance with a value less than "
-                "-1 quadrillion! (%s)" % (value))
-
-    elif d >= 1000000000000000:
-        raise AccountError(
-                "You cannot create a balance with a value greater than "
-                "1 quadrillion! (%s)" % (value))
-
-    return d
 
 
 def _get_key_from_day(start, datetime):
@@ -77,6 +43,43 @@ def _get_day_from_key(key):
                                   day=int(m.groups()[2]))
     else:
         raise AccountError("Could not find a date in the key '%s'" % key)
+
+
+def _sum_transactions(keys):
+    """Internal function that sums all of the transactions identified
+        by the passed keys. This returns a tuple of
+        (balance, liability, receivable, spent_today)
+    """
+    balance = _create_decimal(0)
+    liability = _create_decimal(0)
+    receivable = _create_decimal(0)
+    spent_today = _create_decimal(0)
+
+    for key in keys:
+        v = _TransactionInfo(key)
+
+        if v.is_credit():
+            balance += v.value()
+        elif v.is_debit():
+            balance -= v.value()
+            spent_today += v.value()
+        elif v.is_liability():
+            liability += v.value()
+            spent_today += v.value()
+        elif v.is_accounts_receivable():
+            receivable += v.value()
+        elif v.is_received_receipt():
+            balance -= v.value()
+            liability -= v.original_value()
+        elif v.is_sent_receipt():
+            balance += v.value()
+            receivable -= v.original_value()
+        elif v.is_received_refund():
+            balance += v.value()
+        elif v.is_sent_refund():
+            balance -= v.value()
+
+    return (balance, liability, receivable, spent_today)
 
 
 class Account:
@@ -291,9 +294,9 @@ class Account:
             raise AccountError("The daily balance for account at date %s "
                                "is not available" % str(datetime))
 
-        return (_Decimal(data["balance"]),
-                _Decimal(data["liability"]),
-                _Decimal(data["receivable"]))
+        return (_create_decimal(data["balance"]),
+                _create_decimal(data["liability"]),
+                _create_decimal(data["receivable"]))
 
     def _get_balance(self, bucket=None, datetime=None):
         """Get the balance of the account for the passed datetime. This
@@ -370,13 +373,10 @@ class Account:
                             _datetime.datetime.fromordinal(now.toordinal()),
                             now)
 
-        # summing transactions...
-        # DR - DEBIT, CR - CREDIT,
-        # CL - CURRENT LIABILITY, AR - ACCOUNT RECEIVABLE
+        total = _sum_transactions(transaction_keys)
 
-        spent_today = _create_decimal(0)
-
-        result = (balance, liability, receivable, spent_today)
+        result = (balance+total[0], liability+total[1], receivable+total[2],
+                  total[3])
 
         self._last_update_ordinal = now.toordinal()
         self._last_update_timestamp = now.timestamp()
@@ -406,9 +406,10 @@ class Account:
                                             self._last_update_datetime(),
                                             now)
 
-        # summing transactions
+        total = _sum_transactions(transaction_keys)
 
-        result = (balance, liability, receivable, spent_today)
+        result = (balance+total[0], liability+total[1], receivable+total[2],
+                  spent_today+total[3])
 
         self._last_update_ordinal = now.toordinal()
         self._last_update_timestamp = now.timestamp()
@@ -546,12 +547,16 @@ class Account:
             bucket = _login_to_service_account()
 
         if debit_note.is_provisional():
-            code = "CA"    # credit accounts receivable
+            encoded_value = _TransactionInfo.encode(
+                                _TransactionCode.ACCOUNT_RECEIVABLE,
+                                debit_note.value())
         else:
-            code = "CR"    # credit record
+            encoded_value = _TransactionInfo.encode(
+                                _TransactionCode.CREDIT,
+                                debit_note.value())
 
-        item_key = "%s/%s/%s%s" % (self._key(), debit_note.uid(), code,
-                                   debit_note.value_string())
+        item_key = "%s/%s/%s" % (self._key(), debit_note.uid(),
+                                 encoded_value)
 
         l = _LineItem(debit_note.uid(), debit_note.authorisation())
 
@@ -620,12 +625,15 @@ class Account:
         # We record the debit value in the key so that we can accumulate
         # the balance from just the key names
         if is_provisional:
-            code = "DL"    # debit liability
+            encoded_value = _TransactionInfo.encode(
+                                _TransactionCode.CURRENT_LIABILITY,
+                                transaction.value())
         else:
-            code = "DR"    # debit record
+            encoded_value = _TransactionInfo.encode(
+                                _TransactionCode.DEBIT,
+                                transaction.value())
 
-        item_key = "%s/%s/%s%s" % (self._key(), uid, code,
-                                   transaction.value_string())
+        item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
 
         # create a line_item for this debit and save it to the object store
         line_item = _LineItem(uid, authorisation)

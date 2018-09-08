@@ -129,13 +129,6 @@ class Transaction:
         """
         return _create_decimal(999999.999999)
 
-    def value_string(self):
-        """Return the value of this transaction as a standard-formatted string.
-           This will be a string that is formatted as F13.6, with zero padding
-           front and back
-        """
-        return "%013.6f" % self._value
-
     @staticmethod
     def round(value):
         """Round the passed floating point value to the precision
@@ -214,7 +207,7 @@ class Transaction:
         data = {}
 
         if not self.is_null():
-            data["value"] = self.value_string()
+            data["value"] = str(self.value())
             data["description"] = self._description
 
         return data

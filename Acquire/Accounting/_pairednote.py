@@ -3,6 +3,8 @@
 from ._debitnote import DebitNote as _DebitNote
 from ._creditnote import CreditNote as _CreditNote
 
+from ._errors import UnbalancedLedgerError
+
 __all__ = ["PairedNote"]
 
 
@@ -20,13 +22,45 @@ class PairedNote:
         self._debit_note = debit_note
         self._credit_note = credit_note
 
+    def debit_note(self):
+        """Return the debit note"""
+        return self._debit_note
+
+    def credit_note(self):
+        """Return the credit note"""
+        return self._credit_note
+
     @staticmethod
     def create(debit_notes, credit_notes):
         """Return a list of PairedNotes that pair together the passed
            debit notes and credit notes
         """
-
         try:
             debit_note = debit_notes[0]
         except:
-            SOMETHONG
+            debit_notes = [debit_notes]
+            credit_notes = {}
+            credit_notes[debit_notes[0].uid()] = credit_notes
+
+        if not isinstance(credit_notes, dict):
+            d = {}
+            for credit_note in credit_notes:
+                d[credit_note.uid()] = credit_notes
+            credit_notes = d
+
+        pairs = []
+        missing = []
+
+        for debit_note in debit_notes:
+            if debit_note.uid() in credit_notes:
+                pairs.append(PairedNote(debit_note,
+                             credit_notes[debit_note.uid()]))
+            else:
+                missing.append(debit_note)
+
+        if len(missing) > 0 or len(credit_notes) != len(debit_notes):
+            raise UnbalancedLedgerError(
+                "Cannot balance the ledger as the debit do not match the "
+                "credits %s versus %s" % (str(debit_notes), str(credit_notes)))
+
+        return pairs
