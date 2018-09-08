@@ -13,9 +13,15 @@ from Acquire.Service import login_to_service_account \
 from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
 from ._transaction import Transaction as _Transaction
+from ._authorisation import Authorisation as _Authorisation
+from ._debitnote import DebitNote as _DebitNote
+from ._creditnote import CreditNote as _CreditNote
+from ._lineitem import LineItem as _LineItem
+
 from ._errors import AccountError, InsufficientFundsError
 
-__all__ = ["Account", "LineItem", "Authorisation"]
+
+__all__ = ["Account"]
 
 
 def _account_root():
@@ -71,71 +77,6 @@ def _get_day_from_key(key):
                                   day=int(m.groups()[2]))
     else:
         raise AccountError("Could not find a date in the key '%s'" % key)
-
-
-class Authorisation:
-    """This class holds the information needed to authorise a transaction
-       in an account
-    """
-    def __init__(self):
-        pass
-
-    @staticmethod
-    def from_data(data):
-        """Return an authorisation created from the json-decoded dictionary"""
-        a = Authorisation()
-
-        return a
-
-    def to_data(self):
-        """Return this object serialised to a json-encoded dictionary"""
-        data = {}
-
-        return data
-
-
-class LineItem:
-    """This class holds the data for a line item in the account. This holds
-       basic information about the item, e.g. its UID and authorisation
-    """
-    def __init__(self, uid=None, authorisation=None):
-        self._uid = uid
-        self._authorisation = authorisation
-
-    def is_null(self):
-        """Return whether or not this is a null line item"""
-        return self._uid is None
-
-    def uid(self):
-        """Return the UID of the TransactionRecord that provides
-           more information about this line item in the ledger
-        """
-        return self._uid
-
-    def authorisation(self):
-        """Return the authorisation that was used to authorise this action"""
-        return self._authorisation
-
-    def to_data(self):
-        """Return this object as a dictionary that can be serialised to json"""
-        data = {}
-
-        if not self.is_null():
-            data["uid"] = self._uid
-            data["authorisation"] = self._authorisation.to_data()
-
-        return data
-
-    @staticmethod
-    def from_data(data):
-        """Return a LineItem constructed from the json-decoded dictionary"""
-        l = LineItem()
-
-        if (data and len(data) > 0):
-            l._uid = data["uid"]
-            l._authorisation = Authorisation.from_data(data["authorisation"])
-
-        return l
 
 
 class Account:
@@ -584,7 +525,7 @@ class Account:
         """Assert that the passed authorisation is valid for this
            account
         """
-        if not isinstance(authorisation, Authorisation):
+        if not isinstance(authorisation, _Authorisation):
             raise TypeError("The passed authorisation must be an "
                             "Authorisation")
 
@@ -595,7 +536,28 @@ class Account:
            same UID as the debit identified in the debit_note, so that
            we can reconcile all credits against matching debits.
         """
-        raise NotImplementedError()
+        if not isinstance(debit_note, _DebitNote):
+            raise TypeError("The passed debit note must be a DebitNote")
+
+        if debit_note.value() <= 0:
+            return
+
+        if bucket is None:
+            bucket = _login_to_service_account()
+
+        if debit_note.is_provisional():
+            code = "CA"    # credit accounts receivable
+        else:
+            code = "CR"    # credit record
+
+        item_key = "%s/%s/%s%s" % (self._key(), debit_note.uid(), code,
+                                   debit_note.value_string())
+
+        l = _LineItem(debit_note.uid(), debit_note.authorisation())
+
+        _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
+
+        return (debit_note.uid(), debit_note.timestamp())
 
     def _debit(self, transaction, authorisation, is_provisional, bucket=None):
         """Debit the value of the passed transaction from this account based
@@ -658,15 +620,15 @@ class Account:
         # We record the debit value in the key so that we can accumulate
         # the balance from just the key names
         if is_provisional:
-            code = "CL"
+            code = "DL"    # debit liability
         else:
-            code = "DR"
+            code = "DR"    # debit record
 
-        item_key = "%s/%s/%s:%s" % (self._key(), uid, code,
-                                    transaction.value_string())
+        item_key = "%s/%s/%s%s" % (self._key(), uid, code,
+                                   transaction.value_string())
 
         # create a line_item for this debit and save it to the object store
-        line_item = LineItem(uid, authorisation)
+        line_item = _LineItem(uid, authorisation)
 
         _ObjectStore.set_object_from_json(bucket, item_key,
                                           line_item.to_data())
