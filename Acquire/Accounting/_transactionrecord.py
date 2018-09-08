@@ -157,22 +157,28 @@ class TransactionRecord:
         return self._refund_reason
 
     @staticmethod
+    def refund(refund):
+        """Create and record a new transaction from the passed refund. This
+           applies the refund, thereby transferring value from the credit
+           account to the debit account of the corresponding transaction.
+           Note that you can only refund a transaction once!
+           This returns the (already recorded) TransactionRecord for the
+           refund
+        """
+        raise NotImplementedError("Have not implmented refunding a "
+                                  "transaction")
+
+    @staticmethod
     def receipt(receipt):
         """Create and record a new transaction from the passed receipt. This
            applies the receipt, thereby actually transferring value from the
            debit account to the credit account of the corresponding
-           transaction. Not that you can only receipt a transaction once!
-           This returns the actual transaction object created for the receipt,
-           which will already have been applied and written to the object store
+           transaction. Note that you can only receipt a transaction once!
+           This returns the (already recorded) TransactionRecord for the
+           receipt
         """
-        transaction = TransactionRecord(uid=receipt.transaction_uid())
-
-        if transaction.is_receipted():
-            raise TransactionError(
-                "It is an error to try to receipt a transaction twice! %s | %s"
-                % (str(transaction), str(receipt)))
-
-        return transaction
+        raise NotImplementedError("Have not implemented receipting a "
+                                  "transaction")
 
     @staticmethod
     def perform(transactions, debit_account, credit_account, authorisation,

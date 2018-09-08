@@ -434,7 +434,6 @@ class Account:
 
         now = _datetime.datetime.now()
         now_ordinal = now.toordinal()
-        now_timestamp = now.timestamp()
 
         if self._last_update_ordinal != now_ordinal:
             # we are on a new day since the last update, so recalculate
@@ -659,8 +658,11 @@ class Account:
            of value that can be spent (e.g. includes overdraft and fixed daily
            spend limits, and except any outstanding liabilities)
         """
-        (balance, liabilities, receivables, spent_today) \
-            = self._get_current_balance(bucket)
+        result = self._get_current_balance(bucket)
+
+        balance = result[0]
+        liabilities = result[1]
+        spent_today = result[2]
 
         available = balance - liabilities + self.get_overdraft_limit()
 
