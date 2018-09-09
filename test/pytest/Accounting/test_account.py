@@ -1,9 +1,10 @@
 
 import pytest
 import os
+import random
 
 from Acquire.Accounting import Account, Transaction, TransactionRecord, \
-                               Authorisation
+                               Authorisation, create_decimal
 
 from Acquire.Service import login_to_service_account
 
@@ -45,6 +46,24 @@ def account2(bucket):
     return account
 
 
+@pytest.fixture(params=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+def random_transaction(account1, account2):
+    value = create_decimal(1000.0 * random.random())
+    description = "%s transaction" % value
+    transaction = Transaction(value, description)
+
+    assert(transaction.value() == value)
+    assert(transaction.description() == description)
+
+    assert(account1.get_overdraft_limit() == account1_overdraft_limit)
+    assert(account2.get_overdraft_limit() == account2_overdraft_limit)
+
+    if random.randint(0, 1):
+        return (transaction, account1, account2)
+    else:
+        return (transaction, account2, account1)
+
+
 def test_account(bucket):
     name = "test account"
     description = "This is a test account"
@@ -66,16 +85,14 @@ def test_account(bucket):
     assert(account.balance() == 0)
 
 
-def test_transactions(account1, account2):
+def test_transactions(random_transaction):
+    (transaction, account1, account2) = random_transaction
+
     starting_balance1 = account1.balance()
     starting_liability1 = account1.liability()
-    assert(account1.get_overdraft_limit() == account1_overdraft_limit)
 
     starting_balance2 = account2.balance()
     starting_liability2 = account2.liability()
-    assert(account2.get_overdraft_limit() == account2_overdraft_limit)
-
-    transaction = Transaction(100.005, "Test transaction")
 
     TransactionRecord.perform(transaction, account1, account2,
                               Authorisation(), is_provisional=False)

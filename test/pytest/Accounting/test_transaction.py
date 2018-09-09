@@ -2,7 +2,7 @@
 import pytest
 import random
 
-from Acquire.Accounting import Transaction, TransactionError
+from Acquire.Accounting import Transaction, TransactionError, create_decimal
 
 
 def test_transaction_is_null():
@@ -12,7 +12,7 @@ def test_transaction_is_null():
 
 @pytest.fixture(params=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 def random_transaction():
-    value = random.randrange(0, 1000)
+    value = create_decimal(1000.0 * random.random())
     description = "%s transaction" % value
     transaction = Transaction(value, description)
 
