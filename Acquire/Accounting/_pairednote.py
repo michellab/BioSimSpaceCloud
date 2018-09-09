@@ -14,10 +14,10 @@ class PairedNote:
     """
     def __init__(self, debit_note, credit_note):
         """Construct from the matching pair of notes"""
-        if credit_note.uid() != debit_note.uid():
+        if credit_note.debit_note_uid() != debit_note.uid():
             raise ValueError("You must pair up DebitNote (%s) with a "
                              "matching CreditNote (%s)" %
-                             (debit_note.uid(), credit_note.uid()))
+                             (debit_note.uid(), credit_note.debit_note_uid()))
 
         self._debit_note = debit_note
         self._credit_note = credit_note
@@ -39,13 +39,16 @@ class PairedNote:
             debit_note = debit_notes[0]
         except:
             debit_notes = [debit_notes]
-            credit_notes = {}
-            credit_notes[debit_notes[0].uid()] = credit_notes
 
         if not isinstance(credit_notes, dict):
+            try:
+                credit_notes[0]
+            except:
+                credit_notes = [credit_notes]
+
             d = {}
             for credit_note in credit_notes:
-                d[credit_note.uid()] = credit_notes
+                d[credit_note.debit_note_uid()] = credit_note
             credit_notes = d
 
         pairs = []

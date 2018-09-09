@@ -554,14 +554,36 @@ class Account:
                                 _TransactionCode.CREDIT,
                                 debit_note.value())
 
-        item_key = "%s/%s/%s" % (self._key(), debit_note.uid(),
-                                 encoded_value)
+        # create a UID and timestamp for this credit and record
+        # it in the account
+        now = _datetime.datetime.now()
 
+        # don't allow any transactions in the last 30 seconds of the day, as we
+        # will sum up the day balance at midnight, and don't want to risk any
+        # late transactions from messing up the accounting
+        while now.hour == 23 and now.minute == 59 and now.second >= 30:
+            _time.sleep(5)
+            now = _datetime.datetime.now()
+
+        # we need to record the exact timestamp of this credit...
+        timestamp = now.timestamp()
+
+        # and to create a key to find this credit later. The key is made
+        # up from the date and timestamp of the credit and a random string
+        day_key = "%4d-%02d-%02d/%s" % (now.year, now.month, now.day,
+                                        timestamp)
+        uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
+
+        item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
+
+        # the line item records the UID of the debit note, so we can
+        # find this debit note in the system and, from this, get the
+        # original transaction in the transaction record
         l = _LineItem(debit_note.uid(), debit_note.authorisation())
 
         _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
 
-        return (debit_note.uid(), debit_note.timestamp())
+        return (uid, timestamp)
 
     def _debit(self, transaction, authorisation, is_provisional, bucket=None):
         """Debit the value of the passed transaction from this account based

@@ -1,5 +1,6 @@
 
 from ._debitnote import DebitNote as _DebitNote
+from ._decimal import create_decimal as _create_decimal
 
 __all__ = ["CreditNote"]
 
@@ -20,6 +21,8 @@ class CreditNote:
             self._account_uid = None
             self._timestamp = None
             self._uid = None
+            self._debit_note_uid = None
+            self._value = _create_decimal(0)
             return
 
         if not isinstance(debit_note, _DebitNote):
@@ -37,6 +40,8 @@ class CreditNote:
         self._account_uid = account.uid()
         self._timestamp = timestamp
         self._uid = uid
+        self._debit_note_uid = debit_note.uid()
+        self._value = debit_note.value()
 
     def __str__(self):
         if self.is_null():
@@ -60,10 +65,26 @@ class CreditNote:
         return self._timestamp
 
     def uid(self):
-        """Return the UID of this credit note. This will match the UID
-           of the corresponding debit note
+        """Return the UID of this credit note. This will not match the debit
+           note UID - you need to use debit_note_uid() to get the UID of
+           the debit note that matches this credit note
         """
         return self._uid
+
+    def debit_note_uid(self):
+        """Return the UID of the debit note that matches this credit note.
+           While at the moment only a single credit note matches a debit note,
+           it may be in the future that we divide a credit over several
+           accounts (and thus several credit notes)
+        """
+        return self._debit_note_uid
+
+    def value(self):
+        """Return the value of this note. This may be less than the
+           corresponding debit note if only part of the value of the
+           debit note is transferred into the account
+        """
+        return self._value
 
     @staticmethod
     def from_data(data):
@@ -75,7 +96,9 @@ class CreditNote:
         if (data and len(data) > 0):
             note._account_uid = data["account_uid"]
             note._uid = data["uid"]
+            note._debit_note_uid = data["debit_note_uid"]
             note._timestamp = data["timestamp"]
+            note._value = _create_decimal(data["value"])
 
         return note
 
@@ -88,6 +111,8 @@ class CreditNote:
         if not self.is_null():
             data["account_uid"] = self._account_uid
             data["uid"] = self._uid
+            data["debit_note_uid"] = self._debit_note_uid
             data["timestamp"] = self._timestamp
+            data["value"] = str(self._value)
 
         return data
