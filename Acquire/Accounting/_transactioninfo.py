@@ -9,7 +9,7 @@ __all__ = ["TransactionInfo", "TransactionCode"]
 class TransactionCode(_Enum):
     CREDIT = "CR"
     DEBIT = "DR"
-    CURRENT_LIABILITY = "CR"
+    CURRENT_LIABILITY = "CL"
     ACCOUNT_RECEIVABLE = "AR"
     RECEIVED_RECEIPT = "RR"
     SENT_RECEIPT = "SR"
@@ -52,6 +52,10 @@ class TransactionInfo:
                 pass
 
         raise ValueError("Cannot extract transaction info from '%s'" % key)
+
+    def __str__(self):
+        return "TransactionInfo(code==%s, value==%s)" % \
+                    (self._code.value, self._value)
 
     @staticmethod
     def _get_code(code):

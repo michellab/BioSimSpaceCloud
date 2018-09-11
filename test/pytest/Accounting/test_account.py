@@ -8,8 +8,8 @@ from Acquire.Accounting import Account, Transaction, TransactionRecord, \
 
 from Acquire.Service import login_to_service_account
 
-account1_overdraft_limit = 1500
-account2_overdraft_limit = 2500
+account1_overdraft_limit = 1500000
+account2_overdraft_limit = 2500000
 
 
 @pytest.fixture(scope="module")
@@ -90,21 +90,57 @@ def test_transactions(random_transaction):
 
     starting_balance1 = account1.balance()
     starting_liability1 = account1.liability()
+    starting_receivable1 = account1.receivable()
 
     starting_balance2 = account2.balance()
     starting_liability2 = account2.liability()
+    starting_receivable2 = account2.receivable()
 
     TransactionRecord.perform(transaction, account1, account2,
                               Authorisation(), is_provisional=False)
 
     ending_balance1 = account1.balance()
     ending_liability1 = account1.liability()
+    ending_receivable1 = account1.receivable()
 
     ending_balance2 = account2.balance()
     ending_liability2 = account2.liability()
+    ending_receivable2 = account2.receivable()
 
     assert(ending_balance1 == starting_balance1 - transaction.value())
     assert(ending_balance2 == starting_balance2 + transaction.value())
 
     assert(ending_liability1 == starting_liability1)
     assert(starting_liability2 == ending_liability2)
+    assert(starting_receivable1 == ending_receivable1)
+    assert(starting_receivable2 == ending_receivable2)
+
+
+def test_pending_transactions(random_transaction):
+    (transaction, account1, account2) = random_transaction
+
+    starting_balance1 = account1.balance()
+    starting_liability1 = account1.liability()
+    starting_receivable1 = account1.receivable()
+
+    starting_balance2 = account2.balance()
+    starting_liability2 = account2.liability()
+    starting_receivable2 = account2.receivable()
+
+    TransactionRecord.perform(transaction, account1, account2,
+                              Authorisation(), is_provisional=True)
+
+    ending_balance1 = account1.balance()
+    ending_liability1 = account1.liability()
+    ending_receivable1 = account1.receivable()
+
+    ending_balance2 = account2.balance()
+    ending_liability2 = account2.liability()
+    ending_receivable2 = account2.receivable()
+
+    assert(ending_liability1 == starting_liability1 + transaction.value())
+    assert(ending_receivable2 == starting_receivable2 + transaction.value())
+    assert(starting_balance1 == ending_balance1)
+    assert(starting_balance2 == ending_balance2)
+    assert(starting_liability2 == ending_liability2)
+    assert(starting_receivable1 == ending_receivable1)

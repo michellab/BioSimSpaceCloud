@@ -58,6 +58,8 @@ def _sum_transactions(keys):
     for key in keys:
         v = _TransactionInfo(key)
 
+        print(v)
+
         if v.is_credit():
             balance += v.value()
         elif v.is_debit():
@@ -578,7 +580,7 @@ class Account:
 
         # the line item records the UID of the debit note, so we can
         # find this debit note in the system and, from this, get the
-        # original transaction in the transaction record
+        # original transaction in the transaction record
         l = _LineItem(debit_note.uid(), debit_note.authorisation())
 
         _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
