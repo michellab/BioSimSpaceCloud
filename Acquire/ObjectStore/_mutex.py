@@ -47,12 +47,14 @@ class Mutex:
 
     def __del__(self):
         """Release the mutex if it is held"""
-        while self.is_locked():
-            self.unlock()
+        try:
+            self.fully_unlock()
+        except:
+            pass
 
     def is_locked(self):
         """Return whether or not this mutex is locked"""
-        return self._is_locked > 0
+        return self._is_locked > 0 and not self.expired()
 
     def seconds_remaining_on_lease(self):
         """Return the number of seconds remaining on this lease. You must
@@ -70,11 +72,16 @@ class Mutex:
         else:
             return 0
 
+    def expired(self):
+        """Return whether or not this lock has expired"""
+        if self._is_locked > 0:
+            return self._end_lease < _datetime.datetime.now()
+        else:
+            return False
+
     def assert_not_expired(self):
         """Function that asserts that this mutex has not expired"""
-        if not self.is_locked():
-            return
-        elif self._end_lease < _datetime.datetime.now():
+        if self.expired():
             raise MutexTimeoutError("The lease on this mutex expired before "
                                     "this mutex was unlocked!")
 
@@ -82,7 +89,7 @@ class Mutex:
         """This fully unlocks the mutex, removing all levels
            of recursion
         """
-        if not self.is_locked():
+        if self._is_locked == 0:
             return
 
         try:
@@ -95,10 +102,14 @@ class Mutex:
             _ObjectStore.delete_object(self._bucket, self._key)
 
         self._lockstring = None
-        self._end_lease = None
         self._is_locked = 0
 
-        self.assert_not_expired()
+        if self._end_lease < _datetime.datetime.now():
+            self._end_lease = None
+            raise MutexTimeoutError("The lease on this mutex expired before "
+                                    "this mutex was unlocked!")
+        else:
+            self._end_lease = None
 
     def unlock(self):
         """Release the mutex if it is held. Does nothing if the mutex
@@ -107,10 +118,9 @@ class Mutex:
            check for this when you unlock to make sure that you
            have not risked a race condition.
         """
-        if not self.is_locked():
+        if self._is_locked == 0:
             return
-
-        if self._is_locked == 1:
+        elif self._is_locked == 1:
             self.fully_unlock()
         else:
             self.assert_not_expired()
