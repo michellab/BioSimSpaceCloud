@@ -9,6 +9,7 @@ from Acquire.Service import login_to_service_account \
 from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
 from ._account import Account as _Account
+from ._authorisation import Authorisation as _Authorisation
 from ._transaction import Transaction as _Transaction
 from ._debitnote import DebitNote as _DebitNote
 from ._creditnote import CreditNote as _CreditNote
@@ -157,7 +158,7 @@ class TransactionRecord:
         return self._refund_reason
 
     @staticmethod
-    def refund(refund):
+    def refund(refund, authorisation):
         """Create and record a new transaction from the passed refund. This
            applies the refund, thereby transferring value from the credit
            account to the debit account of the corresponding transaction.
@@ -169,7 +170,7 @@ class TransactionRecord:
                                   "transaction")
 
     @staticmethod
-    def receipt(receipt):
+    def receipt(receipt, authorisation):
         """Create and record a new transaction from the passed receipt. This
            applies the receipt, thereby actually transferring value from the
            debit account to the credit account of the corresponding
@@ -177,8 +178,16 @@ class TransactionRecord:
            This returns the (already recorded) TransactionRecord for the
            receipt
         """
-        raise NotImplementedError("Have not implemented receipting a "
-                                  "transaction")
+        if not isinstance(receipt, _Receipt):
+            raise TypeError("The Receipt must be of type Receipt")
+
+        if not isinstance(authorisation, _Authorisation):
+            raise TypeError("The Authorisation must be of type Authorisation")
+
+        if receipt.is_null():
+            return
+
+
 
     @staticmethod
     def perform(transactions, debit_account, credit_account, authorisation,
@@ -196,6 +205,15 @@ class TransactionRecord:
            succeed. If one of them fails then they are immediately refunded.
         """
 
+        if not isinstance(debit_account, _Account):
+            raise TypeError("The Debit Account must be of type Account")
+
+        if not isinstance(credit_account, _Account):
+            raise TypeError("The Credit Account must be of type Account")
+
+        if not isinstance(authorisation, _Authorisation):
+            raise TypeError("The Authorisation must be of type Authorisation")
+
         try:
             transactions[0]
         except:
@@ -204,6 +222,9 @@ class TransactionRecord:
         # remove any zero transactions, as they are not worth recording
         t = []
         for transaction in transactions:
+            if not isinstance(transaction, _Transaction):
+                raise TypeError("The Transaction must be of type Transaction")
+
             if transaction.value() >= 0:
                 t.append(transaction)
 

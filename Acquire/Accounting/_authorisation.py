@@ -1,6 +1,7 @@
 
 __all__ = ["Authorisation"]
 
+
 class Authorisation:
     """This class holds the information needed to authorise a transaction
        in an account

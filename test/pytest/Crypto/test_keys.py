@@ -38,6 +38,8 @@ def test_keys():
     bytes = pubkey.bytes()
     pubkey2 = PublicKey.read_bytes(bytes)
 
+    assert(bytes == pubkey2.bytes())
+
     long_message = str([random.getrandbits(8)
                        for _ in range(4096)]).encode("utf-8")
 
