@@ -31,7 +31,7 @@ def test_mutex(bucket):
     assert(m2.is_locked())
 
     with pytest.raises(MutexTimeoutError):
-        m.lock(timeout=datetime.timedelta(seconds=1))
+        m.lock(timeout=1)
 
     assert(not m.is_locked())
     assert(m2.is_locked())
@@ -41,3 +41,4 @@ def test_mutex(bucket):
 
     assert(m.is_locked())
     assert(not m2.is_locked())
+

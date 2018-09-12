@@ -1,6 +1,7 @@
 
 import uuid
 import datetime as _datetime
+import time as _time
 
 from ._objstore import ObjectStore as _ObjectStore
 
@@ -16,12 +17,16 @@ class Mutex:
        not, then another thread must hold the mutex, and we have
        to wait...
     """
-    def __init__(self, key=None, timeout=None, bucket=None):
+    def __init__(self, key=None, timeout=10, lease_time=10, bucket=None):
         """Create the mutex. The immediately tries to lock the mutex
            for key 'key' and will block until a lock is successfully
-           obtained (or until 'timeout' has been reached, and an
-           exception is then thrown). If not key is provided, then
-           this is the (single) global mutex
+           obtained (or until 'timeout' seconds has been reached, and an
+           exception is then thrown). If the key is provided, then
+           this is the (single) global mutex. Note that this is really
+           a lease, as the mutex will only be held for a maximum of
+           'lease_time' seconds. After this time the mutex will be
+           automatically unlocked and made available to lock by
+           others. You can renew the lease by re-locking the mutex.
         """
         if key is None:
             key = "mutexes/none"
@@ -38,7 +43,7 @@ class Mutex:
         self._key = key
         self._secret = str(uuid.uuid4())
         self._is_locked = 0
-        self.lock(timeout)
+        self.lock(timeout, lease_time)
 
     def __del__(self):
         """Release the mutex if it is held"""
@@ -49,15 +54,35 @@ class Mutex:
         """Return whether or not this mutex is locked"""
         return self._is_locked > 0
 
-    def unlock(self):
-        """Release the mutex if it is held. Does nothing if the mutex
-           is not held
+    def seconds_remaining_on_lease(self):
+        """Return the number of seconds remaining on this lease. You must
+           unlock the mutex before the lease expires, or else an exception
+           will be raised when you unlock, and you will likely have
+           a race condition
         """
+        if self.is_locked():
+            now = _datetime.datetime.now()
+
+            if now > self._end_lease:
+                return (now - self._end_lease).seconds
+            else:
+                return 0
+        else:
+            return 0
+
+    def assert_not_expired(self):
+        """Function that asserts that this mutex has not expired"""
         if not self.is_locked():
             return
+        elif self._end_lease < _datetime.datetime.now():
+            raise MutexTimeoutError("The lease on this mutex expired before "
+                                    "this mutex was unlocked!")
 
-        if self._is_locked > 1:
-            self._is_locked -= 1
+    def fully_unlock(self):
+        """This fully unlocks the mutex, removing all levels
+           of recursion
+        """
+        if not self.is_locked():
             return
 
         try:
@@ -69,25 +94,70 @@ class Mutex:
             # we hold the mutex - delete the key
             _ObjectStore.delete_object(self._bucket, self._key)
 
-        self._is_locked = False
+        self._lockstring = None
+        self._end_lease = None
+        self._is_locked = 0
 
-    def lock(self, timeout=None):
-        """Lock the mutex, blocking until the mutex is held, or until
-           'timeout' has passed. If we time out, then an exception is
-           raised
+        self.assert_not_expired()
+
+    def unlock(self):
+        """Release the mutex if it is held. Does nothing if the mutex
+           is not held. If the mutex is unlocked after the lease has
+           expired then this will raise a MutexTimeoutError. You should
+           check for this when you unlock to make sure that you
+           have not risked a race condition.
         """
+        if not self.is_locked():
+            return
+
+        if self._is_locked == 1:
+            self.fully_unlock()
+        else:
+            self.assert_not_expired()
+            self._is_locked -= 1
+
+    def lock(self, timeout=None, lease_time=None):
+        """Lock the mutex, blocking until the mutex is held, or until
+           'timeout' seconds have passed. If we time out, then an exception is
+           raised. The lock is held for a maximum of 'lease_time' seconds.
+        """
+        # if the user does not provide a timeout, then we will set a timeout
+        # of at 30 seconds
+        if timeout is None:
+            timeout = 30.0
+        else:
+            timeout = float(timeout)
+
+        # if the user does not provide a lease_time, then we will set a
+        # default of only 10 seconds
+        if lease_time is None:
+            lease_time = 10.0
+        else:
+            lease_time = float(lease_time)
+
         if self.is_locked():
-            self._is_locked += 1
+            # renew the lease - if there is less than a second remaining
+            # on the lease then unlock and then lock again from scratch
+            now = _datetime.datetime.now()
+
+            if (now > self._end_lease) or (now - self._end_lease).seconds < 1:
+                self.fully_unlock()
+                self.lock(timeout, lease_time)
+            else:
+                self._end_lease = now + _datetime.timedelta(seconds=lease_time)
+
+                self._lockstring = "%s %s" % (self._secret,
+                                              self._end_lease.timestamp())
+
+                _ObjectStore.set_string_object(self._bucket, self._key,
+                                               self._lockstring)
+
+                self._is_locked += 1
+
             return
 
         now = _datetime.datetime.now()
-
-        # if the user does not provide a timeout, then we will set a timeout
-        # of at most 1 minute
-        if timeout is None:
-            endtime = now + _datetime.timedelta(minutes=1)
-        else:
-            endtime = now + timeout
+        endtime = now + _datetime.timedelta(seconds=timeout)
 
         # This is the first time we are trying to get a lock
         while now < endtime:
@@ -98,9 +168,22 @@ class Mutex:
             except:
                 holder = None
 
+            is_held = True
+
             if holder is None:
+                is_held = False
+            else:
+                end_lease = float(holder.split()[1])
+                if now > _datetime.datetime.fromtimestamp(end_lease):
+                    # the lease from the other holder has expired :-)
+                    is_held = False
+
+            if not is_held:
                 # no-one holds this mutex - try to hold it now
-                self._lockstring = "%s %s" % (self._secret, now.timestamp())
+                self._end_lease = now + _datetime.timedelta(seconds=lease_time)
+
+                self._lockstring = "%s %s" % (self._secret,
+                                              self._end_lease.timestamp())
 
                 _ObjectStore.set_string_object(self._bucket, self._key,
                                                self._lockstring)
@@ -130,6 +213,9 @@ class Mutex:
                 # I'd hope it is now highly unlikely - we now hold the mutex
                 self._is_locked = 1
                 return
+
+            # only try the lock 4 times a second
+            _time.sleep(0.25)
 
             now = _datetime.datetime.now()
 

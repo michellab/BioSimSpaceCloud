@@ -1,6 +1,6 @@
 
 
-__all__ = [ "ObjectStoreError", "MutexTimeoutError" ]
+__all__ = ["ObjectStoreError", "MutexTimeoutError"]
 
 
 class ObjectStoreError(Exception):
