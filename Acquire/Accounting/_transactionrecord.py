@@ -187,7 +187,7 @@ class TransactionRecord:
         if receipt.is_null():
             return
 
-
+        # get the debit and credit ac
 
     @staticmethod
     def perform(transactions, debit_account, credit_account, authorisation,
@@ -331,7 +331,7 @@ class TransactionRecord:
 
             if is_provisional and refund_reason:
                 records.append(TransactionRecord.receipt(
-                               _Receipt(record.uid())))
+                               _Receipt(record.uid()), _Authorisation()))
             else:
                 records.append(record)
 

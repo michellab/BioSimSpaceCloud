@@ -42,6 +42,7 @@ class CreditNote:
         self._uid = uid
         self._debit_note_uid = debit_note.uid()
         self._value = debit_note.value()
+        self._is_provisional = debit_note.is_provisional()
 
     def __str__(self):
         if self.is_null():
@@ -86,6 +87,16 @@ class CreditNote:
         """
         return self._value
 
+    def is_provisional(self):
+        """Return whether or not this credit note is provisional
+           (i.e. the value will only be transferred on completion
+           of work and provision of a receipt)
+        """
+        if self.is_null():
+            return False
+        else:
+            return self._is_provisional
+
     @staticmethod
     def from_data(data):
         """Construct and return a new CreditNote from the passed json-decoded
@@ -99,6 +110,7 @@ class CreditNote:
             note._debit_note_uid = data["debit_note_uid"]
             note._timestamp = data["timestamp"]
             note._value = _create_decimal(data["value"])
+            note._is_provisional = data["is_provisional"]
 
         return note
 
@@ -114,5 +126,6 @@ class CreditNote:
             data["debit_note_uid"] = self._debit_note_uid
             data["timestamp"] = self._timestamp
             data["value"] = str(self._value)
+            data["is_provisional"] = self._is_provisional
 
         return data
