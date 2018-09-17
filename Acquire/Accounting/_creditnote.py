@@ -10,7 +10,7 @@ class CreditNote:
        is combined with a debit note of equal value to form a transaction
        record
     """
-    def __init__(self, debit_note=None, account=None):
+    def __init__(self, debit_note=None, account=None, bucket=None):
         """Create the corresponding credit note for the passed debit_note. This
            will credit value from the note to the passed account. The credit
            will use the same UID as the credit, and the same timestamp. This
@@ -35,7 +35,7 @@ class CreditNote:
             raise TypeError("You can only creata a CreditNote with an "
                             "Account")
 
-        (uid, timestamp) = account._credit(debit_note)
+        (uid, timestamp) = account._credit(debit_note, bucket=bucket)
 
         self._account_uid = account.uid()
         self._timestamp = timestamp

@@ -44,6 +44,9 @@ class TransactionRecord:
             self._debit_note = None
             self._credit_note = None
             self._is_receipted = False
+            self._is_refunded = False
+            self._refund_reason = None
+            self._receipt = None
 
     def __str__(self):
         """Return a string representation of this transaction"""
@@ -57,6 +60,8 @@ class TransactionRecord:
 
         if self._is_receipted:
             return "%s | receipted" % s
+        elif self._is_refunded:
+            return "%s | REFUNDED" % s
         else:
             return "%s | PROVISIONAL" % s
 
@@ -64,7 +69,8 @@ class TransactionRecord:
         if isinstance(other, self.__class__):
             return self._debit_note == other._debit_note and \
                    self._credit_note == other._credit_note and \
-                   self._is_receipted == other._is_receipted
+                   self._is_receipted == other._is_receipted and \
+                   self._is_refunded == other._is_refunded
         else:
             return False
 
@@ -145,17 +151,32 @@ class TransactionRecord:
         else:
             return self._is_receipted
 
+    def is_refunded(self):
+        """Return whether or not this transaction has been refunded"""
+        if self.is_null():
+            return False
+        else:
+            return self._is_refunded
+
     def is_provisional(self):
         """Return whether or not this transaction is provisional"""
         return not (self.is_null() or self.is_receipted())
 
     def is_refund(self):
         """Return whether or not this transaction is a refund"""
-        return not (self._refund_reason is None)
+        return self._refund_reason is not None
+
+    def is_receipt(self):
+        """Return whether or not this transaction is a receipt"""
+        return self._receipt is not None
 
     def refund_reason(self):
         """Return the reason for the refund"""
         return self._refund_reason
+
+    def receipt(self):
+        """Return the receipt underlying this transaction"""
+        return self._receipt
 
     def _load_transaction(self, uid):
         """Load this transaction from the object store"""
@@ -178,9 +199,17 @@ class TransactionRecord:
             record._credit_note = _CreditNote.from_data(data["credit_note"])
             record._debit_note = _DebitNote.from_data(data["debit_note"])
             record._is_receipted = data["is_receipted"]
+            record._is_refunded = data["is_refunded"]
 
             if "refund_reason" in data:
                 record._refund_reason = data["refund_reason"]
+            else:
+                record._refund_reason = None
+
+            if "receipt" in data:
+                record._receipt = _Receipt.from_data(data["receipt"])
+            else:
+                record._receipt = None
 
         return record
 
@@ -194,8 +223,12 @@ class TransactionRecord:
             data["credit_note"] = self._credit_note.to_data()
             data["debit_note"] = self._debit_note.to_data()
             data["is_receipted"] = self._is_receipted
+            data["is_refunded"] = self._is_refunded
 
-            if not (self._refund_reason is None):
+            if self._refund_reason is not None:
                 data["refund_reason"] = self._refund_reason
+
+            if self._receipt is not None:
+                data["receipt"] = self._receipt.to_data()
 
         return data

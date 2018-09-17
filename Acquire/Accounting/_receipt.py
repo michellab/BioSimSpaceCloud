@@ -80,6 +80,13 @@ class Receipt:
         else:
             return self._credit_note
 
+    def debit_note_uid(self):
+        """Return the UID of the debit note that this is a receipt for"""
+        if self.is_null():
+            return None
+        else:
+            return self._credit_note.debit_note_uid()
+
     def receipted_value(self):
         """Return the receipted value. This is guaranteed to be less than
            or equal to the provisional value in the attached CreditNote

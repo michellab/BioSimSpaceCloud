@@ -11,7 +11,7 @@ class DebitNote:
        is combined with credit note of equal value to form a transaction record
     """
     def __init__(self, transaction=None, account=None, authorisation=None,
-                 is_provisional=False):
+                 is_provisional=False, bucket=None):
         """Create a debit note for the passed transaction will debit value
            from the passed account. The note will create a unique ID (uid)
            for the debit, plus the timestamp of the time that value was drawn
@@ -46,7 +46,7 @@ class DebitNote:
         self._is_provisional = is_provisional
 
         (uid, timestamp) = account._debit(transaction, authorisation,
-                                          is_provisional)
+                                          is_provisional, bucket=bucket)
 
         self._timestamp = float(timestamp)
         self._uid = str(uid)

@@ -31,8 +31,16 @@ class TransactionInfo:
 
            etc.
 
-           This is a two-letter code that describes the type
-           of transaction, together with the value
+           For sent and received receipts there are two values;
+           the receipted value and the original estimate. These
+           have the standard format if the values are the same, e.g.
+
+           RR000100.005000
+
+           however, they have original value : receipted value if they are
+           different, e.g.
+
+           RR000100.005000:000090.000000
         """
 
         parts = key.split("/")
@@ -43,10 +51,22 @@ class TransactionInfo:
 
             try:
                 code = TransactionInfo._get_code(part[0:2])
+
+                if code in ["SR", "RR"]:
+                    values = part[2:].split(":")
+                    try:
+                        self._code = code
+                        self._value = _create_decimal(values[0])
+                        self._receipted_value = _create_decimal(values[1])
+                        return
+                    except:
+                        pass
+
                 value = _create_decimal(part[2:])
 
                 self._code = code
                 self._value = value
+                self._receipted_value = value
                 return
             except:
                 pass
@@ -60,7 +80,7 @@ class TransactionInfo:
     def __eq__(self, other):
         if isinstance(other, self.__class__):
             return self._code == other._code and \
-                   slef._value == other._value
+                   self._value == other._value
         else:
             return False
 
@@ -73,21 +93,27 @@ class TransactionInfo:
         return TransactionCode(code)
 
     @staticmethod
-    def encode(code, value, original_value=None):
+    def encode(code, value, receipted_value=None):
         """Encode the passed code and value into a simple string that can
-           be used as part of an object store key. If 'original_value' is
-           passed, then encode the original value of the provisional
+           be used as part of an object store key. If 'receipted_value' is
+           passed, then encode the receipted value of the provisional
            transaction too
         """
-        return "%2s%013.6f" % (code.value, value)
+        if receipted_value is None:
+            return "%2s%013.6f" % (code.value, value)
+        else:
+            return "%2s%013.6f:%013.6f" % (code.value, value, receipted_value)
 
     def value(self):
         """Return the value of the transaction"""
         return self._value
 
-    def original_value(self):
-        """Return the original value of the provisional transaction"""
-        return self._value
+    def receipted_value(self):
+        """Return the receipted value of the transaction. This may be
+           different to value() when the transaction was provisional,
+           and the receipted value is less than the provisional value
+        """
+        return self._receipted_value
 
     def is_credit(self):
         """Return whether or not this is a credit"""

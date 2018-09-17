@@ -223,3 +223,7 @@ def test_pending_transactions(random_transaction):
     assert(receipt.authorisation() == auth)
     assert(receipt.receipted_value() == value)
     assert(receipt.credit_note() == credit_note)
+
+    record = Ledger.receipt(receipt)
+
+    assert(not record.is_null())

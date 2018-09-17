@@ -17,6 +17,7 @@ from ._lineitem import LineItem as _LineItem
 from ._decimal import create_decimal as _create_decimal
 from ._transactioninfo import TransactionInfo as _TransactionInfo
 from ._transactioninfo import TransactionCode as _TransactionCode
+from ._receipt import Receipt as _Receipt
 
 from ._errors import AccountError, InsufficientFundsError
 
@@ -71,11 +72,11 @@ def _sum_transactions(keys):
         elif v.is_accounts_receivable():
             receivable += v.value()
         elif v.is_received_receipt():
-            balance -= v.value()
-            liability -= v.original_value()
+            balance -= v.receipted_value()
+            liability -= v.value()
         elif v.is_sent_receipt():
-            balance += v.value()
-            receivable -= v.original_value()
+            balance += v.receipted_value()
+            receivable -= v.value()
         elif v.is_received_refund():
             balance += v.value()
         elif v.is_sent_refund():
@@ -94,7 +95,7 @@ class Account:
 
        All data for this account is stored in the object store
     """
-    def __init__(self, name=None, description=None, uid=None):
+    def __init__(self, name=None, description=None, uid=None, bucket=None):
         """Construct the account. If 'uid' is specified, then load the account
            from the object store (so 'name' and 'description' should be "None")
         """
@@ -103,7 +104,7 @@ class Account:
             self._name = None
             self._description = None
             self._last_update_ordinal = None
-            self._load_account()
+            self._load_account(bucket)
 
             if name:
                 if name != self.name():
@@ -539,6 +540,109 @@ class Account:
         if not isinstance(authorisation, _Authorisation):
             raise TypeError("The passed authorisation must be an "
                             "Authorisation")
+
+    def _credit_receipt(self, receipt, bucket=None):
+        """Credit the value of the passed 'receipt' to this account. The
+           receipt must be for a previous provisional credit, hence the
+           money is awaiting transfer from accounts receivable. This will
+           record the credit receipt using the same UID as the provisional
+           debit so that we can reconcile all receipts against their
+           matching debits
+        """
+        if not isinstance(receipt, _Receipt):
+            raise TypeError("The passed receipt must be a Receipt")
+
+        if receipt.is_null():
+            return
+
+        if bucket is None:
+            bucket = _login_to_service_account()
+
+        encoded_value = _TransactionInfo.encode(
+                                    _TransactionCode.SENT_RECEIPT,
+                                    receipt.value(), receipt.receipted_value())
+
+        # create a UID and timestamp for this credit and record
+        # it in the account
+        now = _datetime.datetime.now()
+
+        # don't allow any transactions in the last 30 seconds of the day, as we
+        # will sum up the day balance at midnight, and don't want to risk any
+        # late transactions from messing up the accounting
+        while now.hour == 23 and now.minute == 59 and now.second >= 30:
+            _time.sleep(5)
+            now = _datetime.datetime.now()
+
+        # we need to record the exact timestamp of this credit...
+        timestamp = now.timestamp()
+
+        # and to create a key to find this credit later. The key is made
+        # up from the date and timestamp of the credit and a random string
+        day_key = "%4d-%02d-%02d/%s" % (now.year, now.month, now.day,
+                                        timestamp)
+        uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
+
+        item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
+
+        # the line item records the UID of the debit note, so we can
+        # find this debit note in the system and, from this, get the
+        # original transaction in the transaction record
+        l = _LineItem(receipt.debit_note_uid(), receipt.authorisation())
+
+        _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
+
+        return (uid, timestamp)
+
+    def _debit_receipt(self, receipt, bucket=None):
+        """Debit the value of the passed 'receipt' from this account. The
+           receipt must be for a previous provisional debit, hence
+           the money should be available. This will record the debit
+           receipt using the same UID as the provisional debit, so that
+           we can reconcile all receipts against their matching debits
+        """
+        if not isinstance(receipt, _Receipt):
+            raise TypeError("The passed receipt must be a Receipt")
+
+        if receipt.is_null():
+            return
+
+        if bucket is None:
+            bucket = _login_to_service_account()
+
+        encoded_value = _TransactionInfo.encode(
+                                    _TransactionCode.RECEIVED_RECEIPT,
+                                    receipt.value(), receipt.receipted_value())
+
+        # create a UID and timestamp for this debit and record
+        # it in the account
+        now = _datetime.datetime.now()
+
+        # don't allow any transactions in the last 30 seconds of the day, as we
+        # will sum up the day balance at midnight, and don't want to risk any
+        # late transactions from messing up the accounting
+        while now.hour == 23 and now.minute == 59 and now.second >= 30:
+            _time.sleep(5)
+            now = _datetime.datetime.now()
+
+        # we need to record the exact timestamp of this credit...
+        timestamp = now.timestamp()
+
+        # and to create a key to find this debit later. The key is made
+        # up from the date and timestamp of the debit and a random string
+        day_key = "%4d-%02d-%02d/%s" % (now.year, now.month, now.day,
+                                        timestamp)
+        uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
+
+        item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
+
+        # the line item records the UID of the debit note, so we can
+        # find this debit note in the system and, from this, get the
+        # original transaction in the transaction record
+        l = _LineItem(receipt.debit_note_uid(), receipt.authorisation())
+
+        _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
+
+        return (uid, timestamp)
 
     def _credit(self, debit_note, bucket=None):
         """Credit the value in 'debit_note' to this account. If the debit_note
