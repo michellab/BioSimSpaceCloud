@@ -5,7 +5,7 @@ import random
 import datetime
 
 from Acquire.Accounting import Account, Transaction, TransactionRecord, \
-                               Authorisation, create_decimal
+                               Authorisation, Receipt, create_decimal
 
 from Acquire.Service import login_to_service_account
 
@@ -146,6 +146,7 @@ def test_transactions(random_transaction):
     assert_packable(debit_note)
     assert_packable(credit_note)
 
+
 def test_pending_transactions(random_transaction):
     (transaction, account1, account2) = random_transaction
 
@@ -201,3 +202,25 @@ def test_pending_transactions(random_transaction):
 
     assert_packable(debit_note)
     assert_packable(credit_note)
+
+    # now receipt a random amount of the transaction
+    auth = Authorisation()
+
+    with pytest.raises(ValueError):
+        receipt = Receipt(credit_note, auth,
+                          create_decimal(random.random()) +
+                          credit_note.value())
+
+    if random.randint(0, 1):
+        value = credit_note.value()
+        receipt = Receipt(credit_note, auth)
+    else:
+        value = create_decimal(create_decimal(random.random()) *
+                               credit_note.value())
+        receipt = Receipt(credit_note, auth, value)
+
+    assert(not receipt.is_null())
+    assert(receipt.authorisation() == auth)
+    assert(receipt.receipted_value() == value)
+    assert(receipt.credit_note() == credit_note)
+
