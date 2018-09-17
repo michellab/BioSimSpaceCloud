@@ -2,11 +2,13 @@
 import uuid as _uuid
 import datetime as _datetime
 from copy import copy as _copy
+from enum import Enum as _Enum
 
 from Acquire.Service import login_to_service_account \
                     as _login_to_service_account
 
 from Acquire.ObjectStore import ObjectStore as _ObjectStore
+from Acquire.ObjectStore import Mutex as _Mutex
 
 from ._account import Account as _Account
 from ._authorisation import Authorisation as _Authorisation
@@ -15,10 +17,22 @@ from ._debitnote import DebitNote as _DebitNote
 from ._creditnote import CreditNote as _CreditNote
 from ._pairednote import PairedNote as _PairedNote
 from ._receipt import Receipt as _Receipt
+from ._refund import Refund as _Refund
 
-from ._errors import TransactionError, UnbalancedLedgerError
+from ._errors import TransactionError, UnbalancedLedgerError, \
+                     UnmatchedReceiptError, LedgerError
 
-__all__ = ["TransactionRecord"]
+__all__ = ["TransactionRecord", "TransactionState"]
+
+
+class TransactionState(_Enum):
+    """This class holds an enum of the current state of a transaction"""
+    DIRECT = "DR"           # direct transaction, no receipts etc.
+    PROVISIONAL = "PR"      # provisional transaction, needs receipt
+    RECEIPTING = "RC"       # in process of being receipted...
+    RECEIPTED = "RD"        # has been receipted
+    REFUNDING = "RF"        # in process of being refunded...
+    REFUNDED = "RR"         # has been refunded
 
 
 class TransactionRecord:
@@ -43,9 +57,8 @@ class TransactionRecord:
         else:
             self._debit_note = None
             self._credit_note = None
-            self._is_receipted = False
-            self._is_refunded = False
-            self._refund_reason = None
+            self._transaction_state = None
+            self._refund = None
             self._receipt = None
 
     def __str__(self):
@@ -53,24 +66,17 @@ class TransactionRecord:
         if self.is_null():
             return "TransactionRecord::null"
 
-        s = "%s : %s transferred from %s to %s" % \
-            (self.description(),
-             self.value(), self.debit_note().account_uid(),
-             self.credit_note().account_uid())
-
-        if self._is_receipted:
-            return "%s | receipted" % s
-        elif self._is_refunded:
-            return "%s | REFUNDED" % s
-        else:
-            return "%s | PROVISIONAL" % s
+        return "[%s]: transferred %s from %s to %s | %s" % \
+               (self.description(),
+                self.value(), self.debit_note().account_uid(),
+                self.credit_note().account_uid(),
+                self._transaction_state.value)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
             return self._debit_note == other._debit_note and \
                    self._credit_note == other._credit_note and \
-                   self._is_receipted == other._is_receipted and \
-                   self._is_refunded == other._is_refunded
+                   self._transaction_state == other._transaction_state
         else:
             return False
 
@@ -109,6 +115,42 @@ class TransactionRecord:
         else:
             return self.debit_note().transaction()
 
+    def transaction_state(self):
+        """Return the current state of this transaction"""
+        return self._transaction_state
+
+    def assert_matching_receipt(self, receipt):
+        """Assert that the passed receipt matches this transaction"""
+        if self.is_null():
+            if not receipt.is_null():
+                raise UnmatchedReceiptError(
+                        "%s does not match a null TransactionRecord!" %
+                        str(receipt))
+
+        match = True
+        errors = []
+
+        if receipt.transaction_uid() != self.uid():
+            match = False
+            errors.append("UID: %s != %s" % (receipt.transaction_uid(),
+                                             self.uid()))
+        elif receipt.debit_account_uid() != self.debit_account_uid():
+            match = False
+            errors.append("DEBIT: %s != %s" % (receipt.debit_account_uid(),
+                                               self.debit_account_uid()))
+        elif receipt.credit_account_uid() != self.credit_account_uid():
+            match = False
+            errors.append("CREDIT: %s != %s" % (receipt.credit_account_uid(),
+                                                self.credit_account_uid()))
+        elif receipt.value() != self.value():
+            match = False
+            errors.append("VALUE: %s != %s" % (receipt.value(), self.value()))
+
+        if not match:
+            raise UnmatchedReceiptError(
+                "The receipt '%s' does not match the transaction '%s': %s" %
+                (str(receipt), str(self), " | ".join(errors)))
+
     def credit_account_uid(self):
         """Return the UID of the account to which value has been credited"""
         if self.is_null():
@@ -144,49 +186,106 @@ class TransactionRecord:
         else:
             return self.debit_note().timestamp()
 
+    def is_direct(self):
+        """Return whether or not this transaction was direct (so was not
+           provisional and so didn't need a receipt)
+        """
+        return self._transaction_state == TransactionState.DIRECT
+
     def is_receipted(self):
         """Return whether or not this transaction has been receipted"""
-        if self.is_null():
-            return False
-        else:
-            return self._is_receipted
+        return self._transaction_state == TransactionState.RECEIPTED
 
     def is_refunded(self):
         """Return whether or not this transaction has been refunded"""
-        if self.is_null():
-            return False
-        else:
-            return self._is_refunded
+        return self._transaction_state == TransactionState.REFUNDED
 
     def is_provisional(self):
         """Return whether or not this transaction is provisional"""
-        return not (self.is_null() or self.is_receipted())
+        return self._transaction_state == TransactionState.PROVISIONAL
 
     def is_refund(self):
         """Return whether or not this transaction is a refund"""
-        return self._refund_reason is not None
+        return self._refund is not None
 
     def is_receipt(self):
         """Return whether or not this transaction is a receipt"""
         return self._receipt is not None
 
-    def refund_reason(self):
+    def get_refund_info(self):
         """Return the reason for the refund"""
-        return self._refund_reason
+        return self._refund
 
-    def receipt(self):
+    def get_receipt_info(self):
         """Return the receipt underlying this transaction"""
         return self._receipt
 
-    def _load_transaction(self, uid):
+    def _load_transaction(self, uid, bucket=None):
         """Load this transaction from the object store"""
         from ._ledger import Ledger as _Ledger
-        self.__dict__ = _copy(_Ledger.load_transaction(uid))
+        self.__dict__ = _copy(_Ledger.load_transaction(uid, bucket=bucket))
 
-    def _save_transaction(self):
+    def _save_transaction(self, bucket=None):
         """Save this transaction to the object store"""
         from ._ledger import Ledger as _Ledger
-        _Ledger.save_transaction(self)
+        _Ledger.save_transaction(self, bucket=bucket)
+
+    @staticmethod
+    def load_test_and_set(uid, expected_state, new_state,
+                          bucket=None):
+        """Static method to load up the Transaction record associated with
+           the passed UID, check that the transaction state matches
+           'expected_state', and if it does, to update the transaction
+           state to 'new_state'. This returns the loaded (and updated)
+           transaction
+        """
+        if bucket is None:
+            bucket = _login_to_service_account()
+
+        from ._ledger import Ledger as _Ledger
+
+        try:
+            mutex = _Mutex(uid, timeout=600, lease_time=600)
+        except Exception as e:
+            raise LedgerError("Cannot secure a Ledger mutex for transaction "
+                              "'%s'. Error = %s" % (uid, str(e)))
+
+        try:
+            transaction = _Ledger.load_transaction(uid, bucket)
+
+            if transaction.transaction_state() != expected_state:
+                raise TransactionError(
+                    "Cannot update the state of the transaction %s from "
+                    "%s to %s as it is not in the expected state" %
+                    (str(transaction), expected_state.value, new_state.value))
+
+            transaction._transaction_state = new_state
+        except:
+            mutex.unlock()
+            raise
+
+        # now need to write anything back if the state isn't changed
+        if expected_state == new_state:
+            return transaction
+
+        # make sure we have enough time remaining on the lease to be
+        # able to write this result back to the object store...
+        if mutex.seconds_remaining_on_lease() < 100:
+            try:
+                mutex.fully_unlock()
+            except:
+                pass
+
+            return TransactionRecord.load_test_and_set(uid, expected_state,
+                                                       new_state, bucket)
+
+        try:
+            _Ledger.save_transaction(transaction, bucket)
+        except:
+            mutex.unlock()
+            raise
+
+        return transaction
 
     @staticmethod
     def from_data(data):
@@ -198,13 +297,13 @@ class TransactionRecord:
         if (data and len(data) > 0):
             record._credit_note = _CreditNote.from_data(data["credit_note"])
             record._debit_note = _DebitNote.from_data(data["debit_note"])
-            record._is_receipted = data["is_receipted"]
-            record._is_refunded = data["is_refunded"]
+            record._transaction_state = TransactionState(
+                                            data["transaction_state"])
 
-            if "refund_reason" in data:
-                record._refund_reason = data["refund_reason"]
+            if "refund" in data:
+                record._refund = _Refund.from_data(data["refund"])
             else:
-                record._refund_reason = None
+                record._refund = None
 
             if "receipt" in data:
                 record._receipt = _Receipt.from_data(data["receipt"])
@@ -222,11 +321,10 @@ class TransactionRecord:
         if not self.is_null():
             data["credit_note"] = self._credit_note.to_data()
             data["debit_note"] = self._debit_note.to_data()
-            data["is_receipted"] = self._is_receipted
-            data["is_refunded"] = self._is_refunded
+            data["transaction_state"] = self._transaction_state.value
 
-            if self._refund_reason is not None:
-                data["refund_reason"] = self._refund_reason
+            if self._refund is not None:
+                data["refund"] = self._refund.to_data()
 
             if self._receipt is not None:
                 data["receipt"] = self._receipt.to_data()

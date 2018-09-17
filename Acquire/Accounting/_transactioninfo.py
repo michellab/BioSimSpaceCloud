@@ -52,12 +52,16 @@ class TransactionInfo:
             try:
                 code = TransactionInfo._get_code(part[0:2])
 
-                if code in ["SR", "RR"]:
+                if code == TransactionCode.SENT_RECEIPT or \
+                        code == TransactionCode.RECEIVED_RECEIPT:
+
                     values = part[2:].split(":")
                     try:
+                        value = _create_decimal(values[0])
+                        receipted_value = _create_decimal(values[1])
                         self._code = code
-                        self._value = _create_decimal(values[0])
-                        self._receipted_value = _create_decimal(values[1])
+                        self._value = value
+                        self._receipted_value = receipted_value
                         return
                     except:
                         pass
@@ -71,7 +75,8 @@ class TransactionInfo:
             except:
                 pass
 
-        raise ValueError("Cannot extract transaction info from '%s'" % key)
+        raise ValueError("Cannot extract transaction info from '%s'"
+                         % (key))
 
     def __str__(self):
         return "TransactionInfo(code==%s, value==%s)" % \

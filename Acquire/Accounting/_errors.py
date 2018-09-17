@@ -2,7 +2,8 @@
 from Acquire.Service import ServiceError
 
 __all__ = ["AccountingServiceError", "LedgerError", "TransactionError",
-           "AccountError", "UnbalancedLedgerError", "InsufficientFundsError"]
+           "AccountError", "UnbalancedLedgerError", "InsufficientFundsError",
+           "UnmatchedReceiptError"]
 
 
 class AccountingServiceError(ServiceError):
@@ -26,4 +27,8 @@ class UnbalancedLedgerError(Exception):
 
 
 class InsufficientFundsError(Exception):
+    pass
+
+
+class UnmatchedReceiptError(Exception):
     pass

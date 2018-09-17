@@ -2,6 +2,7 @@
 from ._decimal import create_decimal as _create_decimal
 from ._creditnote import CreditNote as _CreditNote
 from ._authorisation import Authorisation as _Authorisation
+from ._transaction import Transaction as _Transaction
 
 __all__ = ["Receipt"]
 
@@ -80,12 +81,60 @@ class Receipt:
         else:
             return self._credit_note
 
+    def transaction_uid(self):
+        """Return the UID of the provisional transaction for which this
+           is the receipt. The transaction UID is the same as the UID
+           for the original debit note
+        """
+        return self.debit_note_uid()
+
     def debit_note_uid(self):
         """Return the UID of the debit note that this is a receipt for"""
         if self.is_null():
             return None
         else:
             return self._credit_note.debit_note_uid()
+
+    def debit_account_uid(self):
+        """Return the UID of the account from which this receipt
+           will debit value
+        """
+        if self.is_null():
+            return None
+        else:
+            return self._credit_note.debit_account_uid()
+
+    def credit_account_uid(self):
+        """Return the UID of the account to which this receipt will
+           credit value
+        """
+        if self.is_null():
+            return None
+        else:
+            return self._credit_note.credit_account_uid()
+
+    def transaction(self):
+        """Return a transaction that corresponds to the real transfer
+           of value between the debit and credit accounts. The value
+           of the transaction is the actual receipted value
+        """
+        if self.is_null():
+            return _Transaction()
+        else:
+            return _Transaction(self.receipted_value(),
+                                "Receipt for transaction %s"
+                                % self.transaction_uid())
+
+    def value(self):
+        """Return the original (provisional) value of the transaction"""
+        if self.is_null():
+            return _create_decimal(0)
+        else:
+            return self._credit_note.value()
+
+    def provisional_value(self):
+        """Return the original (provisional) value of the transaction"""
+        return self.value()
 
     def receipted_value(self):
         """Return the receipted value. This is guaranteed to be less than

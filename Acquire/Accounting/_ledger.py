@@ -7,12 +7,12 @@ from Acquire.Service import login_to_service_account \
                     as _login_to_service_account
 
 from Acquire.ObjectStore import ObjectStore as _ObjectStore
-from Acquire.ObjectStore import Mutex as _Mutex
 
 from ._account import Account as _Account
 from ._authorisation import Authorisation as _Authorisation
 from ._transaction import Transaction as _Transaction
 from ._transactionrecord import TransactionRecord as _TransactionRecord
+from ._transactionrecord import TransactionState as _TransactionState
 from ._debitnote import DebitNote as _DebitNote
 from ._creditnote import CreditNote as _CreditNote
 from ._pairednote import PairedNote as _PairedNote
@@ -88,67 +88,69 @@ class Ledger:
         if bucket is None:
             bucket = _login_to_service_account()
 
-        # get the two accounts...
-        debit_account = _Account(receipt.debit_account_uid(), bucket=bucket)
-        credit_account = _Account(receipt.credit_account_uid(), bucket=bucket)
+        # extract value into the debit note
+        debit_account = _Account(uid=receipt.debit_account_uid(),
+                                 bucket=bucket)
+        credit_account = _Account(uid=receipt.credit_account_uid(),
+                                  bucket=bucket)
 
-        # hold a mutex on this transaction so that we can't receipt
-        # this twice (hold the lease for at least 10 minutes, and
-        # wait at least 10 minutes to get a lock
+        debit_note = _DebitNote(receipt=receipt, account=debit_account,
+                                bucket=bucket)
+
+        # now create the credit note to put the value into the credit account
         try:
-            m = _Mutex(receipt.uid(), lease_time=600, timeout=600,
-                       bucket=bucket)
-        except Exception as e:
-            raise LedgerError("Cannot obtain a mutex lock to enable us to "
-                              "receipt the transaction '%s'. Error = %s" %
-                              (str(receipt), str(e)))
-
-        # now load the transaction record for this transaction and make
-        # sure that it has not yet been receipted
-        try:
-            transaction = Ledger.load_transaction(receipt.debit_note_uid(),
-                                                  bucket=bucket)
-
-            if transaction.is_receipted() or transaction.is_refunded():
-                raise LedgerError("You cannot receipt a transaction twice! "
-                                  "Transaction '%s' is receipted. It is a "
-                                  "mistake to receipt it using '%s'" %
-                                  (str(transaction), str(receipt)))
-
-            # record this transaction as being receipted, so that we
-            # can quickly release the mutex...
-            transaction._is_receipted = True
-            Ledger.save_transaction(transaction, bucket=bucket)
-            m.unlock()
-        except:
-            m.unlock()
-            raise
-
-        # now we know that we are the only function receipting this
-        # transaction. However, if we fail, we need to unset the
-        # is_receipted flag
-        try:
-            debit_note = _DebitNote(receipt=receipt, account=debit_account,
-                                    bucket=bucket)
-
-            credit_note = _CreditNote(debit_note, account=credit_account,
+            credit_note = _CreditNote(debit_note=debit_note,
+                                      receipt=receipt,
+                                      account=credit_account,
                                       bucket=bucket)
+        except Exception as e:
+            # delete the debit note
+            try:
+                debit_account._delete_note(debit_note, bucket=bucket)
+            except:
+                pass
 
-            return Ledger._record_to_ledger(_PairedNote.create(debit_note,
-                                                               credit_note),
-                                            bucket=bucket)
+            # reset the transaction to the pending state
+            try:
+                _TransactionRecord.load_test_and_set(
+                        receipt.transaction_uid(),
+                        _TransactionState.RECEIPTING,
+                        _TransactionState.PENDING,
+                        bucket=bucket)
+            except:
+                pass
 
-            # transfer liability to debit into the debit account
-            (d_uid, d_ts) = debit_account._debit_receipt(receipt,
-                                                         bucket=bucket)
+            raise e
 
-            # transfer account received to credit in the credit account
-            (c_uid, c_ts) = credit_account._credit_receipt(receipt,
-                                                           bucket=bucket)
-        except:
-            transaction._is_receipted = False
-            Ledger.save_transaction(transaction)
-            raise
+        try:
+            paired_notes = _PairedNote.create(debit_note, credit_note)
+        except Exception as e:
+            # delete all records...!
+            try:
+                debit_account._delete_note(debit_note, bucket=bucket)
+            except:
+                pass
+
+            try:
+                credit_account._delete_note(credit_note, bucket=bucket)
+            except:
+                pass
+
+            # reset the transaction to the pending state
+            try:
+                _TransactionRecord.load_test_and_set(
+                        receipt.transaction_uid(),
+                        _TransactionState.RECEIPTING,
+                        _TransactionState.PENDING,
+                        bucket=bucket)
+            except:
+                pass
+
+            raise e
+
+        # now record the two entries to the ledger. The below function
+        # is guaranteed not to raise an exception
+        return Ledger._record_to_ledger(paired_notes, bucket=bucket)
 
     @staticmethod
     def perform(transactions, debit_account, credit_account, authorisation,
@@ -209,20 +211,13 @@ class Ledger:
             debit_error = str(e)
             try:
                 for debit_note in debit_notes:
-                    credit_notes.append(_CreditNote(debit_note, debit_account,
-                                                    bucket=bucket))
+                    debit_account._delete_note(debit_note, bucket=bucket)
             except Exception as e:
                 raise UnbalancedLedgerError(
                     "We have an unbalanced ledger as it was not "
                     "possible to refund a multi-part refused credit (%s): "
                     "Credit refusal error = %s. Refund error = %s" %
                     (str(debit_note), str(debit_error), str(e)))
-
-            if len(debit_notes) > 0:
-                # record all of this to the ledger
-                Ledger._record_to_ledger(
-                    _PairedNote.create(debit_notes, credit_notes),
-                    is_provisional, debit_error, bucket=bucket)
 
             # raise the original error to show that, e.g. there was
             # insufficient balance
@@ -233,34 +228,24 @@ class Ledger:
         # that account. If this fails then the debit_note(s) needs to
         # be refunded
         credit_notes = {}
-        credit_error = None
+        has_error = False
+        credit_error = Exception()
         for debit_note in debit_notes:
             try:
                 credit_note = _CreditNote(debit_note, credit_account,
                                           bucket=bucket)
                 credit_notes[debit_note.uid()] = credit_note
             except Exception as e:
-                credit_error = str(e)
-                raise e
+                has_error = True
+                credit_error = e
+                break
 
-        if len(credit_notes) != len(debit_notes):
+        if has_error:
             # something went wrong crediting the account... We need to refund
             # the transaction - first retract the credit notes...
             try:
                 for credit_note in credit_notes.values():
-                    # NEED TO WRITE THIS CODE
-                    # credit_account.cancel_transaction(credit_note)
-                    pass
-            except:
-                pass
-
-            # now refund all of the debit notes
-            credit_notes = {}
-            try:
-                for debit_note in debit_notes:
-                    credit_notes[debit_note.uid()] = _CreditNote(debit_note,
-                                                                 debit_account,
-                                                                 bucket=bucket)
+                    credit_account._delete_note(credit_note, bucket=bucket)
             except Exception as e:
                 raise UnbalancedLedgerError(
                     "We have an unbalanced ledger as it was not "
@@ -268,44 +253,88 @@ class Ledger:
                     "refusal error = %s. Refund error = %s" %
                     (debit_notes, str(credit_error), str(e)))
 
-        return Ledger._record_to_ledger(
-                _PairedNote.create(debit_notes, credit_notes),
-                is_provisional, credit_error, bucket=bucket)
+            # now refund all of the debit notes
+            try:
+                for debit_note in debit_notes:
+                    debit_account._delete_note(debit_note, bucket=bucket)
+            except Exception as e:
+                raise UnbalancedLedgerError(
+                    "We have an unbalanced ledger as it was not "
+                    "possible to credit a multi-part debit (%s): Credit "
+                    "refusal error = %s. Refund error = %s" %
+                    (debit_notes, str(credit_error), str(e)))
+
+            raise credit_error
+
+        try:
+            paired_notes = _PairedNote.create(debit_notes, credit_notes)
+        except Exception as e:
+            # delete all of the notes...
+            for debit_note in debit_notes:
+                try:
+                    debit_account._delete_note(debit_note, bucket=bucket)
+                except:
+                    pass
+
+            for credit_note in credit_notes:
+                try:
+                    credit_account._delete_note(credit_note, bucket=bucket)
+                except:
+                    pass
+
+            raise e
+
+        # now write the paired entries to the ledger. The below function
+        # is guaranteed not to raise an exception
+        return Ledger._record_to_ledger(paired_notes, is_provisional,
+                                        bucket=bucket)
 
     @staticmethod
-    def _record_to_ledger(paired_notes, is_provisional=False,
-                          refund_reason=None, bucket=None):
+    def _record_to_ledger(paired_notes, is_provisional=False, bucket=None):
         """Internal function used to generate and record transaction records
            from the passed paired debit- and credit-note(s). This will write
            the transaction record(s) to the object store, and will also return
-           the record(s). If 'refund_reason' is passed, then this is a failed
-           transaction that is actually a refund. Refund transactions are
-           always immediately receipted if they are provisional.
+           the record(s).
         """
-        records = []
+        try:
+            records = []
 
-        if bucket is None:
-            bucket = _login_to_service_account()
+            if bucket is None:
+                bucket = _login_to_service_account()
 
-        for paired_note in paired_notes:
-            record = _TransactionRecord()
-            record._debit_note = paired_note.debit_note()
-            record._credit_note = paired_note.credit_note()
-            record._is_receipted = not is_provisional
+            for paired_note in paired_notes:
+                record = _TransactionRecord()
+                record._debit_note = paired_note.debit_note()
+                record._credit_note = paired_note.credit_note()
 
-            if refund_reason:
-                record._refund_reason = str(refund_reason)
-            else:
-                record._refund_reason = None
+                if is_provisional:
+                    record._transaction_state = _TransactionState.PROVISIONAL
+                else:
+                    record._transaction_state = _TransactionState.DIRECT
 
-            Ledger.save_transaction(record, bucket)
+                Ledger.save_transaction(record, bucket)
 
-            if is_provisional and refund_reason:
-                records.append(Ledger.receipt(_Receipt(record.uid()), bucket))
-            else:
                 records.append(record)
 
-        if len(records) == 1:
-            return records[0]
-        else:
-            return records
+            if len(records) == 1:
+                return records[0]
+            else:
+                return records
+
+        except:
+            # an error occuring here will break the system, which will
+            # require manual cleaning. Mark this as broken!
+            try:
+                Ledger._set_truly_broken(paired_notes, bucket)
+            except:
+                pass
+
+            raise SystemError("The ledger is in a very broken state!")
+
+    @staticmethod
+    def _set_truly_broken(paired_notes, bucket):
+        """Internal function called when an irrecoverable error state
+           is detected. This records the notes that caused the error and
+           places the affected accounts into an error state
+        """
+        raise NotImplementedError("_set_truly_broken needs to be implemented!")

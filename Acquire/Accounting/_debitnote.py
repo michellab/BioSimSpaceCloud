@@ -1,7 +1,11 @@
 
+from Acquire.Service import login_to_service_account \
+                    as _login_to_service_account
 
 from ._transaction import Transaction as _Transaction
 from ._authorisation import Authorisation as _Authorisation
+
+from ._errors import LedgerError
 
 __all__ = ["DebitNote"]
 
@@ -11,7 +15,7 @@ class DebitNote:
        is combined with credit note of equal value to form a transaction record
     """
     def __init__(self, transaction=None, account=None, authorisation=None,
-                 is_provisional=False, bucket=None):
+                 is_provisional=False, receipt=None, bucket=None):
         """Create a debit note for the passed transaction will debit value
            from the passed account. The note will create a unique ID (uid)
            for the debit, plus the timestamp of the time that value was drawn
@@ -20,42 +24,24 @@ class DebitNote:
            from the transaction so that a balanced TransactionRecord can be
            written to the ledger
         """
-        if transaction is None or account is None:
-            self._transaction = None
-            return
+        self._transaction = None
 
-        if not isinstance(transaction, _Transaction):
-            raise TypeError("You can only create a DebitNote with a "
-                            "Transaction")
+        if receipt is not None:
+            if (transaction is not None) or (authorisation is not None):
+                raise ValueError("You can only choose to create a debit note "
+                                 "from a receipt or transaction, not both!")
 
-        from ._account import Account as _Account
+            self._create_from_receipt(receipt, account, bucket)
 
-        if not isinstance(account, _Account):
-            raise TypeError("You can only create a DebitNote with a valid "
-                            "Account")
-
-        if authorisation is not None:
-            from ._authorisation import Authorisation as _Authorisation
-
-            if not isinstance(authorisation, _Authorisation):
-                raise TypeError("Authorisation must be of type Authorisation")
-
-        self._transaction = transaction
-        self._account_uid = account.uid()
-        self._authorisation = authorisation
-        self._is_provisional = is_provisional
-
-        (uid, timestamp) = account._debit(transaction, authorisation,
-                                          is_provisional, bucket=bucket)
-
-        self._timestamp = float(timestamp)
-        self._uid = str(uid)
+        elif (transaction is not None) and (account is not None):
+            self._create_from_transaction(transaction, account, authorisation,
+                                          is_provisional, bucket)
 
     def __str__(self):
         if self.is_null():
             return "DebitNote::null"
         else:
-            return "DebitNote<<%s [%s]" % (self.account_uid(), self.value())
+            return "DebitNote:%s>>%s" % (self.account_uid(), self.value())
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -125,6 +111,108 @@ class DebitNote:
         else:
             return self._is_provisional
 
+    def _create_from_receipt(self, receipt, account, bucket):
+        """Function used to construct a debit note by extracting
+           the value specified in the passed receipt from the specified
+           account. This is authorised using the authorisation held in
+           the receipt, based on the original authorisation given in the
+           provisional transaction. Note that the receipt must match
+           up with a prior existing provisional transaction, and this
+           must not have already been receipted or refunded. This will
+           actually take value out of the passed account, with that
+           value residing in this debit note until it is credited to
+           another account
+        """
+        from ._receipt import Receipt as _Receipt
+
+        if not isinstance(receipt, _Receipt):
+            raise TypeError("You can only create a DebitNote with a "
+                            "Receipt")
+
+        if receipt.is_null():
+            return
+
+        if bucket is None:
+            bucket = _login_to_service_account()
+
+        from ._transactionrecord import TransactionRecord as _TransactionRecord
+        from ._transactionrecord import TransactionState as _TransactionState
+        from ._account import Account as _Account
+
+        # get the transaction behind this receipt and move it into
+        # the "receipting" state
+        transaction = _TransactionRecord.load_test_and_set(
+                        receipt.transaction_uid(),
+                        _TransactionState.PROVISIONAL,
+                        _TransactionState.RECEIPTING, bucket=bucket)
+
+        try:
+            # ensure that the receipt matches the transaction...
+            transaction.assert_matching_receipt(receipt)
+
+            if account is None:
+                account = _Account(transaction.debit_account_uid(), bucket)
+            elif account.uid() != receipt.debit_account_uid():
+                raise ValueError("The accounts do not match when debiting "
+                                 "the receipt: %s versus %s" %
+                                 (account.uid(), receipt.debit_account_uid()))
+
+            # now move value from liability to debit, and then into this
+            # debit note
+            (uid, timestamp) = account._debit_receipt(receipt, bucket)
+
+            self._transaction = receipt.transaction()
+            self._account_uid = receipt.debit_account_uid()
+            self._authorisation = receipt.authorisation()
+            self._is_provisional = False
+
+            self._timestamp = float(timestamp)
+            self._uid = str(uid)
+        except:
+            # move the transaction back to its original state...
+            _TransactionRecord.load_test_and_set(
+                        receipt.transaction_uid(),
+                        _TransactionState.RECEIPTING,
+                        _TransactionState.PROVISIONAL)
+            raise
+
+    def _create_from_transaction(self, transaction, account, authorisation,
+                                 is_provisional, bucket):
+        """Function used to construct a debit note by extracting the
+           specified transaction value from the passed account. This
+           is authorised using the passed authorisation, and can be
+           a provisional debit if 'is_provisional' is true. This will
+           actually take value out of the passed account, with that
+           value residing in this debit note until it is credited
+           to another account
+        """
+        if not isinstance(transaction, _Transaction):
+            raise TypeError("You can only create a DebitNote with a "
+                            "Transaction")
+
+        from ._account import Account as _Account
+
+        if not isinstance(account, _Account):
+            raise TypeError("You can only create a DebitNote with a valid "
+                            "Account")
+
+        if authorisation is not None:
+            from ._authorisation import Authorisation as _Authorisation
+
+            if not isinstance(authorisation, _Authorisation):
+                raise TypeError("Authorisation must be of type Authorisation")
+
+        self._transaction = transaction
+        self._account_uid = account.uid()
+        self._authorisation = authorisation
+        self._is_provisional = is_provisional
+
+        (uid, timestamp) = account._debit(transaction, authorisation,
+                                          is_provisional, bucket=bucket)
+
+        self._timestamp = float(timestamp)
+        self._uid = str(uid)
+
     def to_data(self):
         """Return this DebitNote as a dictionary that can be encoded as json"""
         data = {}
@@ -147,7 +235,7 @@ class DebitNote:
         d = DebitNote()
 
         if (data and len(data) > 0):
-            d._transaction = data["transaction"]
+            d._transaction = _Transaction.from_data(data["transaction"])
             d._account_uid = data["account_uid"]
             d._authorisation = _Authorisation.from_data(data["authorisation"])
             d._is_provisional = data["is_provisional"]

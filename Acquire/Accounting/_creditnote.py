@@ -10,45 +10,34 @@ class CreditNote:
        is combined with a debit note of equal value to form a transaction
        record
     """
-    def __init__(self, debit_note=None, account=None, bucket=None):
+    def __init__(self, debit_note=None, account=None, receipt=None,
+                 bucket=None):
         """Create the corresponding credit note for the passed debit_note. This
            will credit value from the note to the passed account. The credit
            will use the same UID as the credit, and the same timestamp. This
            will then be paired with the debit note to form a TransactionRecord
            that can be written to the ledger
         """
-        if debit_note is None or account is None:
-            self._account_uid = None
+        self._account_uid = None
+
+        if receipt is not None:
+            self._create_from_receipt(debit_note, receipt, account, bucket)
+
+        elif (debit_note is not None) and (account is not None):
+            self._create_from_debit_note(debit_note, account, bucket)
+
+        else:
+            self._debit_account_uid = None
             self._timestamp = None
             self._uid = None
             self._debit_note_uid = None
             self._value = _create_decimal(0)
-            return
-
-        if not isinstance(debit_note, _DebitNote):
-            raise TypeError("You can only create a CreditNote "
-                            "with a DebitNote")
-
-        from ._account import Account as _Account
-
-        if not isinstance(account, _Account):
-            raise TypeError("You can only creata a CreditNote with an "
-                            "Account")
-
-        (uid, timestamp) = account._credit(debit_note, bucket=bucket)
-
-        self._account_uid = account.uid()
-        self._timestamp = timestamp
-        self._uid = uid
-        self._debit_note_uid = debit_note.uid()
-        self._value = debit_note.value()
-        self._is_provisional = debit_note.is_provisional()
 
     def __str__(self):
         if self.is_null():
             return "CreditNote::null"
         else:
-            return "CreditNote>>%s" % self.account_uid()
+            return "CreditNote:%s>>%s" % (self.value(), self.account_uid())
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -69,6 +58,17 @@ class CreditNote:
             return None
         else:
             return self._account_uid
+
+    def credit_account_uid(self):
+        """Synonym for self.account_uid()"""
+        return self.account_uid()
+
+    def debit_account_uid(self):
+        """Return the UID of the account from which the value was debited"""
+        if self.is_null():
+            return None
+        else:
+            return self._debit_account_uid
 
     def timestamp(self):
         """Return the timestamp for this credit note"""
@@ -106,6 +106,83 @@ class CreditNote:
         else:
             return self._is_provisional
 
+    def _create_from_receipt(self, debit_note, receipt, account, bucket):
+        """Internal function used to create the credit note from
+           the passed receipt. This will actually transfer value from the
+           debit note to the credited account
+        """
+        if not isinstance(debit_note, _DebitNote):
+            raise TypeError("You can only create a CreditNote "
+                            "with a DebitNote")
+
+        from ._receipt import Receipt as _Receipt
+
+        if not isinstance(receipt, _Receipt):
+            raise TypeError("You can only receipt a Receipt object: %s"
+                            % str(receipt.__class__))
+
+        from ._transactionrecord import TransactionRecord as _TransactionRecord
+        from ._transactionrecord import TransactionState as _TransactionState
+        from ._account import Account as _Account
+
+        # get the transaction behind this receipt and ensure it is in the
+        # receipting state...
+        transaction = _TransactionRecord.load_test_and_set(
+                        receipt.transaction_uid(),
+                        _TransactionState.RECEIPTING,
+                        _TransactionState.RECEIPTING, bucket=bucket)
+
+        # ensure that the receipt matches the transaction...
+        transaction.assert_matching_receipt(receipt)
+
+        if account is None:
+            account = _Account(transaction.credit_account_uid(), bucket)
+        elif account.uid() != receipt.credit_account_uid():
+            raise ValueError("The accounts do not match when crediting "
+                             "the receipt: %s versus %s" %
+                             (account.uid(), receipt.credit_account_uid()))
+
+        (uid, timestamp) = account._credit_receipt(debit_note, receipt, bucket)
+
+        self._account_uid = account.uid()
+        self._debit_account_uid = debit_note.account_uid()
+        self._timestamp = timestamp
+        self._uid = uid
+        self._debit_note_uid = debit_note.uid()
+        self._value = debit_note.value()
+        self._is_provisional = debit_note.is_provisional()
+
+        # finally(!) move the transaction into the receipted state
+        _TransactionRecord.load_test_and_set(
+                            receipt.transaction_uid(),
+                            _TransactionState.RECEIPTING,
+                            _TransactionState.RECEIPTED, bucket=bucket)
+
+    def _create_from_debit_note(self, debit_note, account, bucket):
+        """Internal function used to create the credit note that matches
+           the passed debit note. This will actually transfer value from
+           the debit note to the passed account
+        """
+        if not isinstance(debit_note, _DebitNote):
+            raise TypeError("You can only create a CreditNote "
+                            "with a DebitNote")
+
+        from ._account import Account as _Account
+
+        if not isinstance(account, _Account):
+            raise TypeError("You can only create a CreditNote with an "
+                            "Account")
+
+        (uid, timestamp) = account._credit(debit_note, bucket=bucket)
+
+        self._account_uid = account.uid()
+        self._debit_account_uid = debit_note.account_uid()
+        self._timestamp = timestamp
+        self._uid = uid
+        self._debit_note_uid = debit_note.uid()
+        self._value = debit_note.value()
+        self._is_provisional = debit_note.is_provisional()
+
     @staticmethod
     def from_data(data):
         """Construct and return a new CreditNote from the passed json-decoded
@@ -115,6 +192,7 @@ class CreditNote:
 
         if (data and len(data) > 0):
             note._account_uid = data["account_uid"]
+            note._debit_account_uid = data["debit_account_uid"]
             note._uid = data["uid"]
             note._debit_note_uid = data["debit_note_uid"]
             note._timestamp = data["timestamp"]
@@ -131,6 +209,7 @@ class CreditNote:
 
         if not self.is_null():
             data["account_uid"] = self._account_uid
+            data["debit_account_uid"] = self._debit_account_uid
             data["uid"] = self._uid
             data["debit_note_uid"] = self._debit_note_uid
             data["timestamp"] = self._timestamp

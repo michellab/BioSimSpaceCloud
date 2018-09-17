@@ -78,8 +78,8 @@ class Mutex:
         if self.is_locked():
             now = _datetime.datetime.now()
 
-            if now > self._end_lease:
-                return (now - self._end_lease).seconds
+            if self._end_lease > now:
+                return (self._end_lease - now).seconds
             else:
                 return 0
         else:

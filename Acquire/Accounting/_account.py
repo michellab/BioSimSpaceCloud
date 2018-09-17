@@ -541,7 +541,43 @@ class Account:
             raise TypeError("The passed authorisation must be an "
                             "Authorisation")
 
-    def _credit_receipt(self, receipt, bucket=None):
+    def _delete_note(self, note, bucket=None):
+        """Internal function called to delete the passed note from the
+           record. This is unsafe and should only be called from
+           DebitNote.return_value or CreditNote.return_value (which
+           themselves are only called from Ledger)
+        """
+        if note is None:
+            return
+
+        if isinstance(note, _DebitNote) or isinstance(note, _CreditNote):
+            item_key = "%s/%s" % (self._key(), note.uid())
+
+            if bucket is None:
+                bucket = _login_to_service_account()
+
+            # remove the note
+            try:
+                _ObjectStore.delete_object(bucket, item_key)
+            except:
+                pass
+
+            # now remove all day-balances from the day before this note
+            # to today. Hopefully this will prevent any ledger errors...
+            day0 = _datetime.datetime.fromtimestamp(
+                                    note.timestamp()).toordinal() - 1
+            day1 = _datetime.datetime.now().toordinal()
+
+            for day in range(day0, day1+1):
+                balance_key = self._get_balance_key(
+                                    _datetime.datetime.fromordinal(day))
+
+                try:
+                    _ObjectStore.delete_object(bucket, balance_key)
+                except:
+                    pass
+
+    def _credit_receipt(self, debit_note, receipt, bucket=None):
         """Credit the value of the passed 'receipt' to this account. The
            receipt must be for a previous provisional credit, hence the
            money is awaiting transfer from accounts receivable. This will
@@ -552,11 +588,19 @@ class Account:
         if not isinstance(receipt, _Receipt):
             raise TypeError("The passed receipt must be a Receipt")
 
+        if not isinstance(debit_note, _DebitNote):
+            raise TypeError("The passed debit note must be a DebitNote")
+
         if receipt.is_null():
             return
 
         if bucket is None:
             bucket = _login_to_service_account()
+
+        if receipt.receipted_value() != debit_note.value():
+            raise ValueError("The receipted value does not match the value "
+                             "of the debit note: %s versus %s" %
+                             (receipt.receipted_value(), debit_note.value()))
 
         encoded_value = _TransactionInfo.encode(
                                     _TransactionCode.SENT_RECEIPT,
