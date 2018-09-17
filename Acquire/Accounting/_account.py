@@ -130,6 +130,15 @@ class Account:
             return "Account(%s|%s|%s)" % (self._name, self._description,
                                           self._uid)
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self._uid == other._uid
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def _create_account(self, name, description):
         """Create the account from scratch"""
         if name is None or description is None:

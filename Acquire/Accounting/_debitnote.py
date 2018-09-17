@@ -57,6 +57,15 @@ class DebitNote:
         else:
             return "DebitNote<<%s [%s]" % (self.account_uid(), self.value())
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self._uid == other._uid
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def is_null(self):
         """Return whether or not this is a null note"""
         return self._transaction is None

@@ -50,6 +50,15 @@ class CreditNote:
         else:
             return "CreditNote>>%s" % self.account_uid()
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self._uid == other._uid
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def is_null(self):
         """Return whether or not this note is null"""
         return self._uid is None

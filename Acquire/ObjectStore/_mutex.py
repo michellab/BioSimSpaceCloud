@@ -52,6 +52,19 @@ class Mutex:
         except:
             pass
 
+    def __str__(self):
+        if self.expired():
+            return "Mutex(%s, EXPIRED)" % self._key
+        else:
+            return "Mutex(%s, is_locked=%s)" % (self._key, self.is_locked())
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self._key == other._key and self._secret == other._secret
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def is_locked(self):
         """Return whether or not this mutex is locked"""
         return self._is_locked > 0 and not self.expired()

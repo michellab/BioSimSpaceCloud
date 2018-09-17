@@ -58,6 +58,17 @@ class Receipt:
         return "Receipt(credit_note=%s, receipted_value=%s)" % \
             (str(self.credit_note()), self.receipted_value())
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self._credit_note == other._credit_note and \
+                   self._receipted_value == other._receipted_value and \
+                   self._authorisation == other._authorisation
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def is_null(self):
         """Return whether or not this Receipt is null"""
         return self._credit_note is None

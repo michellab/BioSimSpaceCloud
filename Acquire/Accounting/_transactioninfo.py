@@ -57,6 +57,16 @@ class TransactionInfo:
         return "TransactionInfo(code==%s, value==%s)" % \
                     (self._code.value, self._value)
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self._code == other._code and \
+                   slef._value == other._value
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     @staticmethod
     def _get_code(code):
         """Return the TransactionCode matching 'code'"""

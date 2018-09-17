@@ -90,6 +90,9 @@ class Transaction:
         else:
             return self.value() == _create_decimal(other)
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __lt__(self, other):
         if isinstance(other, Transaction):
             return self.value() < other.value()

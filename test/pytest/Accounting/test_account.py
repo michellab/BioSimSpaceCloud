@@ -2,6 +2,7 @@
 import pytest
 import os
 import random
+import datetime
 
 from Acquire.Accounting import Account, Transaction, TransactionRecord, \
                                Authorisation, create_decimal
@@ -10,6 +11,12 @@ from Acquire.Service import login_to_service_account
 
 account1_overdraft_limit = 1500000
 account2_overdraft_limit = 2500000
+
+
+def assert_packable(obj):
+    data = obj.to_data()
+    new_obj = obj.__class__.from_data(data)
+    assert(obj == new_obj)
 
 
 @pytest.fixture(scope="module")
@@ -96,8 +103,8 @@ def test_transactions(random_transaction):
     starting_liability2 = account2.liability()
     starting_receivable2 = account2.receivable()
 
-    TransactionRecord.perform(transaction, account1, account2,
-                              Authorisation(), is_provisional=False)
+    record = TransactionRecord.perform(transaction, account1, account2,
+                                       Authorisation(), is_provisional=False)
 
     ending_balance1 = account1.balance()
     ending_liability1 = account1.liability()
@@ -115,6 +122,29 @@ def test_transactions(random_transaction):
     assert(starting_receivable1 == ending_receivable1)
     assert(starting_receivable2 == ending_receivable2)
 
+    assert(record.debit_account_uid() == account1.uid())
+    assert(record.credit_account_uid() == account2.uid())
+
+    debit_note = record.debit_note()
+    credit_note = record.credit_note()
+
+    assert(debit_note.account_uid() == account1.uid())
+    assert(credit_note.account_uid() == account2.uid())
+
+    assert(not debit_note.is_provisional())
+    assert(not credit_note.is_provisional())
+
+    assert(debit_note.value() == transaction.value())
+    assert(credit_note.value() == transaction.value())
+
+    now = datetime.datetime.now()
+
+    assert(debit_note.timestamp() < now.timestamp())
+    assert(credit_note.timestamp() < now.timestamp())
+    assert(debit_note.timestamp() <= credit_note.timestamp())
+
+    assert_packable(debit_note)
+    assert_packable(credit_note)
 
 def test_pending_transactions(random_transaction):
     (transaction, account1, account2) = random_transaction
@@ -127,8 +157,8 @@ def test_pending_transactions(random_transaction):
     starting_liability2 = account2.liability()
     starting_receivable2 = account2.receivable()
 
-    TransactionRecord.perform(transaction, account1, account2,
-                              Authorisation(), is_provisional=True)
+    record = TransactionRecord.perform(transaction, account1, account2,
+                                       Authorisation(), is_provisional=True)
 
     ending_balance1 = account1.balance()
     ending_liability1 = account1.liability()
@@ -144,3 +174,30 @@ def test_pending_transactions(random_transaction):
     assert(starting_balance2 == ending_balance2)
     assert(starting_liability2 == ending_liability2)
     assert(starting_receivable1 == ending_receivable1)
+
+    assert(record.debit_account_uid() == account1.uid())
+    assert(record.credit_account_uid() == account2.uid())
+
+    debit_note = record.debit_note()
+    credit_note = record.credit_note()
+
+    assert(not debit_note.is_null())
+    assert(not credit_note.is_null())
+
+    assert(debit_note.account_uid() == account1.uid())
+    assert(credit_note.account_uid() == account2.uid())
+
+    assert(debit_note.is_provisional())
+    assert(credit_note.is_provisional())
+
+    assert(debit_note.value() == transaction.value())
+    assert(credit_note.value() == transaction.value())
+
+    now = datetime.datetime.now()
+
+    assert(debit_note.timestamp() < now.timestamp())
+    assert(credit_note.timestamp() < now.timestamp())
+    assert(debit_note.timestamp() <= credit_note.timestamp())
+
+    assert_packable(debit_note)
+    assert_packable(credit_note)

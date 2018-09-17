@@ -22,6 +22,20 @@ class PairedNote:
         self._debit_note = debit_note
         self._credit_note = credit_note
 
+    def __str__(self):
+        return "PairedNote(debit_note=%s, credit_note=%s)" % \
+                    (str(self._debit_note),str(self._credit_note))
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self._debit_note == other._debit_note and \
+                   self._credit_note == other._credit_note
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def debit_note(self):
         """Return the debit note"""
         return self._debit_note

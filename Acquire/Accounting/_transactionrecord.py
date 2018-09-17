@@ -64,6 +64,17 @@ class TransactionRecord:
         else:
             return "%s | PROVISIONAL" % s
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self._debit_note == other._debit_note and \
+                   self._credit_note == other._credit_note and \
+                   self._is_receipted == other._is_receipted
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def is_null(self):
         """Return whether or not this is a null record"""
         return self._debit_note is None
@@ -96,12 +107,12 @@ class TransactionRecord:
         else:
             return self.debit_note().transaction()
 
-    def credit_account(self):
+    def credit_account_uid(self):
         """Return the UID of the account to which value has been credited"""
         if self.is_null():
             return None
         else:
-            return self.credit_note().account()
+            return self.credit_note().account_uid()
 
     def credit_note(self):
         """Return the credit note for this transaction. This is the note
@@ -117,12 +128,12 @@ class TransactionRecord:
         """
         return self._debit_note
 
-    def debit_account(self):
+    def debit_account_uid(self):
         """Return the UID of the account from which value has been debited"""
         if self.is_null():
             return None
         else:
-            return self.debit_note().account()
+            return self.debit_note().account_uid()
 
     def key(self, uid=None):
         """Return the key for this transaction in the object store"""

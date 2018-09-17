@@ -19,6 +19,18 @@ class LineItem:
 
         self._authorisation = authorisation
 
+    def __str__(self):
+        return "LineItem(uid=%s)" % self._uid
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self._uid == other._uid
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def is_null(self):
         """Return whether or not this is a null line item"""
         return self._uid is None
