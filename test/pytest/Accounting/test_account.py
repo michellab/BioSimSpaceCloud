@@ -5,7 +5,7 @@ import random
 import datetime
 
 from Acquire.Accounting import Account, Transaction, TransactionRecord, \
-                               Authorisation, Receipt, create_decimal
+                               Ledger, Authorisation, Receipt, create_decimal
 
 from Acquire.Service import login_to_service_account
 
@@ -103,8 +103,8 @@ def test_transactions(random_transaction):
     starting_liability2 = account2.liability()
     starting_receivable2 = account2.receivable()
 
-    record = TransactionRecord.perform(transaction, account1, account2,
-                                       Authorisation(), is_provisional=False)
+    record = Ledger.perform(transaction, account1, account2,
+                            Authorisation(), is_provisional=False)
 
     ending_balance1 = account1.balance()
     ending_liability1 = account1.liability()
@@ -158,8 +158,8 @@ def test_pending_transactions(random_transaction):
     starting_liability2 = account2.liability()
     starting_receivable2 = account2.receivable()
 
-    record = TransactionRecord.perform(transaction, account1, account2,
-                                       Authorisation(), is_provisional=True)
+    record = Ledger.perform(transaction, account1, account2,
+                            Authorisation(), is_provisional=True)
 
     ending_balance1 = account1.balance()
     ending_liability1 = account1.liability()
@@ -223,4 +223,3 @@ def test_pending_transactions(random_transaction):
     assert(receipt.authorisation() == auth)
     assert(receipt.receipted_value() == value)
     assert(receipt.credit_note() == credit_note)
-
