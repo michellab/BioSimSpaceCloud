@@ -37,7 +37,7 @@ def _get_key_from_day(start, datetime):
 
 def _get_day_from_key(key):
     """Return the date that is encoded in the passed key"""
-    m = _re.search(r"/(\d\d\d\d)-(\d\d)-(\d\d)", key)
+    m = _re.search(r"(\d\d\d\d)-(\d\d)-(\d\d)", key)
 
     if m:
         return _datetime.datetime(year=int(m.groups()[0]),
@@ -59,8 +59,6 @@ def _sum_transactions(keys):
 
     for key in keys:
         v = _TransactionInfo(key)
-
-        print(v)
 
         if v.is_credit():
             balance += v.value()
@@ -244,8 +242,9 @@ class Account:
         if last_data is None:
             # find the latest day by reading the keys in the object
             # store directly
+            root = "%s/balance/" % self._key()
             keys = _ObjectStore.get_all_object_names(
-                        bucket, "%s/balance" % self._key())
+                        bucket, root)
 
             if keys is None or len(keys) == 0:
                 raise AccountError(
@@ -256,15 +255,42 @@ class Account:
             # last key must be the latest balance
             keys.sort()
 
-            last_data = _ObjectStore.get_object_from_json(bucket, keys[-1])
+            last_data = _ObjectStore.get_object_from_json(
+                            bucket, "%s%s" % (root, keys[-1]))
             day = _get_day_from_key(keys[-1]).toordinal()
 
+            if last_data is None:
+                raise AccountError("How can there be no data for key %s?" %
+                                   keys[-1])
+
+        # what was the balance on the last day?
+        result = (_create_decimal(last_data["balance"]),
+                  _create_decimal(last_data["liability"]),
+                  _create_decimal(last_data["receivable"]))
+
         # ok, now we go from the last day until today and sum up the
-        # transactions from each day to create the daily balances...
-        raise NotImplementedError(
-                    "WILL NEED TO SUM UP INTERACTIONS FROM "
-                    "%s until %s" % (_datetime.datetime.fromordinal(day)),
-                    _datetime.datetime.fromordinal(today))
+        # transactions from each day to create the daily balances
+        # (not including today, as we only want the balance at the beginning
+        #  of today)
+        for d in range(day+1, today+1):
+            day_time = _datetime.datetime.fromordinal(d)
+            transaction_keys = self._get_transaction_keys_between(
+                            _datetime.datetime.fromordinal(d-1),
+                            day_time)
+
+            total = _sum_transactions(transaction_keys)
+
+            result = (result[0]+total[0], result[1]+total[1],
+                      result[2]+total[2])
+
+            balance_key = self._get_balance_key(day_time)
+
+            data = {}
+            data["balance"] = str(result[0])
+            data["liability"] = str(result[1])
+            data["receivable"] = str(result[2])
+
+            _ObjectStore.set_object_from_json(bucket, balance_key, data)
 
     def _get_daily_balance(self, bucket=None, datetime=None):
         """Get the daily starting balance for the passed datetime. This

@@ -1,6 +1,5 @@
 
 import pytest
-import os
 import random
 import datetime
 
