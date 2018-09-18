@@ -15,7 +15,7 @@ class DebitNote:
        is combined with credit note of equal value to form a transaction record
     """
     def __init__(self, transaction=None, account=None, authorisation=None,
-                 is_provisional=False, receipt=None, bucket=None):
+                 is_provisional=False, receipt=None, refund=None, bucket=None):
         """Create a debit note for the passed transaction will debit value
            from the passed account. The note will create a unique ID (uid)
            for the debit, plus the timestamp of the time that value was drawn
@@ -26,14 +26,22 @@ class DebitNote:
         """
         self._transaction = None
 
-        if receipt is not None:
-            if (transaction is not None) or (authorisation is not None):
-                raise ValueError("You can only choose to create a debit note "
-                                 "from a receipt or transaction, not both!")
+        nargs = (transaction is not None) + (refund is not None) + \
+                (receipt is not None)
 
+        if nargs > 1:
+            raise ValueError("You can only choose to create a debit note "
+                             "from a transaction, receipt or refund!")
+
+        if refund is not None:
+            self._create_from_refund(refund, account, bucket)
+        elif receipt is not None:
             self._create_from_receipt(receipt, account, bucket)
+        elif (transaction is not None):
+            if account is None:
+                raise ValueError("You need to supply the account from "
+                                 "which the transaction will be taken")
 
-        elif (transaction is not None) and (account is not None):
             self._create_from_transaction(transaction, account, authorisation,
                                           is_provisional, bucket)
 
@@ -110,6 +118,70 @@ class DebitNote:
             return False
         else:
             return self._is_provisional
+
+    def _create_from_refund(self, refund, account, bucket):
+        """Function used to construct a debit note by extracting
+           the value specified in the passed refund from the specified
+           account. This is authorised using the authorisation held in
+           the refund. Note that the refund must match
+           up with a prior existing provisional transaction, and this
+           must not have already been refunded. This will
+           actually take value out of the passed account, with that
+           value residing in this debit note until it is credited to
+           another account
+        """
+        from ._refund import Refund as _Refund
+
+        if not isinstance(refund, _Refund):
+            raise TypeError("You can only create a DebitNote with a "
+                            "Refund")
+
+        if refund.is_null():
+            return
+
+        if bucket is None:
+            bucket = _login_to_service_account()
+
+        from ._transactionrecord import TransactionRecord as _TransactionRecord
+        from ._transactionrecord import TransactionState as _TransactionState
+        from ._account import Account as _Account
+
+        # get the transaction behind this refund and move it into
+        # the "refunding" state
+        transaction = _TransactionRecord.load_test_and_set(
+                        refund.transaction_uid(),
+                        _TransactionState.DIRECT,
+                        _TransactionState.REFUNDING, bucket=bucket)
+
+        try:
+            # ensure that the receipt matches the transaction...
+            transaction.assert_matching_refund(refund)
+
+            if account is None:
+                account = _Account(transaction.credit_account_uid(), bucket)
+            elif account.uid() != refund.credit_account_uid():
+                raise ValueError("The accounts do not match when debiting "
+                                 "the refund: %s versus %s" %
+                                 (account.uid(), refund.credit_account_uid()))
+
+            # now move the refund from the credit account back to the
+            # debit note
+            (uid, timestamp) = account._debit_refund(refund, bucket)
+
+            self._transaction = refund.transaction()
+            self._account_uid = refund.credit_account_uid()
+            self._authorisation = refund.authorisation()
+            self._is_provisional = False
+
+            self._timestamp = float(timestamp)
+            self._uid = str(uid)
+        except:
+            # move the transaction back to its original state...
+            _TransactionRecord.load_test_and_set(
+                        refund.transaction_uid(),
+                        _TransactionState.REFUNDING,
+                        _TransactionState.DIRECT)
+            raise
 
     def _create_from_receipt(self, receipt, account, bucket):
         """Function used to construct a debit note by extracting

@@ -60,7 +60,7 @@ class Ledger:
                                               record.to_data())
 
     @staticmethod
-    def refund(refund, authorisation, bucket=None):
+    def refund(refund, bucket=None):
         """Create and record a new transaction from the passed refund. This
            applies the refund, thereby transferring value from the credit
            account to the debit account of the corresponding transaction.
@@ -68,8 +68,81 @@ class Ledger:
            This returns the (already recorded) TransactionRecord for the
            refund
         """
-        raise NotImplementedError("Have not implmented refunding a "
-                                  "transaction")
+        if not isinstance(refund, _Refund):
+            raise TypeError("The Refund must be of type Refund")
+
+        if refund.is_null():
+            return _TransactionRecord()
+
+        if bucket is None:
+            bucket = _login_to_service_account()
+
+        # return value from the credit to debit accounts
+        debit_account = _Account(uid=refund.debit_account_uid(),
+                                 bucket=bucket)
+        credit_account = _Account(uid=refund.credit_account_uid(),
+                                  bucket=bucket)
+
+        # remember that a refund debits from the original credit account...
+        # (and can only refund completed (DIRECT) transactions)
+        debit_note = _DebitNote(refund=refund, account=credit_account,
+                                bucket=bucket)
+
+        # now create the credit note to return the value into the debit account
+        try:
+            credit_note = _CreditNote(debit_note=debit_note,
+                                      refund=refund,
+                                      account=debit_account,
+                                      bucket=bucket)
+        except Exception as e:
+            # delete the debit note
+            try:
+                debit_account._delete_note(debit_note, bucket=bucket)
+            except:
+                pass
+
+            # reset the transaction to its original state
+            try:
+                _TransactionRecord.load_test_and_set(
+                        refund.transaction_uid(),
+                        _TransactionState.REFUNDING,
+                        _TransactionState.DIRECT,
+                        bucket=bucket)
+            except:
+                pass
+
+            raise e
+
+        try:
+            paired_notes = _PairedNote.create(debit_note, credit_note)
+        except Exception as e:
+            # delete all records...!
+            try:
+                debit_account._delete_note(debit_note, bucket=bucket)
+            except:
+                pass
+
+            try:
+                credit_account._delete_note(credit_note, bucket=bucket)
+            except:
+                pass
+
+            # reset the transaction to the pending state
+            try:
+                _TransactionRecord.load_test_and_set(
+                        refund.transaction_uid(),
+                        _TransactionState.REFUNDING,
+                        _TransactionState.DIRECT,
+                        bucket=bucket)
+            except:
+                pass
+
+            raise e
+
+        # now record the two entries to the ledger. The below function
+        # is guaranteed not to raise an exception
+        return Ledger._record_to_ledger(paired_notes, refund=refund,
+                                        bucket=bucket)
 
     @staticmethod
     def receipt(receipt, bucket=None):

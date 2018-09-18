@@ -5,7 +5,8 @@ import random
 import datetime
 
 from Acquire.Accounting import Account, Transaction, TransactionRecord, \
-                               Ledger, Authorisation, Receipt, create_decimal
+                               Ledger, Authorisation, Receipt, Refund, \
+                               create_decimal
 
 from Acquire.Service import login_to_service_account
 
@@ -145,6 +146,52 @@ def test_transactions(random_transaction):
 
     assert_packable(debit_note)
     assert_packable(credit_note)
+
+    # now test refunding this transaction
+    # now receipt a random amount of the transaction
+    auth = Authorisation()
+
+    refund = Refund(credit_note, auth)
+
+    assert(not refund.is_null())
+    assert(refund.authorisation() == auth)
+    assert(refund.value() == transaction.value())
+    assert(refund.credit_note() == credit_note)
+    assert_packable(refund)
+
+    rrecord = Ledger.refund(refund)
+
+    assert(not rrecord.is_null())
+    assert_packable(rrecord)
+
+    assert(not rrecord.is_provisional())
+    assert(rrecord.is_direct())
+    assert(rrecord.get_refund_info() == refund)
+    assert(rrecord.is_refund())
+    assert(rrecord.original_transaction() == transaction)
+
+    # the original transaction record has now been updated to
+    # say that it has been receipted...
+    assert(record.is_direct())
+    record.reload()
+    assert(record.is_refunded())
+
+    assert(rrecord.original_transaction_record() == record)
+
+    ending_balance1 = account1.balance()
+    ending_liability1 = account1.liability()
+    ending_receivable1 = account1.receivable()
+
+    ending_balance2 = account2.balance()
+    ending_liability2 = account2.liability()
+    ending_receivable2 = account2.receivable()
+
+    assert(ending_liability1 == starting_liability1)
+    assert(ending_receivable2 == starting_receivable2)
+    assert(starting_balance1 == ending_balance1)
+    assert(starting_balance2 == ending_balance2)
+    assert(starting_liability2 == ending_liability2)
+    assert(starting_receivable1 == ending_receivable1)
 
 
 def test_pending_transactions(random_transaction):

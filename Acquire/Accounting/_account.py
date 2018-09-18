@@ -18,6 +18,7 @@ from ._decimal import create_decimal as _create_decimal
 from ._transactioninfo import TransactionInfo as _TransactionInfo
 from ._transactioninfo import TransactionCode as _TransactionCode
 from ._receipt import Receipt as _Receipt
+from ._refund import Refund as _Refund
 
 from ._errors import AccountError, InsufficientFundsError
 
@@ -541,6 +542,22 @@ class Account:
             raise TypeError("The passed authorisation must be an "
                             "Authorisation")
 
+    def _get_safe_now(self):
+        """This function returns the current time. It avoids dangerous
+           times (when the system may be updating) by sleeping through
+           those times
+        """
+        now = _datetime.datetime.now()
+
+        # don't allow any transactions in the last 30 seconds of the day, as we
+        # will sum up the day balance at midnight, and don't want to risk any
+        # late transactions from messing up the accounting
+        while now.hour == 23 and now.minute == 59 and now.second >= 30:
+            _time.sleep(5)
+            now = _datetime.datetime.now()
+
+        return now
+
     def _delete_note(self, note, bucket=None):
         """Internal function called to delete the passed note from the
            record. This is unsafe and should only be called from
@@ -577,13 +594,95 @@ class Account:
                 except:
                     pass
 
+    def _credit_refund(self, debit_note, refund, bucket=None):
+        """Credit the value of the passed 'refund' to this account. The
+           refund must be for a previous completed debit, hence the
+           original debitted value is returned to the account.
+        """
+        if not isinstance(refund, _Refund):
+            raise TypeError("The passed refund must be a Refund")
+
+        if not isinstance(debit_note, _DebitNote):
+            raise TypeError("The passed debit note must be a DebitNote")
+
+        if refund.is_null():
+            return
+
+        if bucket is None:
+            bucket = _login_to_service_account()
+
+        if refund.value() != debit_note.value():
+            raise ValueError("The refunded value does not match the value "
+                             "of the debit note: %s versus %s" %
+                             (refund.value(), debit_note.value()))
+
+        encoded_value = _TransactionInfo.encode(
+                                        _TransactionCode.RECEIVED_REFUND,
+                                        refund.value())
+
+        # create a UID and timestamp for this credit and record
+        # it in the account
+        now = self._get_safe_now()
+
+        # we need to record the exact timestamp of this credit...
+        timestamp = now.timestamp()
+
+        # and to create a key to find this credit later. The key is made
+        # up from the date and timestamp of the credit and a random string
+        day_key = "%4d-%02d-%02d/%s" % (now.year, now.month, now.day,
+                                        timestamp)
+        uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
+
+        item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
+        l = _LineItem(debit_note.uid(), refund.authorisation())
+
+        _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
+
+        return (uid, timestamp)
+
+    def _debit_refund(self, refund, bucket=None):
+        """Debit the value of the passed 'refund' from this account. The
+           refund must be for a previous completed credit. There is a risk
+           that this value has been spent, so this is one of the only
+           functions that allows a balance to drop below an overdraft or
+           other limit (as the refund should always succeed).
+        """
+        if not isinstance(refund, _Refund):
+            raise TypeError("The passed refund must be a Refund")
+
+        if refund.is_null():
+            return
+
+        if bucket is None:
+            bucket = _login_to_service_account()
+
+        encoded_value = _TransactionInfo.encode(_TransactionCode.SENT_REFUND,
+                                                refund.value())
+
+        # create a UID and timestamp for this debit and record
+        # it in the account
+        now = self._get_safe_now()
+
+        # we need to record the exact timestamp of this credit...
+        timestamp = now.timestamp()
+
+        # and to create a key to find this debit later. The key is made
+        # up from the date and timestamp of the debit and a random string
+        day_key = "%4d-%02d-%02d/%s" % (now.year, now.month, now.day,
+                                        timestamp)
+        uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
+
+        item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
+        l = _LineItem(uid, refund.authorisation())
+
+        _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
+
+        return (uid, timestamp)
+
     def _credit_receipt(self, debit_note, receipt, bucket=None):
         """Credit the value of the passed 'receipt' to this account. The
            receipt must be for a previous provisional credit, hence the
-           money is awaiting transfer from accounts receivable. This will
-           record the credit receipt using the same UID as the provisional
-           debit so that we can reconcile all receipts against their
-           matching debits
+           money is awaiting transfer from accounts receivable.
         """
         if not isinstance(receipt, _Receipt):
             raise TypeError("The passed receipt must be a Receipt")
@@ -608,14 +707,7 @@ class Account:
 
         # create a UID and timestamp for this credit and record
         # it in the account
-        now = _datetime.datetime.now()
-
-        # don't allow any transactions in the last 30 seconds of the day, as we
-        # will sum up the day balance at midnight, and don't want to risk any
-        # late transactions from messing up the accounting
-        while now.hour == 23 and now.minute == 59 and now.second >= 30:
-            _time.sleep(5)
-            now = _datetime.datetime.now()
+        now = self._get_safe_now()
 
         # we need to record the exact timestamp of this credit...
         timestamp = now.timestamp()
@@ -636,9 +728,7 @@ class Account:
     def _debit_receipt(self, receipt, bucket=None):
         """Debit the value of the passed 'receipt' from this account. The
            receipt must be for a previous provisional debit, hence
-           the money should be available. This will record the debit
-           receipt using the same UID as the provisional debit, so that
-           we can reconcile all receipts against their matching debits
+           the money should be available.
         """
         if not isinstance(receipt, _Receipt):
             raise TypeError("The passed receipt must be a Receipt")
@@ -655,14 +745,7 @@ class Account:
 
         # create a UID and timestamp for this debit and record
         # it in the account
-        now = _datetime.datetime.now()
-
-        # don't allow any transactions in the last 30 seconds of the day, as we
-        # will sum up the day balance at midnight, and don't want to risk any
-        # late transactions from messing up the accounting
-        while now.hour == 23 and now.minute == 59 and now.second >= 30:
-            _time.sleep(5)
-            now = _datetime.datetime.now()
+        now = self._get_safe_now()
 
         # we need to record the exact timestamp of this credit...
         timestamp = now.timestamp()
@@ -707,14 +790,7 @@ class Account:
 
         # create a UID and timestamp for this credit and record
         # it in the account
-        now = _datetime.datetime.now()
-
-        # don't allow any transactions in the last 30 seconds of the day, as we
-        # will sum up the day balance at midnight, and don't want to risk any
-        # late transactions from messing up the accounting
-        while now.hour == 23 and now.minute == 59 and now.second >= 30:
-            _time.sleep(5)
-            now = _datetime.datetime.now()
+        now = self._get_safe_now()
 
         # we need to record the exact timestamp of this credit...
         timestamp = now.timestamp()
@@ -774,14 +850,7 @@ class Account:
 
         # create a UID and timestamp for this debit and record
         # it in the account
-        now = _datetime.datetime.now()
-
-        # don't allow any transactions in the last 30 seconds of the day, as we
-        # will sum up the day balance at midnight, and don't want to risk any
-        # late transactions from messing up the accounting
-        while now.hour == 23 and now.minute == 59 and now.second >= 30:
-            _time.sleep(5)
-            now = _datetime.datetime.now()
+        now = self._get_safe_now()
 
         # we need to record the exact timestamp of this debit...
         timestamp = now.timestamp()

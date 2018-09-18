@@ -20,7 +20,8 @@ from ._receipt import Receipt as _Receipt
 from ._refund import Refund as _Refund
 
 from ._errors import TransactionError, UnbalancedLedgerError, \
-                     UnmatchedReceiptError, LedgerError
+                     UnmatchedReceiptError, UnmatchedRefundError, \
+                     LedgerError
 
 __all__ = ["TransactionRecord", "TransactionState"]
 
@@ -124,6 +125,38 @@ class TransactionRecord:
     def transaction_state(self):
         """Return the current state of this transaction"""
         return self._transaction_state
+
+    def assert_matching_refund(self, refund):
+        """Assert that the passed refund matches this transaction"""
+        if self.is_null():
+            if not refund.is_null():
+                raise UnmatchedRefundError(
+                        "%s does not match a null TransactionRecord!" %
+                        str(refund))
+
+        match = True
+        errors = []
+
+        if refund.transaction_uid() != self.uid():
+            match = False
+            errors.append("UID: %s != %s" % (refund.transaction_uid(),
+                                             self.uid()))
+        elif refund.debit_account_uid() != self.debit_account_uid():
+            match = False
+            errors.append("DEBIT: %s != %s" % (refund.debit_account_uid(),
+                                               self.debit_account_uid()))
+        elif refund.credit_account_uid() != self.credit_account_uid():
+            match = False
+            errors.append("CREDIT: %s != %s" % (refund.credit_account_uid(),
+                                                self.credit_account_uid()))
+        elif refund.value() != self.value():
+            match = False
+            errors.append("VALUE: %s != %s" % (refund.value(), self.value()))
+
+        if not match:
+            raise UnmatchedRefundError(
+                "The refund '%s' does not match the transaction '%s': %s" %
+                (str(refund), str(self), " | ".join(errors)))
 
     def assert_matching_receipt(self, receipt):
         """Assert that the passed receipt matches this transaction"""

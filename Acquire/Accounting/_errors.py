@@ -32,3 +32,7 @@ class InsufficientFundsError(Exception):
 
 class UnmatchedReceiptError(Exception):
     pass
+
+
+class UnmatchedRefundError(Exception):
+    pass

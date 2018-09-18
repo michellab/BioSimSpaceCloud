@@ -11,7 +11,7 @@ class CreditNote:
        record
     """
     def __init__(self, debit_note=None, account=None, receipt=None,
-                 bucket=None):
+                 refund=None, bucket=None):
         """Create the corresponding credit note for the passed debit_note. This
            will credit value from the note to the passed account. The credit
            will use the same UID as the credit, and the same timestamp. This
@@ -20,8 +20,17 @@ class CreditNote:
         """
         self._account_uid = None
 
+        nargs = (receipt is not None) + (refund is not None)
+
+        if nargs > 1:
+            raise ValueError("You can create a CreditNote with a receipt "
+                             "or a refund - not both!")
+
         if receipt is not None:
             self._create_from_receipt(debit_note, receipt, account, bucket)
+
+        elif refund is not None:
+            self._create_from_refund(debit_note, refund, account, bucket)
 
         elif (debit_note is not None) and (account is not None):
             self._create_from_debit_note(debit_note, account, bucket)
@@ -105,6 +114,59 @@ class CreditNote:
             return False
         else:
             return self._is_provisional
+
+    def _create_from_refund(self, debit_note, refund, account, bucket):
+        """Internal function used to create the credit note from
+           the passed refund. This will actually transfer value from the
+           debit note to the credited account (which was the original
+           debited account)
+        """
+        if not isinstance(debit_note, _DebitNote):
+            raise TypeError("You can only create a CreditNote "
+                            "with a DebitNote")
+
+        from ._refund import Refund as _Refund
+
+        if not isinstance(refund, _Refund):
+            raise TypeError("You can only refund a Refund object: %s"
+                            % str(refund.__class__))
+
+        from ._transactionrecord import TransactionRecord as _TransactionRecord
+        from ._transactionrecord import TransactionState as _TransactionState
+        from ._account import Account as _Account
+
+        # get the transaction behind this refund and ensure it is in the
+        # refunding state...
+        transaction = _TransactionRecord.load_test_and_set(
+                        refund.transaction_uid(),
+                        _TransactionState.REFUNDING,
+                        _TransactionState.REFUNDING, bucket=bucket)
+
+        # ensure that the receipt matches the transaction...
+        transaction.assert_matching_refund(refund)
+
+        if account is None:
+            account = _Account(transaction.debit_account_uid(), bucket)
+        elif account.uid() != refund.debit_account_uid():
+            raise ValueError("The accounts do not match when refunding "
+                             "the receipt: %s versus %s" %
+                             (account.uid(), refund.debit_account_uid()))
+
+        (uid, timestamp) = account._credit_refund(debit_note, refund, bucket)
+
+        self._account_uid = account.uid()
+        self._debit_account_uid = debit_note.account_uid()
+        self._timestamp = timestamp
+        self._uid = uid
+        self._debit_note_uid = debit_note.uid()
+        self._value = debit_note.value()
+        self._is_provisional = debit_note.is_provisional()
+
+        # finally(!) move the transaction into the refunded state
+        _TransactionRecord.load_test_and_set(
+                            refund.transaction_uid(),
+                            _TransactionState.REFUNDING,
+                            _TransactionState.REFUNDED, bucket=bucket)
 
     def _create_from_receipt(self, debit_note, receipt, account, bucket):
         """Internal function used to create the credit note from
