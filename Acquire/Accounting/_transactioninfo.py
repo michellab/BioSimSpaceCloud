@@ -37,10 +37,10 @@ class TransactionInfo:
 
            RR000100.005000
 
-           however, they have original value : receipted value if they are
+           however, they have original value T receipted value if they are
            different, e.g.
 
-           RR000100.005000:000090.000000
+           RR000100.005000T000090.000000
         """
 
         parts = key.split("/")
@@ -55,7 +55,7 @@ class TransactionInfo:
                 if code == TransactionCode.SENT_RECEIPT or \
                         code == TransactionCode.RECEIVED_RECEIPT:
 
-                    values = part[2:].split(":")
+                    values = part[2:].split("T")
                     try:
                         value = _create_decimal(values[0])
                         receipted_value = _create_decimal(values[1])
@@ -107,7 +107,7 @@ class TransactionInfo:
         if receipted_value is None:
             return "%2s%013.6f" % (code.value, value)
         else:
-            return "%2s%013.6f:%013.6f" % (code.value, value, receipted_value)
+            return "%2s%013.6fT%013.6f" % (code.value, value, receipted_value)
 
     def value(self):
         """Return the value of the transaction"""

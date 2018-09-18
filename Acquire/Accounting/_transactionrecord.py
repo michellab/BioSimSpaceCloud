@@ -83,6 +83,12 @@ class TransactionRecord:
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def reload(self):
+        """Reload this transaction record from the object store. This is
+           necessary if, e.g., the state of the record has been updated
+        """
+        self._load_transaction(self.uid())
+
     def is_null(self):
         """Return whether or not this is a null record"""
         return self._debit_note is None
@@ -220,10 +226,33 @@ class TransactionRecord:
         """Return the receipt underlying this transaction"""
         return self._receipt
 
+    def original_transaction_record(self):
+        """If this is a receipt or refund transaction then return the
+           original transaction record that this is receipting or refunding.
+           Otherwise returns a null TransactionRecord
+        """
+        if self.is_receipt():
+            return TransactionRecord(self.get_receipt_info().transaction_uid())
+        elif self.is_refund():
+            return TransactionRecord(self.get_refund_info().transaction_uid())
+        else:
+            return TransactionRecord()
+
+    def original_transaction(self):
+        """If this is a receipt or refund transaction then return the
+           original transaction that this is receipting or refunding.
+           Otherwise returns a null Transaction
+        """
+        if self.is_receipt() or self.is_refund():
+            return self.original_transaction_record().transaction()
+        else:
+            return _Transaction()
+
     def _load_transaction(self, uid, bucket=None):
         """Load this transaction from the object store"""
         from ._ledger import Ledger as _Ledger
-        self.__dict__ = _copy(_Ledger.load_transaction(uid, bucket=bucket))
+        self.__dict__ = _copy(_Ledger.load_transaction(
+                                        uid, bucket=bucket).__dict__)
 
     def _save_transaction(self, bucket=None):
         """Save this transaction to the object store"""

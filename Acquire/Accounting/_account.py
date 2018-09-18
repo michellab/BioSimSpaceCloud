@@ -627,11 +627,7 @@ class Account:
         uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
 
         item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
-
-        # the line item records the UID of the debit note, so we can
-        # find this debit note in the system and, from this, get the
-        # original transaction in the transaction record
-        l = _LineItem(receipt.debit_note_uid(), receipt.authorisation())
+        l = _LineItem(debit_note.uid(), receipt.authorisation())
 
         _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
 
@@ -678,11 +674,7 @@ class Account:
         uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
 
         item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
-
-        # the line item records the UID of the debit note, so we can
-        # find this debit note in the system and, from this, get the
-        # original transaction in the transaction record
-        l = _LineItem(receipt.debit_note_uid(), receipt.authorisation())
+        l = _LineItem(uid, receipt.authorisation())
 
         _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
 

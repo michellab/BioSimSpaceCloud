@@ -17,6 +17,7 @@ from ._debitnote import DebitNote as _DebitNote
 from ._creditnote import CreditNote as _CreditNote
 from ._pairednote import PairedNote as _PairedNote
 from ._receipt import Receipt as _Receipt
+from ._refund import Refund as _Refund
 
 from ._errors import TransactionError, LedgerError, UnbalancedLedgerError
 
@@ -150,7 +151,8 @@ class Ledger:
 
         # now record the two entries to the ledger. The below function
         # is guaranteed not to raise an exception
-        return Ledger._record_to_ledger(paired_notes, bucket=bucket)
+        return Ledger._record_to_ledger(paired_notes, receipt=receipt,
+                                        bucket=bucket)
 
     @staticmethod
     def perform(transactions, debit_account, credit_account, authorisation,
@@ -290,12 +292,21 @@ class Ledger:
                                         bucket=bucket)
 
     @staticmethod
-    def _record_to_ledger(paired_notes, is_provisional=False, bucket=None):
+    def _record_to_ledger(paired_notes, is_provisional=False,
+                          receipt=None, refund=None, bucket=None):
         """Internal function used to generate and record transaction records
            from the passed paired debit- and credit-note(s). This will write
            the transaction record(s) to the object store, and will also return
            the record(s).
         """
+        if receipt is not None:
+            if not isinstance(receipt, _Receipt):
+                raise TypeError("Receipts must be of type 'Receipt'")
+
+        if refund is not None:
+            if not isinstance(refund, _Refund):
+                raise TypeError("Refunds must be of type 'Refund'")
+
         try:
             records = []
 
@@ -311,6 +322,12 @@ class Ledger:
                     record._transaction_state = _TransactionState.PROVISIONAL
                 else:
                     record._transaction_state = _TransactionState.DIRECT
+
+                if receipt is not None:
+                    record._receipt = receipt
+
+                if refund is not None:
+                    record._refund = refund
 
                 Ledger.save_transaction(record, bucket)
 

@@ -223,7 +223,38 @@ def test_pending_transactions(random_transaction):
     assert(receipt.authorisation() == auth)
     assert(receipt.receipted_value() == value)
     assert(receipt.credit_note() == credit_note)
+    assert_packable(receipt)
 
-    record = Ledger.receipt(receipt)
+    rrecord = Ledger.receipt(receipt)
 
-    assert(not record.is_null())
+    assert(not rrecord.is_null())
+    assert_packable(rrecord)
+
+    assert(not rrecord.is_provisional())
+    assert(rrecord.is_direct())
+    assert(rrecord.get_receipt_info() == receipt)
+    assert(rrecord.is_receipt())
+    assert(rrecord.original_transaction() == transaction)
+
+    # the original transaction record has now been updated to
+    # say that it has been receipted...
+    assert(record.is_provisional())
+    record.reload()
+    assert(record.is_receipted())
+
+    assert(rrecord.original_transaction_record() == record)
+
+    ending_balance1 = account1.balance()
+    ending_liability1 = account1.liability()
+    ending_receivable1 = account1.receivable()
+
+    ending_balance2 = account2.balance()
+    ending_liability2 = account2.liability()
+    ending_receivable2 = account2.receivable()
+
+    assert(ending_liability1 == starting_liability1)
+    assert(ending_receivable2 == starting_receivable2)
+    assert(starting_balance1 - value == ending_balance1)
+    assert(starting_balance2 + value == ending_balance2)
+    assert(starting_liability2 == ending_liability2)
+    assert(starting_receivable1 == ending_receivable1)
