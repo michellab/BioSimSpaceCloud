@@ -181,16 +181,20 @@ def test_parallel_transaction(account1, account2, bucket):
         delta2 = zero
         auth = Authorisation()
 
-        for i in range(0, 1):
+        # need to work with thread-local copies of the accounts
+        my_account1 = Account(uid=account1.uid())
+        my_account2 = Account(uid=account2.uid())
+
+        for i in range(0, 5):
             transaction = Transaction(value=create_decimal(random.random()),
                                       description="Transaction %d" % i)
 
             if random.randint(0, 1):
-                Ledger.perform(transaction, account1, account2, auth)
+                Ledger.perform(transaction, my_account1, my_account2, auth)
                 delta1 -= transaction.value()
                 delta2 += transaction.value()
             else:
-                Ledger.perform(transaction, account2, account1, auth)
+                Ledger.perform(transaction, my_account2, my_account1, auth)
                 delta1 += transaction.value()
                 delta2 -= transaction.value()
 
@@ -201,7 +205,7 @@ def test_parallel_transaction(account1, account2, bucket):
 
     result = {}
 
-    for i in range(0, 2):
+    for i in range(0, 5):
         t = Thread(target=perform_transaction, args=[i, result])
         t.start()
         threads.append(t)

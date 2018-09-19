@@ -474,7 +474,12 @@ class Account:
         now = _datetime.datetime.now()
         now_ordinal = now.toordinal()
 
-        if self._last_update_ordinal != now_ordinal:
+        try:
+            last_update_ordinal = self._last_update_ordinal
+        except:
+            last_update_ordinal = None
+
+        if last_update_ordinal != now_ordinal:
             # we are on a new day since the last update, so recalculate
             # the balance from scratch
             return self._recalculate_current_balance(bucket, now)
