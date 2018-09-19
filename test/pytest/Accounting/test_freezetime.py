@@ -2,6 +2,7 @@
 import pytest
 import random
 import datetime
+from threading import Thread, RLock
 
 from Acquire.Accounting import Account, Transaction, TransactionRecord, \
                                Ledger, Authorisation, Receipt, Refund, \
@@ -23,8 +24,11 @@ start_time = datetime.datetime.now() - datetime.timedelta(days=365)
 
 @pytest.fixture(scope="module")
 def bucket(tmpdir_factory):
-    d = tmpdir_factory.mktemp("objstore")
-    return login_to_service_account(str(d))
+    try:
+        return login_to_service_account()
+    except:
+        d = tmpdir_factory.mktemp("objstore")
+        return login_to_service_account(str(d))
 
 
 @pytest.fixture(scope="module")
@@ -69,7 +73,7 @@ def account2(bucket):
     return account
 
 
-def test_temporal_transactions(account1, account2):
+def test_temporal_transactions(account1, account2, bucket):
     if not have_freezetime:
         return
 
@@ -95,7 +99,7 @@ def test_temporal_transactions(account1, account2):
 
     records = []
 
-    for transaction_time in random_dates:
+    for (i, transaction_time) in enumerate(random_dates):
         with freeze_time(transaction_time) as frozen_datetime:
             now = datetime.datetime.now()
             assert(frozen_datetime() == now)
@@ -108,7 +112,8 @@ def test_temporal_transactions(account1, account2):
 
             if random.randint(0, 10):
                 record = Ledger.perform(transaction, account1, account2,
-                                        auth, is_provisional)
+                                        auth, is_provisional,
+                                        bucket=bucket)
 
                 if is_provisional:
                     liability1 += transaction.value()
@@ -121,7 +126,8 @@ def test_temporal_transactions(account1, account2):
                 final_balance2 += transaction.value()
             else:
                 record = Ledger.perform(transaction, account2, account1,
-                                        auth, is_provisional)
+                                        auth, is_provisional,
+                                        bucket=bucket)
 
                 if is_provisional:
                     receivable1 += transaction.value()
@@ -156,3 +162,57 @@ def test_temporal_transactions(account1, account2):
     assert(account1.receivable() == zero)
     assert(account2.liability() == zero)
     assert(account2.receivable() == zero)
+
+
+def test_parallel_transaction(account1, account2, bucket):
+    zero = create_decimal(0)
+
+    # test lots of transactions all happening in parallel
+    total1 = zero
+    total2 = zero
+
+    start1 = account1.balance()
+    start2 = account2.balance()
+
+    rlock = RLock()
+
+    def perform_transaction(key, result):
+        delta1 = zero
+        delta2 = zero
+        auth = Authorisation()
+
+        for i in range(0, 1):
+            transaction = Transaction(value=create_decimal(random.random()),
+                                      description="Transaction %d" % i)
+
+            if random.randint(0, 1):
+                Ledger.perform(transaction, account1, account2, auth)
+                delta1 -= transaction.value()
+                delta2 += transaction.value()
+            else:
+                Ledger.perform(transaction, account2, account1, auth)
+                delta1 += transaction.value()
+                delta2 -= transaction.value()
+
+        with rlock:
+            result[key] = (delta1, delta2)
+
+    threads = []
+
+    result = {}
+
+    for i in range(0, 2):
+        t = Thread(target=perform_transaction, args=[i, result])
+        t.start()
+        threads.append(t)
+
+    total1 = zero
+    total2 = zero
+
+    for i, thread in enumerate(threads):
+        thread.join()
+        total1 += result[i][0]
+        total2 += result[i][1]
+
+    assert(account1.balance() == start1 + total1)
+    assert(account2.balance() == start2 + total2)

@@ -327,11 +327,11 @@ class Account:
             # to construct that day's starting balance
             self._reconcile_daily_accounts(bucket)
 
-        data = _ObjectStore.get_object_from_json(bucket, balance_key)
+            data = _ObjectStore.get_object_from_json(bucket, balance_key)
 
-        if data is None:
-            raise AccountError("The daily balance for account at date %s "
-                               "is not available" % str(datetime))
+            if data is None:
+                raise AccountError("The daily balance for account at date %s "
+                                   "is not available" % str(datetime))
 
         return (_create_decimal(data["balance"]),
                 _create_decimal(data["liability"]),

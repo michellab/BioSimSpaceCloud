@@ -21,13 +21,17 @@ def assert_packable(obj):
 
 @pytest.fixture(scope="module")
 def bucket(tmpdir_factory):
-    d = tmpdir_factory.mktemp("objstore")
-    return login_to_service_account(str(d))
+    try:
+        return login_to_service_account()
+    except:
+        d = tmpdir_factory.mktemp("objstore")
+        return login_to_service_account(str(d))
 
 
 @pytest.fixture(scope="module")
 def account1(bucket):
-    account = Account("Testing Account", "This is the test account")
+    account = Account("Testing Account", "This is the test account",
+                      bucket=bucket)
     uid = account.uid()
     assert(uid is not None)
     assert(account.balance() == 0)
@@ -41,7 +45,8 @@ def account1(bucket):
 
 @pytest.fixture(scope="module")
 def account2(bucket):
-    account = Account("Testing Account", "This is a second testing account")
+    account = Account("Testing Account", "This is a second testing account",
+                      bucket=bucket)
     uid = account.uid()
     assert(uid is not None)
     assert(account.balance() == 0)
@@ -75,7 +80,7 @@ def test_account(bucket):
     name = "test account"
     description = "This is a test account"
 
-    account = Account(name, description)
+    account = Account(name, description, bucket=bucket)
 
     assert(account.name() == name)
     assert(account.description() == description)
@@ -84,7 +89,7 @@ def test_account(bucket):
     uid = account.uid()
     assert(uid is not None)
 
-    account2 = Account(uid=uid)
+    account2 = Account(uid=uid, bucket=bucket)
 
     assert(account2.name() == name)
     assert(account2.description() == description)
@@ -92,7 +97,7 @@ def test_account(bucket):
     assert(account.balance() == 0)
 
 
-def test_transactions(random_transaction):
+def test_transactions(random_transaction, bucket):
     (transaction, account1, account2) = random_transaction
 
     starting_balance1 = account1.balance()
@@ -104,7 +109,8 @@ def test_transactions(random_transaction):
     starting_receivable2 = account2.receivable()
 
     record = Ledger.perform(transaction, account1, account2,
-                            Authorisation(), is_provisional=False)
+                            Authorisation(), is_provisional=False,
+                            bucket=bucket)
 
     ending_balance1 = account1.balance()
     ending_liability1 = account1.liability()

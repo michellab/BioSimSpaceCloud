@@ -42,6 +42,12 @@ class Ledger:
             bucket = _login_to_service_account()
 
         data = _ObjectStore.get_object_from_json(bucket, Ledger.get_key(uid))
+
+        if data is None:
+            raise LedgerError("There is no transaction recorded in the "
+                              "ledger with UID=%s (at key %s)" %
+                              (uid, Ledger.get_key(uid)))
+
         return _TransactionRecord.from_data(data)
 
     @staticmethod
@@ -251,6 +257,11 @@ class Ledger:
 
         if not isinstance(authorisation, _Authorisation):
             raise TypeError("The Authorisation must be of type Authorisation")
+
+        if is_provisional:
+            is_provisional = True
+        else:
+            is_provisional = False
 
         try:
             transactions[0]

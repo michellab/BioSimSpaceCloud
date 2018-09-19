@@ -12,7 +12,7 @@ from Acquire.Service import login_to_service_account
 
 @pytest.fixture(scope="module")
 def bucket(tmpdir_factory):
-    d = tmpdir_factory.mktemp("objstore")
+    d = tmpdir_factory.mktemp("simple_objstore")
     return login_to_service_account(str(d))
 
 

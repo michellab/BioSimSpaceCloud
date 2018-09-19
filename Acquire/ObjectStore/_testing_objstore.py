@@ -5,11 +5,13 @@ import datetime as _datetime
 import uuid as _uuid
 import json as _json
 import glob as _glob
+import threading
 
 from ._objstore import set_object_store_backend as _set_object_store_backend
 
 from ._errors import ObjectStoreError
 
+_rlock = threading.RLock()
 
 __all__ = ["use_testing_object_store_backend"]
 
@@ -34,10 +36,11 @@ class _Testing_ObjectStore:
         """Return the binary data contained in the key 'key' in the
            passed bucket"""
 
-        if _os.path.exists("%s/%s._data" % (bucket, key)):
-            return open("%s/%s._data" % (bucket, key), "rb").read()
-        else:
-            raise ObjectStoreError("No object at key '%s'" % key)
+        with _rlock:
+            if _os.path.exists("%s/%s._data" % (bucket, key)):
+                return open("%s/%s._data" % (bucket, key), "rb").read()
+            else:
+                raise ObjectStoreError("No object at key '%s'" % key)
 
     @staticmethod
     def get_string_object(bucket, key):
@@ -123,14 +126,17 @@ class _Testing_ObjectStore:
 
         filename = "%s/%s._data" % (bucket, key)
 
-        try:
-            with open(filename, 'wb') as FILE:
-                FILE.write(data)
-        except:
-            dir = "/".join(filename.split("/")[0:-1])
-            _os.makedirs(dir, exist_ok=True)
-            with open(filename, 'wb') as FILE:
-                FILE.write(data)
+        with _rlock:
+            try:
+                with open(filename, 'wb') as FILE:
+                    FILE.write(data)
+                    FILE.flush()
+            except:
+                dir = "/".join(filename.split("/")[0:-1])
+                _os.makedirs(dir, exist_ok=True)
+                with open(filename, 'wb') as FILE:
+                    FILE.write(data)
+                    FILE.flush()
 
     @staticmethod
     def set_object_from_file(bucket, key, filename):

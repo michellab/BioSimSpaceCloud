@@ -58,8 +58,8 @@ def login_to_service_account(testing_dir=None):
 
     if (bucket_json is None) or (access_json is None):
         # see if this is running in testing mode...
+        global _current_testing_objstore
         if testing_dir:
-            global _current_testing_objstore
             _current_testing_objstore = testing_dir
             return _use_testing_object_store_backend(testing_dir)
         elif _current_testing_objstore:
