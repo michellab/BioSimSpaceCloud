@@ -2,8 +2,10 @@
 import json
 import os
 
-from Acquire.Service import unpack_arguments, get_service_private_key, create_return_value
+from Acquire.Service import unpack_arguments, get_service_private_key, \
+                            create_return_value
 from Acquire.Service import get_service_info, pack_return_value
+
 
 def handler(ctx, data=None, loop=None):
     """This function return the status and service info"""
@@ -24,7 +26,7 @@ def handler(ctx, data=None, loop=None):
 
     except Exception as e:
         status = -1
-        message = "Error %s: %s" % (e.__class__,str(e))
+        message = "Error %s: %s" % (e.__class__, str(e))
 
     return_value = create_return_value(status, message, log)
 

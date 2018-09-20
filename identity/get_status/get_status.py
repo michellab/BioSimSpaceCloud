@@ -1,15 +1,18 @@
 
 import json
 
-from Acquire.Service import get_service_private_key, unpack_arguments, login_to_service_account
+from Acquire.Service import get_service_private_key, unpack_arguments, \
+                            login_to_service_account
 from Acquire.Service import create_return_value, pack_return_value
 
 from Acquire.ObjectStore import ObjectStore
 
 from Acquire.Identity import UserAccount, LoginSession
 
+
 class InvalidSessionError(Exception):
     pass
+
 
 def handler(ctx, data=None, loop=None):
     """This function will allow anyone to query the current login
@@ -35,11 +38,11 @@ def handler(ctx, data=None, loop=None):
         bucket = login_to_service_account()
 
         user_session_key = "sessions/%s/%s" % \
-                   (user_account.sanitised_name(), session_uid)
+            (user_account.sanitised_name(), session_uid)
 
         login_session = LoginSession.from_data(
-                           ObjectStore.get_object_from_json( bucket, 
-                                                             user_session_key ) )
+                           ObjectStore.get_object_from_json(
+                               bucket, user_session_key))
 
         status = 0
         message = "Success: Status = %s" % login_session.status()
@@ -47,7 +50,7 @@ def handler(ctx, data=None, loop=None):
 
     except Exception as e:
         status = -1
-        message = "Error %s: %s" % (e.__class__,str(e))
+        message = "Error %s: %s" % (e.__class__, str(e))
 
     return_value = create_return_value(status, message, log)
 

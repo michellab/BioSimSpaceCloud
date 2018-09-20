@@ -1,4 +1,4 @@
-FROM chryswoods/acquire-access-base:latest
+FROM chryswoods/acquire-base:latest
 
 ADD request_bucket.py $HOME
 

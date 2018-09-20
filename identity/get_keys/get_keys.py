@@ -3,13 +3,16 @@ import json
 
 from Acquire.ObjectStore import ObjectStore, bytes_to_string
 
-from Acquire.Service import unpack_arguments, get_service_private_key, login_to_service_account
+from Acquire.Service import unpack_arguments, get_service_private_key, \
+                            login_to_service_account
 from Acquire.Service import create_return_value, pack_return_value
 
 from Acquire.Identity import UserAccount, LoginSession
 
+
 class InvalidSessionError(Exception):
     pass
+
 
 def handler(ctx, data=None, loop=None):
     """This function will allow anyone to obtain the public
@@ -38,16 +41,17 @@ def handler(ctx, data=None, loop=None):
         bucket = login_to_service_account()
 
         user_session_key = "sessions/%s/%s" % \
-                   (user_account.sanitised_name(), session_uid)
+            (user_account.sanitised_name(), session_uid)
 
         login_session = LoginSession.from_data(
-                           ObjectStore.get_object_from_json( bucket, 
-                                                             user_session_key ) )
+                           ObjectStore.get_object_from_json(
+                               bucket, user_session_key))
 
-        # only send valid keys if the user had logged in!
+        # only send valid keys if the user had logged in!
         if not login_session.is_approved():
-            raise InvalidSessionError( "You cannot get the keys for a session "
-                    "for which the user has not logged in!" )
+            raise InvalidSessionError(
+                    "You cannot get the keys for a session "
+                    "for which the user has not logged in!")
 
         public_key = bytes_to_string(login_session.public_key())
         public_cert = bytes_to_string(login_session.public_certificate())
@@ -57,9 +61,9 @@ def handler(ctx, data=None, loop=None):
 
     except Exception as e:
         status = -1
-        message = "Error %s: %s" % (e.__class__,str(e))
+        message = "Error %s: %s" % (e.__class__, str(e))
 
-    return_value = create_return_value(status, message, log)    
+    return_value = create_return_value(status, message, log)
 
     if public_key:
         return_value["public_key"] = public_key

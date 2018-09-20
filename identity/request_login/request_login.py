@@ -1,25 +1,29 @@
 
 import json
 
-from Acquire.Service import get_service_private_key, unpack_arguments, login_to_service_account
-from Acquire.Service import create_return_value, pack_return_value, get_service_info
+from Acquire.Service import get_service_private_key, unpack_arguments, \
+                            login_to_service_account
+from Acquire.Service import create_return_value, pack_return_value, \
+                            get_service_info
 
 from Acquire.ObjectStore import ObjectStore, string_to_bytes
 
 from Acquire.Identity import UserAccount, LoginSession
 
+
 class InvalidLoginError(Exception):
     pass
 
+
 def prune_expired_sessions(bucket, user_account, root, sessions, log):
-    """This function will scan through all open requests and 
+    """This function will scan through all open requests and
        login sessions and will prune away old, expired or otherwise
        weird sessions. It will also use the ipaddress of the source
        to rate limit or blacklist sources"""
 
     for name in sessions:
-        key = "%s/%s" % (root,name)
-        request_key = "requests/%s/%s" % (name[:8],name)
+        key = "%s/%s" % (root, name)
+        request_key = "requests/%s/%s" % (name[:8], name)
 
         try:
             session = ObjectStore.get_object_from_json(bucket, key)
@@ -34,14 +38,16 @@ def prune_expired_sessions(bucket, user_account, root, sessions, log):
             try:
                 session = LoginSession.from_data(session)
                 if session.is_approved() or session.is_suspicious():
-                    if session.hours_since_creation() > user_account.login_timeout():
+                    if session.hours_since_creation() > user_account \
+                                                            .login_timeout():
                         should_logout = True
                         should_delete = True
                 else:
-                    if session.hours_since_creation() > user_account.login_request_timeout():
-                        log.append("Expired login request: %s > %s" % \
-                              (session.hours_since_creation(),
-                               user_account.login_request_timeout()))
+                    if session.hours_since_creation() > user_account \
+                                                    .login_request_timeout():
+                        log.append("Expired login request: %s > %s" %
+                                   (session.hours_since_creation(),
+                                    user_account.login_request_timeout()))
                         should_delete = True
             except Exception as e:
                 # this is corrupt - delete it
@@ -53,12 +59,13 @@ def prune_expired_sessions(bucket, user_account, root, sessions, log):
                 log.append("Auto-logging out expired session '%s'" % key)
                 session.logout()
                 expire_session_key = "expired_sessions/%s/%s" % \
-                                       (user_account.sanitised_name(), session.uuid())
+                                     (user_account.sanitised_name(),
+                                      session.uuid())
 
                 ObjectStore.set_object_from_json(bucket, expire_session_key,
                                                  session.to_data())
-            
-            # now delete any expired sessions
+
+            # now delete any expired sessions
             if should_delete:
                 log.append("Deleting expired session '%s'" % key)
 
@@ -71,6 +78,7 @@ def prune_expired_sessions(bucket, user_account, root, sessions, log):
                     ObjectStore.delete_object(bucket, request_key)
                 except:
                     pass
+
 
 def handler(ctx, data=None, loop=None):
     """This function will allow a user to request a new session
@@ -89,8 +97,8 @@ def handler(ctx, data=None, loop=None):
 
     try:
         username = args["username"]
-        public_key = string_to_bytes( args["public_key"] )
-        public_cert = string_to_bytes( args["public_certificate"] )
+        public_key = string_to_bytes(args["public_key"])
+        public_cert = string_to_bytes(args["public_certificate"])
 
         ip_addr = None
         hostname = None
@@ -119,43 +127,45 @@ def handler(ctx, data=None, loop=None):
                                      hostname, login_message)
 
         # now log into the central identity account to record
-        # that a request to open a login session has been opened
+        # that a request to open a login session has been opened
         bucket = login_to_service_account()
 
         # first, make sure that the user exists...
         account_key = "accounts/%s" % user_account.sanitised_name()
 
         try:
-            existing_data = ObjectStore.get_object_from_json(bucket, account_key)
+            existing_data = ObjectStore.get_object_from_json(bucket,
+                                                             account_key)
         except:
             existing_data = None
 
         if existing_data is None:
-            raise InvalidLoginError("There is no user with name '%s'" % username)
+            raise InvalidLoginError("There is no user with name '%s'" %
+                                    username)
 
         user_account = UserAccount.from_data(existing_data)
 
         # first, make sure that the user doens't have too many open
-        # login sessions at once - this prevents denial of service
+        # login sessions at once - this prevents denial of service
         user_session_root = "sessions/%s" % user_account.sanitised_name()
 
-        open_sessions = ObjectStore.get_all_object_names(bucket, 
+        open_sessions = ObjectStore.get_all_object_names(bucket,
                                                          user_session_root)
 
         # take the opportunity to prune old user login sessions
-        prune_expired_sessions(bucket, user_account, 
+        prune_expired_sessions(bucket, user_account,
                                user_session_root, open_sessions, log)
 
         # this is the key for the session in the object store
         user_session_key = "%s/%s" % (user_session_root,
                                       login_session.uuid())
 
-        ObjectStore.set_object_from_json( bucket, user_session_key,
-                                          login_session.to_data() )
+        ObjectStore.set_object_from_json(bucket, user_session_key,
+                                         login_session.to_data())
 
         # we will record a pointer to the request using the short
         # UUID. This way we can give a simple URL. If there is a clash,
-        # then we will use the username provided at login to find the
+        # then we will use the username provided at login to find the
         # correct request from a much smaller pool (likely < 3)
         request_key = "requests/%s/%s" % (login_session.short_uuid(),
                                           login_session.uuid())
@@ -163,10 +173,10 @@ def handler(ctx, data=None, loop=None):
         ObjectStore.set_string_object(bucket, request_key, user_account.name())
 
         status = 0
-        # the login URL is the URL of this identity service plus the 
-        # short UID of the session
+        # the login URL is the URL of this identity service plus the
+        # short UID of the session
         login_url = "%s/%s" % (get_service_info().service_url(),
-                               login_session.short_uuid())        
+                               login_session.short_uuid())
 
         login_uid = login_session.uuid()
 
@@ -174,7 +184,7 @@ def handler(ctx, data=None, loop=None):
 
     except Exception as e:
         status = -1
-        message = "Error %s: %s" % (e.__class__,str(e))
+        message = "Error %s: %s" % (e.__class__, str(e))
 
     return_value = create_return_value(status, message, log)
 
@@ -187,6 +197,7 @@ def handler(ctx, data=None, loop=None):
         return_value["login_url"] = None
 
     return pack_return_value(return_value, args)
+
 
 if __name__ == "__main__":
     try:

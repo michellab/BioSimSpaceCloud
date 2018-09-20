@@ -1,4 +1,4 @@
-FROM chryswoods/acquire-identity-base:latest
+FROM chryswoods/acquire-base:latest
 
 ADD get_keys.py $HOME
 

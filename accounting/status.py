@@ -2,8 +2,10 @@
 import json
 import os
 
-from Acquire.Service import unpack_arguments, create_return_value, pack_return_value
+from Acquire.Service import unpack_arguments, create_return_value, \
+                            pack_return_value
 from Acquire.Service import get_service_info, get_service_private_key
+
 
 def handler(ctx, data=None, loop=None):
     """This function return the status and service info"""

@@ -2,15 +2,21 @@
 import json
 import os
 
-from Acquire.Service import set_trusted_service_info, call_function, create_return_value
-from Acquire.Service import unpack_arguments, login_to_service_account, get_service_info
-from Acquire.Service import get_service_private_key, MissingServiceAccountError, Service
-from Acquire.Service import remove_trusted_service_info, pack_return_value, get_remote_service_info
+from Acquire.Service import set_trusted_service_info, call_function, \
+                            create_return_value
+from Acquire.Service import unpack_arguments, login_to_service_account, \
+                            get_service_info
+from Acquire.Service import get_service_private_key, \
+                            MissingServiceAccountError, Service
+from Acquire.Service import remove_trusted_service_info, pack_return_value, \
+                            get_remote_service_info
 
 from Acquire.ObjectStore import ObjectStore
 
+
 class ServiceSetupError(Exception):
     pass
+
 
 def handler(ctx, data=None, loop=None):
     """This function is called to handle admin setup
@@ -57,7 +63,7 @@ def handler(ctx, data=None, loop=None):
             remember_device = False
 
         # first, do we have an existing Service object? If not,
-        # we grant access to the first user!
+        # we grant access to the first user!
         bucket = login_to_service_account()
 
         # The data is stored in the object store at the key _service_info
@@ -69,10 +75,11 @@ def handler(ctx, data=None, loop=None):
 
         if service:
             if not service.is_identity_service():
-                raise ServiceSetupError("Why is the identity service info "
-                      "for a service of type %s" % service.service_type())
+                raise ServiceSetupError(
+                    "Why is the identity service info "
+                    "for a service of type %s" % service.service_type())
 
-            provisioning_uri = service.verify_admin_user(password,otpcode,
+            provisioning_uri = service.verify_admin_user(password, otpcode,
                                                          remember_device)
         else:
             # we need to create the service
@@ -85,13 +92,16 @@ def handler(ctx, data=None, loop=None):
             # write the service data, encrypted using the service password
             service_password = os.getenv("SERVICE_PASSWORD")
             if service_password is None:
-                raise ServiceSetupError("You must supply $SERVICE_PASSWORD "
-                          "to setup a new service!")
+                raise ServiceSetupError(
+                    "You must supply $SERVICE_PASSWORD "
+                    "to setup a new service!")
 
             service_data = service.to_data(service_password)
-            ObjectStore.set_object_from_json(bucket, "_service_info", service_data)
+            ObjectStore.set_object_from_json(bucket, "_service_info",
+                                             service_data)
 
-        # we are definitely the admin user, so let's add or remove remote services
+        # we are definitely the admin user, so let's add or
+        # remove remote services
         if remove_service:
             log.append("Removing service '%s'" % remove_service)
             remove_trusted_service_info(remove_service)
@@ -108,17 +118,18 @@ def handler(ctx, data=None, loop=None):
 
     except Exception as e:
         status = -1
-        message = "Error %s: %s" % (e.__class__,str(e))
+        message = "Error %s: %s" % (e.__class__, str(e))
 
     return_value = create_return_value(status, message, log)
-    
+
     if provisioning_uri:
         return_value["provisioning_uri"] = provisioning_uri
 
     if log:
         return_value["log"] = log
 
-    return pack_return_value(return_value,args)
+    return pack_return_value(return_value, args)
+
 
 if __name__ == "__main__":
     try:

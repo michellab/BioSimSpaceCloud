@@ -1,4 +1,4 @@
-FROM chryswoods/acquire-accounting-base:latest
+FROM chryswoods/acquire-base:latest
 
 ADD setup.py $HOME
 
