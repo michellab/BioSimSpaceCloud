@@ -7,9 +7,10 @@ import os as _os
 
 from ._errors import ObjectStoreError
 
-__all__ = [ "ObjectStore", "set_object_store_backend" ]
+__all__ = ["ObjectStore", "set_object_store_backend"]
 
 _objstore_backend = None
+
 
 class ObjectStore:
     @staticmethod
@@ -79,6 +80,7 @@ class ObjectStore:
     @staticmethod
     def clear_all_except(bucket, keys):
         _objstore_backend.clear_all_except(bucket, keys)
+
 
 def set_object_store_backend(backend):
     """Set the backend that is used to actually connect to
