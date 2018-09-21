@@ -1,6 +1,6 @@
 
 
-__all__ = ["QRCodeError", "LoginError", "AccountError"]
+__all__ = ["QRCodeError", "LoginError", "AccountError", "UserError"]
 
 
 class QRCodeError(Exception):
@@ -12,4 +12,8 @@ class LoginError(Exception):
 
 
 class AccountError(Exception):
+    pass
+
+
+class UserError(Exception):
     pass

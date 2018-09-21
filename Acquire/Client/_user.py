@@ -17,7 +17,7 @@ from Acquire.Crypto import PrivateKey as _PrivateKey
 from ._qrcode import create_qrcode as _create_qrcode
 from ._qrcode import has_qrcode as _has_qrcode
 
-from ._errors import AccountError, LoginError
+from ._errors import UserError, LoginError
 
 # If we can, import socket to get the hostname and IP address
 try:
@@ -131,7 +131,7 @@ class User:
         return self._username
 
     def status(self):
-        """Return the current status of this account"""
+        """Return the current status of this user"""
         return self._status
 
     def _check_for_error(self):
@@ -167,7 +167,7 @@ class User:
 
     def identity_service(self):
         """Return the identity service info object for the identity
-           service used to validate the identity of this account
+           service used to validate the identity of this user
         """
         if self._identity_service:
             return self._identity_service
@@ -260,11 +260,11 @@ class User:
             print(result)
             return result
 
-    def create_account(self, password, identity_url=None):
-        """Request to create an account with the identity service running
+    def register(self, password, identity_url=None):
+        """Request to register this user with the identity service running
            at 'identity_url', using the supplied 'password'. This will
            return a QR code that you must use immediately to add this
-           account to a QR code generator"""
+           user on the identity service to a QR code generator"""
 
         if self._username is None:
             return None
@@ -286,8 +286,8 @@ class User:
         try:
             provisioning_uri = result["provisioning_uri"]
         except:
-            raise AccountError(
-                "Cannot create a new account for '%s' on "
+            raise UserError(
+                "Cannot register the user '%s' on "
                 "the identity service at '%s'!" %
                 (self._username, identity_url))
 
@@ -295,8 +295,8 @@ class User:
         return (provisioning_uri, _create_qrcode(provisioning_uri))
 
     def request_login(self, login_message=None):
-        """Request to login to this account. This returns a login URL that you
-           must connect to to supply your login credentials
+        """Request to authenticate as this user. This returns a login URL that
+           you must connect to to supply your login credentials
 
            If 'login_message' is supplied, then this is passed to
            the identity service so that it can be displayed
