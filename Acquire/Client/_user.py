@@ -19,14 +19,15 @@ from ._qrcode import has_qrcode as _has_qrcode
 
 from ._errors import AccountError, LoginError
 
-# If we can, import socket to get the hostname and IP address
+# If we can, import socket to get the hostname and IP address
 try:
     import socket as _socket
     _has_socket = True
 except:
     _has_socket = False
 
-__all__ = [ "User", "username_to_uuid", "uuid_to_username" ]
+__all__ = ["User", "username_to_uuid", "uuid_to_username"]
+
 
 class _LoginStatus(_Enum):
     EMPTY = 0
@@ -35,11 +36,13 @@ class _LoginStatus(_Enum):
     LOGGED_OUT = 3
     ERROR = 4
 
+
 def _get_identity_url():
     """Function to discover and return the default identity url"""
     return "http://130.61.60.88:8080/r/identity"
 
-def _get_identity_service(identity_url = None):
+
+def _get_identity_service(identity_url=None):
     """Function to return the identity service for the system"""
     if identity_url is None:
         identity_url = _get_identity_url()
@@ -51,15 +54,17 @@ def _get_identity_service(identity_url = None):
         service = _Service.from_data(response["service_info"])
     except:
         raise LoginError("Have not received the identity service info from "
-                         "the identity service at '%s' - got '%s'" % \
-                            (identity_url,response))
+                         "the identity service at '%s' - got '%s'" %
+                         (identity_url, response))
 
     if not service.is_identity_service():
-        raise LoginError("You can only use a valid identity service to log in! "
-                         "The service at '%s' is a '%s'" % \
-                           (identity_url,service.service_type()))
+        raise LoginError(
+            "You can only use a valid identity service to log in! "
+            "The service at '%s' is a '%s'" %
+            (identity_url, service.service_type()))
 
     return service
+
 
 def uuid_to_username(uuid, identity_url=None):
     """Function to return the username for the passed uuid"""
@@ -67,9 +72,10 @@ def uuid_to_username(uuid, identity_url=None):
         identity_url = _get_identity_url()
 
     response = _call_function("%s/whois" % identity_url,
-                              {"uuid" : str(uuid)})
+                              {"uuid": str(uuid)})
 
     return response["username"]
+
 
 def username_to_uuid(username, identity_url=None):
     """Function to return the uuid for the passed username"""
@@ -77,17 +83,17 @@ def username_to_uuid(username, identity_url=None):
         identity_url = _get_identity_url()
 
     response = _call_function("%s/whois" % identity_url,
-                              {"username" : username})
+                              {"username": username})
 
     return response["uuid"]
+
 
 class User:
     """This class holds all functionality that would be used
        by a user to authenticate with and access the service.
-       This represents a single client login, and is the 
+       This represents a single client login, and is the
        user-facing part of Acquire
     """
-
     def __init__(self, username, identity_url=None):
         """Construct a null user"""
         self._username = username
@@ -110,7 +116,7 @@ class User:
         self.logout()
 
     def _set_status(self, status):
-        """Internal function used to set the status from the 
+        """Internal function used to set the status from the
            string obtained from the LoginSession"""
 
         if status == "approved":
@@ -165,8 +171,9 @@ class User:
         """
         if self._identity_service:
             return self._identity_service
-        
-        self._identity_service = _get_identity_service(self.identity_service_url())
+
+        self._identity_service = _get_identity_service(
+                                    self.identity_service_url())
 
         return self._identity_service
 
@@ -184,7 +191,7 @@ class User:
             return _get_identity_url()
 
     def login_url(self):
-        """Return the URL that the user must connect to to authenticate 
+        """Return the URL that the user must connect to to authenticate
            this login session"""
         self._check_for_error()
 
@@ -228,9 +235,9 @@ class User:
 
     def logout(self):
         """Log out from the current session"""
-        if self.is_logged_in() or self.is_logging_in():	
+        if self.is_logged_in() or self.is_logging_in():
             identity_url = self.identity_service_url()
-            
+
             if identity_url is None:
                 return
 
@@ -238,15 +245,18 @@ class User:
             # and then validated by the user
             permission = "Log out request for %s" % self._session_uid
             signature = self.signing_key().sign(permission)
-            
-            args = { "username" : self._username,
-	             "session_uid" : self._session_uid,
-                     "permission" : permission,
-                     "signature" : _bytes_to_string(signature) }
 
-            print("Logging out %s from session %s" % (self._username,self._session_uid))
-            result = _call_function("%s/logout" % identity_url, args,
-                                    args_key=self.identity_service().public_key())
+            args = {"username": self._username,
+                    "session_uid": self._session_uid,
+                    "permission": permission,
+                    "signature": _bytes_to_string(signature)}
+
+            print("Logging out %s from session %s" % (self._username,
+                                                      self._session_uid))
+
+            result = _call_function(
+                "%s/logout" % identity_url, args,
+                args_key=self.identity_service().public_key())
             print(result)
             return result
 
@@ -262,28 +272,31 @@ class User:
         if identity_url is None:
             identity_url = _get_identity_url()
 
-        args = { "username" : self._username,
-                 "password" : password }
+        args = {"username": self._username,
+                "password": password}
 
         privkey = _PrivateKey()
 
-        result = _call_function("%s/register" % identity_url, args,
-                                args_key=self.identity_service().public_key(),
-                                response_key=privkey,
-                                public_cert=self.identity_service().public_certificate())
+        result = _call_function(
+                    "%s/register" % identity_url, args,
+                    args_key=self.identity_service().public_key(),
+                    response_key=privkey,
+                    public_cert=self.identity_service().public_certificate())
 
         try:
             provisioning_uri = result["provisioning_uri"]
         except:
-            raise AccountError("Cannot create a new account for '%s' on "
-                   "the identity service at '%s'!" % (self._username,identity_url))
+            raise AccountError(
+                "Cannot create a new account for '%s' on "
+                "the identity service at '%s'!" %
+                (self._username, identity_url))
 
         # return a QR code for the provisioning URI
-        return (provisioning_uri,_create_qrcode(provisioning_uri))
+        return (provisioning_uri, _create_qrcode(provisioning_uri))
 
     def request_login(self, login_message=None):
-        """Request to login to this account. This returns a login URL that you must
-           connect to to supply your login credentials
+        """Request to login to this account. This returns a login URL that you
+           must connect to to supply your login credentials
 
            If 'login_message' is supplied, then this is passed to
            the identity service so that it can be displayed
@@ -306,14 +319,14 @@ class User:
 
         # we will send the public key to the authentication
         # service so that it can validate all future communication
-        # and requests
+        # and requests
         pubkey = _bytes_to_string(session_key.public_key().bytes())
         certkey = _bytes_to_string(signing_key.public_key().bytes())
 
-        args = { "username" : self._username,
-                 "public_key" : pubkey,
-                 "public_certificate" : certkey,
-                 "ipaddr" : None }
+        args = {"username": self._username,
+                "public_key": pubkey,
+                "public_certificate": certkey,
+                "ipaddr": None}
 
         # get information from the local machine to help
         # the user validate that the login details are correct
@@ -325,18 +338,19 @@ class User:
 
         if login_message is None:
             login_message = "User '%s' in process '%s' wants to log in..." % \
-                              (_os.getlogin(),_os.getpid())
+                              (_os.getlogin(), _os.getpid())
 
         args["message"] = login_message
 
-        result = _call_function("%s/request-login" % self.identity_service_url(), args,
-                                args_key=self.identity_service().public_key(),
-                                response_key=session_key,
-                                public_cert=self.identity_service().public_certificate())
+        result = _call_function(
+            "%s/request-login" % self.identity_service_url(), args,
+            args_key=self.identity_service().public_key(),
+            response_key=session_key,
+            public_cert=self.identity_service().public_certificate())
 
         # look for status = 0
         try:
-            status = int( result["status"] )
+            status = int(result["status"])
         except:
             status = -1
 
@@ -351,7 +365,7 @@ class User:
         except:
             pass
 
-        if status !=0:
+        if status != 0:
             error = "Failed to login. Error = %d. Message = %s" % \
                                 (status, message)
             self._set_error_state(error)
@@ -396,7 +410,7 @@ class User:
             except:
                 pass
 
-        return (self._login_url,qrcode)
+        return (self._login_url, qrcode)
 
     def _poll_session_status(self):
         """Function used to query the identity service for this session
@@ -407,27 +421,27 @@ class User:
         if identity_url is None:
             return
 
-        args = { "username" : self._username,
-                 "session_uid" : self._session_uid }
+        args = {"username": self._username,
+                "session_uid": self._session_uid}
 
         result = _call_function("%s/get-status" % identity_url, args)
 
         print(result)
-	    
+
         # look for status = 0
         try:
-            status = int( result["status"] )
+            status = int(result["status"])
         except:
-            status = -1            
+            status = -1
 
         try:
             message = result["message"]
         except:
             message = str(result)
 
-        if status !=0:
-            error = "Failed to query identity service. Error = %d. Message = %s" % \
-                                (status, message)
+        if status != 0:
+            error = "Failed to query identity service. Error = %d. " \
+                    "Message = %s" % (status, message)
             self._set_error_state(error)
             raise LoginError(error)
 
@@ -455,7 +469,7 @@ class User:
             polling_delta = 1
 
         if timeout is None:
-            # block forever....
+            # block forever....
             while True:
                 self._poll_session_status()
 
@@ -467,7 +481,7 @@ class User:
 
                 _time.sleep(polling_delta)
         else:
-            # only block until the timeout has been reached
+            # only block until the timeout has been reached
             timeout = int(timeout)
             if timeout < 1:
                 timeout = 1

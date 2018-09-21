@@ -56,6 +56,10 @@ class UserAccount:
         """Return the globally unique ID for this account"""
         return self._uuid
 
+    def uid(self):
+        """Return the globally unique ID for this account"""
+        return self.uuid()
+
     def max_open_sessions(self):
         """Return the maximum number of open login sessions
            (and open login requests) allowed for this user account"""
@@ -67,7 +71,7 @@ class UserAccount:
         return 0.5
 
     def login_timeout(self):
-        """Return the maximum number of hours a single login 
+        """Return the maximum number of hours a single login
            can remain active. This should normally be of the order
            of 1-7 days, as individual calculations or workflows
            should not normally take longer than this"""
@@ -108,7 +112,7 @@ class UserAccount:
         return self._otp_secret
 
     def set_keys(self, privkey, pubkey, secret=None):
-        """Set the private and public keys for this account. The 
+        """Set the private and public keys for this account. The
            keys can be set from files or from a binary read file..
         """
 
@@ -173,7 +177,7 @@ class UserAccount:
         otp.verify(otpcode)
 
         if remember_device:
-            return otp.provisioning_uri(self.username()) 
+            return otp.provisioning_uri(self.username())
 
     def to_data(self):
         """Return a data representation of this object (dictionary)"""
@@ -193,7 +197,7 @@ class UserAccount:
 
         return data
 
-    @staticmethod 
+    @staticmethod
     def from_data(data):
         """Return a UserAccount constructed from the passed
            data (dictionary)

@@ -20,7 +20,8 @@ from Acquire.Crypto import OTP as _OTP
 
 from ._errors import LoginError
 
-__all__ = [ "ServiceWallet" ]
+__all__ = ["ServiceWallet"]
+
 
 class ServiceWallet:
     """This class holds a wallet that can be used to simplify
@@ -53,7 +54,7 @@ class ServiceWallet:
 
     def _create_wallet_key(self, filename):
         """Create a new wallet key for the user"""
-        
+
         password = _getpass.getpass(
                      prompt="Please enter a password to encrypt your wallet: ")
 
@@ -80,7 +81,7 @@ class ServiceWallet:
         """
         if self._wallet_key:
             return self._wallet_key
-            
+
         wallet_dir = ServiceWallet._wallet_dir()
 
         keyfile = "%s/wallet_key.pem" % wallet_dir
@@ -89,14 +90,15 @@ class ServiceWallet:
             self._wallet_key = self._create_wallet_key(keyfile)
             return self._wallet_key
 
-        # read the keyfile and decrypt
+        # read the keyfile and decrypt
         with open(keyfile, "rb") as FILE:
             bytes = FILE.read()
 
         # get the user password
         wallet_key = None
         while not wallet_key:
-            password = _getpass.getpass(prompt="Please enter your wallet password: ")
+            password = _getpass.getpass(
+                            prompt="Please enter your wallet password: ")
 
             try:
                 wallet_key = _PrivateKey.read_bytes(bytes, password)
@@ -109,8 +111,9 @@ class ServiceWallet:
     @staticmethod
     def _get_service_file(service_url):
         """Return the servicefile for the passed service"""
-        return "%s/service_%s_encrypted" % (ServiceWallet._wallet_dir(),
-                    _base64.b64encode(service_url.encode("utf-8")).decode("utf-8"))
+        return "%s/service_%s_encrypted" % (
+                ServiceWallet._wallet_dir(),
+                _base64.b64encode(service_url.encode("utf-8")).decode("utf-8"))
 
     @staticmethod
     def remove_service_info(service_url):
@@ -150,7 +153,8 @@ class ServiceWallet:
 
     def _read_service_info(self, service_url):
         """Read all info for the passed service_url"""
-        return self._read_service_file( ServiceWallet._get_service_file(service_url) )
+        return self._read_service_file(
+                    ServiceWallet._get_service_file(service_url))
 
     def _get_service_url(self):
         """Function to find a service_url automatically, of if that fails,
@@ -165,13 +169,13 @@ class ServiceWallet:
         for service_file in service_files:
             try:
                 service_info = self._read_service_file(service_file)
-                service_infos[ service_info["service_url"] ] = service_info
+                service_infos[service_info["service_url"]] = service_info
             except:
                 pass
 
         service_urls = list(service_infos.keys())
         service_urls.sort()
-    
+
         if len(service_urls) == 1:
             return service_urls[0]
 
@@ -183,8 +187,8 @@ class ServiceWallet:
         print("Please choose the service by typing in its number, "
               "or type a new service_url if you want a different service.")
 
-        for (i,service_url) in enumerate(service_urls):
-            print("[%d] %s" % (i+1,service_url))
+        for (i, service_url) in enumerate(service_urls):
+            print("[%d] %s" % (i+1, service_url))
 
         service_url = None
 
@@ -205,9 +209,9 @@ class ServiceWallet:
 
         return service_url
 
-    def _get_admin_password(self,service_url):
-        """Get the admin password of the passed service. 
-           If remember_device then save the 
+    def _get_admin_password(self, service_url):
+        """Get the admin password of the passed service.
+           If remember_device then save the
            password in the wallet if it is not already there
         """
         try:
@@ -217,7 +221,7 @@ class ServiceWallet:
                 password = service_info["password"]
                 self._manual_password = False
 
-                # this needs to be decrypted
+                # this needs to be decrypted
                 return self._wallet_key.decrypt(password).decode("utf-8")
         except:
             pass
@@ -231,20 +235,23 @@ class ServiceWallet:
             service_info = self._read_service_info(service_url)
 
             if service_info:
-                secret = self._wallet_key.decrypt(service_info["otpsecret"]).decode("utf-8")
+                secret = self._wallet_key.decrypt(
+                                service_info["otpsecret"]).decode("utf-8")
                 self._manual_otpcode = False
                 return _pyotp.totp.TOTP(secret).now()
         except:
             pass
 
         self._manual_otpcode = True
-        return _getpass.getpass(prompt="Please enter the one-time-password code: ")
+        return _getpass.getpass(
+                    prompt="Please enter the one-time-password code: ")
 
     @staticmethod
     def remove_service(service):
         """Remove the cached service data for the passed service"""
-        service_file = "%s/service_%s" % (ServiceWallet._wallet_dir(),
-                         _base64.b64encode(service.encode("utf-8")).decode("utf-8"))
+        service_file = "%s/service_%s" % (
+                ServiceWallet._wallet_dir(),
+                _base64.b64encode(service.encode("utf-8")).decode("utf-8"))
 
         if _os.path.exists(service_file):
             _os.unlink(service_file)
@@ -256,13 +263,15 @@ class ServiceWallet:
         except:
             pass
 
-        # can we read this from a file?
-        service_file = "%s/certs_%s" % (ServiceWallet._wallet_dir(), 
-                         _base64.b64encode(service_url.encode("utf-8")).decode("utf-8"))
+        # can we read this from a file?
+        service_file = "%s/certs_%s" % (
+            ServiceWallet._wallet_dir(),
+            _base64.b64encode(service_url.encode("utf-8")).decode("utf-8"))
 
         try:
             with open(service_file, "rb") as FILE:
-                service_info = _Service.from_data(_unpack_arguments(FILE.read()))
+                service_info = _Service.from_data(
+                                    _unpack_arguments(FILE.read()))
                 self._service_info[service_url] = service_info
                 return service_info
         except:
@@ -275,18 +284,22 @@ class ServiceWallet:
         except Exception as e:
             service = None
 
-            if str(e).find("You haven't yet created the service account for this service. Please create an account first") != -1:
+            if str(e).find(
+                    "You haven't yet created the service account for "
+                    "this service. Please create an account first") != -1:
                 return None
 
-            raise LoginError("Error connecting to the service %s: Error = %s" % \
-                  (service,str(e)))
+            raise LoginError(
+                "Error connecting to the service %s: Error = %s" %
+                (service, str(e)))
 
         if service is None:
-            raise LoginError("Error connecting to the service %s. Has it been setup?" % service_url)
+            raise LoginError("Error connecting to the service %s. "
+                             "Has it been setup?" % service_url)
 
         self._service_info[service_url] = service
 
-        # save this for future reference
+        # save this for future reference
         with open(service_file, "wb") as FILE:
             FILE.write(_pack_arguments(service.to_data()))
 
@@ -310,7 +323,7 @@ class ServiceWallet:
         else:
             return None
 
-    def call_admin_function(self, function, args={}, service_url=None, 
+    def call_admin_function(self, function, args={}, service_url=None,
                             remember_password=True, remember_device=None):
         """Call the admin function 'function' using supplied arguments 'args',
            on the service at 'service_url'
@@ -320,7 +333,7 @@ class ServiceWallet:
         self._manual_otpcode = False
 
         if not remember_password:
-            remember_device=False
+            remember_device = False
 
         if not service_url:
             # choose a service_url from any existing files...
@@ -331,7 +344,7 @@ class ServiceWallet:
         service_cert = self._get_service_cert(service_url)
 
         # the login URL is of the form "service_url/function"
-        function_url = "%s/%s" % (service_url,function)
+        function_url = "%s/%s" % (service_url, function)
 
         password = self._get_admin_password(service_url)
         otpcode = self._get_otpcode(service_url)
@@ -342,7 +355,7 @@ class ServiceWallet:
         args["otpcode"] = otpcode
         args["remember_device"] = remember_device
 
-        print("\nCalling '%s' with %s... " % (function_url,strargs), end="")
+        print("\nCalling '%s' with %s... " % (function_url, strargs), end="")
         _sys.stdout.flush()
 
         try:
@@ -367,7 +380,7 @@ class ServiceWallet:
 
             if provisioning_uri:
                 try:
-                    otpsecret = _re.search(r"secret=([\w\d+]+)&issuer", 
+                    otpsecret = _re.search(r"secret=([\w\d+]+)&issuer",
                                            provisioning_uri).groups()[0]
                 except:
                     pass
@@ -389,19 +402,21 @@ class ServiceWallet:
                     must_write = True
 
             if must_write:
-                service_info["service_url"] = service_url.encode("utf-8").decode("utf-8")
+                service_info["service_url"] = service_url.encode(
+                                                "utf-8").decode("utf-8")
                 service_info["password"] = _bytes_to_string(
                                               pubkey.encrypt(
-                                                  password.encode("utf-8")) )
+                                                  password.encode("utf-8")))
 
                 if otpsecret:
                     service_info["otpsecret"] = _bytes_to_string(
                                                 pubkey.encrypt(
-                                                   otpsecret.encode("utf-8")) )
+                                                   otpsecret.encode("utf-8")))
 
                 packed_data = _pack_arguments(service_info)
- 
-                with open(ServiceWallet._get_service_file(service_url),"wb") as FILE:
+
+                with open(ServiceWallet._get_service_file(
+                                            service_url), "wb") as FILE:
                     FILE.write(packed_data)
 
         self._manual_password = False

@@ -9,11 +9,14 @@ except:
 
 from ._errors import QRCodeError
 
-__all__ = [ "create_qrcode", "has_qrcode" ]
+
+__all__ = ["create_qrcode", "has_qrcode"]
+
 
 def has_qrcode():
     """Return whether or not we support creating QR codes"""
     return _has_qrcode
+
 
 def create_qrcode(uri):
     """Return a QR code for the passed URI"""
