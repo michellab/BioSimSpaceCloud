@@ -4,10 +4,9 @@ import os
 
 from Acquire.Service import unpack_arguments, get_service_private_key, \
                             get_trusted_service_info
-from Acquire.Service import create_return_value, pack_return_value, \
-                            login_to_service_account
+from Acquire.Service import create_return_value, pack_return_value
 
-from Acquire.Accounting import Account, get_all_accounts
+from Acquire.Accounting import Accounts
 
 
 class AddUserError(Exception):
@@ -52,11 +51,9 @@ def handler(ctx, data=None, loop=None):
         # check that user exists in the identity service
         (username, user_uid) = identity_service.whois(username, user_uid)
 
-        # does this user already have an account?
-        bucket = login_to_service_account()
-
-        account_info = get_all_accounts(user_uid)
-
+        # try to create a 'main' account for this user
+        accounts = Accounts(user_uid)
+        accounts.create_account("main")
 
         status = 0
         message = "Success"
