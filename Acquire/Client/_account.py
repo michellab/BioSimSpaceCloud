@@ -108,7 +108,7 @@ class Account:
         privkey = _PrivateKey()
 
         result = _call_function(
-                "%s/get_account_uids" % accounting_service.service_url(),
+                "%s/get-account-uids" % accounting_service.service_url(),
                 args=args,
                 args_key=accounting_service.public_key(),
                 response_key=privkey,
@@ -143,7 +143,7 @@ class Account:
         privkey = _PrivateKey()
 
         result = _call_function(
-                "%s/get_account_uids" % accounting_service.service_url(),
+                "%s/get-account-uids" % accounting_service.service_url(),
                 args=args,
                 args_key=accounting_service.public_key(),
                 response_key=privkey,
@@ -186,7 +186,7 @@ class Account:
         privkey = _PrivateKey()
 
         result = _call_function(
-                    "%s/create_account" % accounting_service.service_url(),
+                    "%s/create-account" % accounting_service.service_url(),
                     args,
                     args_key=accounting_service.public_key(),
                     response_key=privkey,

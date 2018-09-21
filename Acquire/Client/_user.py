@@ -142,6 +142,7 @@ class User:
         if self._user_uid is None:
             self._user_uid = username_to_uuid(self.username(),
                                               self.identity_url())
+        return self._user_uid
 
     def status(self):
         """Return the current status of this user"""
@@ -416,6 +417,8 @@ class User:
         self._user_uid = result["user_uid"]
 
         qrcode = None
+
+        print(result)
 
         if _has_qrcode():
             try:
