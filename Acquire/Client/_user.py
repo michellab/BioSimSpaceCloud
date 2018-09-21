@@ -63,6 +63,9 @@ def _get_identity_service(identity_url=None):
             "The service at '%s' is a '%s'" %
             (identity_url, service.service_type()))
 
+    if identity_url != service.service_url():
+        service.update_service_url(identity_url)
+
     return service
 
 
@@ -103,6 +106,8 @@ class User:
         if identity_url:
             self._identity_url = identity_url
 
+        self._user_uid = None
+
     def __enter__(self):
         """Enter function used by 'with' statements'"""
         pass
@@ -129,6 +134,14 @@ class User:
     def username(self):
         """Return the username of the user"""
         return self._username
+
+    def uid(self):
+        """Return the UID of this user. This uniquely identifies the
+           user across all systems
+        """
+        if self._user_uid is None:
+            self._user_uid = username_to_uuid(self.username(),
+                                              self.identity_url())
 
     def status(self):
         """Return the current status of this user"""
@@ -400,6 +413,7 @@ class User:
         self._signing_key = signing_key
         self._session_uid = session_uid
         self._status = _LoginStatus.LOGGING_IN
+        self._user_uid = result["user_uid"]
 
         qrcode = None
 

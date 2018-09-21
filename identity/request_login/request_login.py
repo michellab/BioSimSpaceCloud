@@ -91,6 +91,7 @@ def handler(ctx, data=None, loop=None):
     message = None
     login_url = None
     login_uid = None
+    user_uid = None
     log = []
 
     args = unpack_arguments(data, get_service_private_key)
@@ -144,6 +145,7 @@ def handler(ctx, data=None, loop=None):
                                     username)
 
         user_account = UserAccount.from_data(existing_data)
+        user_uid = user_account.uid()
 
         # first, make sure that the user doens't have too many open
         # login sessions at once - this prevents denial of service
@@ -195,6 +197,9 @@ def handler(ctx, data=None, loop=None):
         return_value["login_url"] = login_url
     else:
         return_value["login_url"] = None
+
+    if user_uid:
+        return_value["user_uid"] = user_uid
 
     return pack_return_value(return_value, args)
 

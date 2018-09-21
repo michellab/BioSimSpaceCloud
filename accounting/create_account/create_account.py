@@ -9,14 +9,12 @@ from Acquire.Service import create_return_value, pack_return_value
 from Acquire.Accounting import Accounts
 
 
-class AddUserError(Exception):
+class CreateAccountError(Exception):
     pass
 
 
 def handler(ctx, data=None, loop=None):
-    """This function is called to handle adding users
-       to this accounting service.
-    """
+    """This function is called to handle creating accounts for users"""
 
     status = 0
     message = None
@@ -38,15 +36,15 @@ def handler(ctx, data=None, loop=None):
             username = None
 
         if user_uid is None and username is None:
-            raise AddUserError("You must supply either the username "
-                               "or user_uid")
+            raise CreateAccountError("You must supply either the username "
+                                     "or user_uid")
 
         identity_service_url = args["identity_service_url"]
         identity_service = get_trusted_service_info(identity_service_url)
 
         if not identity_service.is_identity_service():
-            raise AddUserError("Cannot add as '%s' is not an identity "
-                               "service" % (identity_service_url))
+            raise CreateAccountError("Cannot add as '%s' is not an identity "
+                                     "service" % (identity_service_url))
 
         # check that user exists in the identity service
         (username, user_uid) = identity_service.whois(username, user_uid)

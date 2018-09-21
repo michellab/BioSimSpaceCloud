@@ -1,7 +1,0 @@
-name: node-accounting-add-user
-version: 0.0.6
-runtime: docker
-type: sync
-format: json
-timeout: 20
-path: /add-user

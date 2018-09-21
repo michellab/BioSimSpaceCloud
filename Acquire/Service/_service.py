@@ -9,10 +9,12 @@ from Acquire.Crypto import OTP as _OTP
 from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
-__all__ = [ "Service" ]
+__all__ = ["Service"]
+
 
 class ServiceError(Exception):
     pass
+
 
 class Service:
     """This class represents a service in the system. Services
@@ -26,9 +28,9 @@ class Service:
         self._service_url = service_url
 
         if self._service_type:
-            if not self._service_type in [ "identity", "access", "accounting" ]:
-                raise ServiceError("Services of type '%s' are not allowed!" % \
-                          self._service_type)
+            if self._service_type not in ["identity", "access", "accounting"]:
+                raise ServiceError("Services of type '%s' are not allowed!" %
+                                   self._service_type)
 
             self._uuid = str(_uuid.uuid4())
             self._privkey = _PrivateKey()
@@ -38,7 +40,7 @@ class Service:
             self._admin_password = None
 
     def set_admin_password(self, admin_password):
-        """Set the admin password for this service. This returns the 
+        """Set the admin password for this service. This returns the
            provisioning URI for the OTP shared secret"""
         if self._admin_password:
             raise ServiceError("The admin password has already been set!")
@@ -53,7 +55,7 @@ class Service:
         """Change the admin password for this service. Note that
            you must pass in a valid password and otpcode to make the change"""
 
-        self.verify_admin_user(password,otpcode)
+        self.verify_admin_user(password, otpcode)
 
         if password == new_password:
             return
@@ -83,26 +85,37 @@ class Service:
 
     def is_access_service(self):
         """Return whether or not this is an access service"""
-       	if self._service_type:
-       	    return self._service_type == "access"
-       	else:
-       	    return False
+        if self._service_type:
+            return self._service_type == "access"
+        else:
+            return False
 
     def is_accounting_service(self):
         """Return whether or not this is an accounting service"""
-       	if self._service_type:
-       	    return self._service_type == "accounting"
-       	else:
-       	    return False
+        if self._service_type:
+            return self._service_type == "accounting"
+        else:
+            return False
 
     def service_url(self):
         """Return the URL used to access this service"""
         return self._service_url
 
+    def canonical_url(self):
+        """Return the canonical URL for this service (this is the URL the
+           service thinks it has, and which it has used to register itself
+           with all other services)
+        """
+        return self._canonical_url
+
+    def update_service_url(self, service_url):
+        """Update the service url to be 'service_url'"""
+        self._service_url = str(service_url)
+
     def private_key(self):
         """Return the private key (if it has been unlocked)"""
         if self._privkey is None:
-            raise ServiceError("The service '%s' has not been unlocked" % \
+            raise ServiceError("The service '%s' has not been unlocked" %
                                self._service_url)
 
         return self._privkey
@@ -110,7 +123,7 @@ class Service:
     def private_certificate(self):
         """Return the private signing certificate (if it has been unlocked)"""
         if self._privcert is None:
-            raise ServiceError("The service '%s' has not been unlocked" % \
+            raise ServiceError("The service '%s' has not been unlocked" %
                                self._service_url)
 
         return self._privcert
@@ -174,20 +187,20 @@ class Service:
         data["public_key"] = _bytes_to_string(self._pubkey.bytes())
 
         if password:
-            # only serialise private data if a password was provided
+            # only serialise private data if a password was provided
             data["private_certificate"] = _bytes_to_string(
                                          self._privcert.bytes(password))
             data["private_key"] = _bytes_to_string(
                                          self._privkey.bytes(password))
-            data["otpsecret"] = _bytes_to_string( self._otpsecret )
+            data["otpsecret"] = _bytes_to_string(self._otpsecret)
             data["admin_password"] = _bytes_to_string(self._admin_password)
 
         return data
 
     @staticmethod
     def from_data(data, password=None):
-        """Deserialise this object from the passed data. This will 
-           only deserialise the private key, private certificate, 
+        """Deserialise this object from the passed data. This will
+           only deserialise the private key, private certificate,
            and OTP if a valid password and passcode is supplied
         """
 
@@ -196,10 +209,12 @@ class Service:
         if password:
             # get the private info...
             service._privkey = _PrivateKey.read_bytes(
-                                _string_to_bytes(data["private_key"]),password)
+                                _string_to_bytes(data["private_key"]),
+                                password)
 
             service._privcert = _PrivateKey.read_bytes(
-                                _string_to_bytes(data["private_certificate"]),password)
+                                _string_to_bytes(data["private_certificate"]),
+                                password)
 
             service._otpsecret = _string_to_bytes(data["otpsecret"])
 
@@ -212,6 +227,7 @@ class Service:
         service._uuid = data["uuid"]
         service._service_type = data["service_type"]
         service._service_url = data["service_url"]
+        service._canonical_url = service._service_url
 
         service._pubkey = _PublicKey.read_bytes(
                                 _string_to_bytes(data["public_key"]))
@@ -225,7 +241,8 @@ class Service:
             from Acquire.Access import AccessService as _AccessService
             return _AccessService(service)
         elif service.is_accounting_service():
-            from Acquire.Accounting import AccountingService as _AccountingService
+            from Acquire.Accounting import AccountingService \
+                                        as _AccountingService
             return _AccountingService(service)
         else:
             return service

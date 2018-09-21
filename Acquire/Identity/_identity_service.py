@@ -11,17 +11,19 @@ from Acquire.Service import ServiceError
 
 from ._errors import IdentityServiceError
 
-__all__ = [ "IdentityService" ]
+__all__ = ["IdentityService"]
+
 
 class IdentityService(_Service):
     """This is a specialisation of Service for Identity Services"""
     def __init__(self, other=None):
-        if isinstance(other,_Service):
+        if isinstance(other, _Service):
             self.__dict__ = _copy(other.__dict__)
 
             if not self.is_identity_service():
-                raise IdentityServiceError("Cannot construct an IdentityService from "
-                        "a service which is not an identity service!")
+                raise IdentityServiceError(
+                    "Cannot construct an IdentityService from "
+                    "a service which is not an identity service!")
         else:
             _Service.__init__(self)
 
@@ -31,26 +33,29 @@ class IdentityService(_Service):
         """
 
         if (username is None) and (user_uid is None):
-            raise IdentityServiceError("You must supply either a username "
+            raise IdentityServiceError(
+                    "You must supply either a username "
                     "or a user's UID for a lookup")
 
         key = _PrivateKey()
 
         try:
             if username:
-                response = _call_function("%s/whois" % self.service_url(),
-                                          {"username" : username},
-                                          public_cert=self.public_certificate(),
-                                          response_key=key)
+                response = _call_function(
+                                "%s/whois" % self.service_url(),
+                                {"username": username},
+                                public_cert=self.public_certificate(),
+                                response_key=key)
                 lookup_uid = response["uuid"]
             else:
                 lookup_uid = None
 
             if user_uid:
-                response = _call_function("%s/whois" % self.service_url(),
-                                          {"uuid" : user_uid},
-                                          public_cert=self.public_certificate(),
-                                          response_key=key)
+                response = _call_function(
+                    "%s/whois" % self.service_url(),
+                    {"uuid": user_uid},
+                    public_cert=self.public_certificate(),
+                    response_key=key)
                 lookup_username = response["username"]
             else:
                 lookup_username = None
@@ -62,16 +67,18 @@ class IdentityService(_Service):
             username = lookup_username
 
         elif (lookup_username is not None) and (username != lookup_username):
-            raise IdentityServiceError("Disagreement of the user who matches "
-                    "UID=%s. We think '%s', but the identity service says '%s'" % \
-                          (user_uid,username,lookup_username))
+            raise IdentityServiceError(
+                "Disagreement of the user who matches "
+                "UID=%s. We think '%s', but the identity service says '%s'" %
+                (user_uid, username, lookup_username))
 
         if user_uid is None:
             user_uid = lookup_uid
 
         elif (lookup_uid is not None) and (user_uid != lookup_uid):
-            raise IdentityServiceError("Disagreement of the user's UID for user "
-                    "'%s'. We think %s, but the identity service says %s" % \
-                         (username,user_uid,lookup_uid))
+            raise IdentityServiceError(
+                    "Disagreement of the user's UID for user "
+                    "'%s'. We think %s, but the identity service says %s" %
+                    (username, user_uid, lookup_uid))
 
-        return (username,user_uid)
+        return (username, user_uid)
