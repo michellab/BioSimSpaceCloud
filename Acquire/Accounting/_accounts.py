@@ -96,8 +96,9 @@ class Accounts:
 
         if account_uid is not None:
             m.unlock()
-            raise AccountError("The account called '%s' in group '%s' "
-                               "already exists!" % (name, self.group()))
+            # this account already exists - just return it
+            account = _Account(uid=account_uid, bucket=bucket)
+            return account
 
         # write a temporary UID to the object store so that we
         # can ensure we are the only function to create it
