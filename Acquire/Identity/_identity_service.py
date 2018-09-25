@@ -103,8 +103,14 @@ class IdentityService(_Service):
         result = {"username": username, "user_uid": user_uid}
 
         try:
-            result["public_key"] = response["public_key"]
-            result["public_cert"] = response["public_cert"]
+            result["public_key"] = _PublicKey.from_data(
+                                            response["public_key"])
+        except:
+            pass
+
+        try:
+            result["public_cert"] = _PublicKey.from_data(
+                                            response["public_cert"])
         except:
             pass
 
