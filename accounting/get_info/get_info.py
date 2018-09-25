@@ -49,6 +49,9 @@ def handler(ctx, data=None, loop=None):
         except:
             identity_url = None
 
+        if account_name is None:
+            raise AccountError("You must supply the account_name")
+
         if user_uid is None:
             raise AccountError("You must supply the user_uid")
 

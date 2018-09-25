@@ -324,7 +324,7 @@ class Account:
         args = {"user_uid": self._user.uid(),
                 "identity_url": self._user.identity_service().canonical_url(),
                 "authorisation": auth.to_data(),
-                "account_uid": self.uid()}
+                "account_name": self.name()}
 
         privkey = _PrivateKey()
 
