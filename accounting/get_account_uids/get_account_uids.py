@@ -51,21 +51,6 @@ def handler(ctx, data=None, loop=None):
             raise ListAccountsError("You must supply either the username "
                                     "or user_uid")
 
-        try:
-            account_name = args["account_name"]
-        except:
-            account_name = None
-
-        try:
-            description = args["description"]
-        except:
-            description = None
-
-        if account_name is None or description is None:
-            raise ListAccountsError(
-                "You must supply the user_uid, identity_url and authorisation "
-                "for the user whose account UIDs you wish to list")
-
         identity_service = get_trusted_service_info(identity_url)
 
         if not identity_service.is_identity_service():
