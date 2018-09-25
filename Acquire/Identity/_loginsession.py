@@ -337,16 +337,9 @@ class LoginSession:
 
             # the keys and secret are arbitrary binary data.
             # These need to be base64 encoded and then turned into strings
-            try:
-                logses._pubkey = _PublicKey.from_data(data["public_key"])
-            except:
-                logses._pubkey = None
-
-            try:
-                logses._pubcert = _PublicKey.from_data(
-                                                data["public_certificate"])
-            except:
-                logses._pubcert = None
+            logses._pubkey = _PublicKey.from_data(data["public_key"])
+            logses._pubcert = _PublicKey.from_data(
+                                            data["public_certificate"])
 
             logses._status = data["status"]
             logses._ipaddr = data["ipaddr"]
