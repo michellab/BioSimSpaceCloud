@@ -37,7 +37,7 @@ class LoginSession:
             except:
                 self._pubkey = public_key
 
-            if not isinstance(self._pubkey, _PublicKey()):
+            if not isinstance(self._pubkey, _PublicKey):
                 raise TypeError("The public key must be of type PublicKey")
 
             self._uid = str(_uuid.uuid4())
@@ -55,7 +55,7 @@ class LoginSession:
             except:
                 self._pubcert = public_cert
 
-            if not isinstance(self._pubcert, _PublicKey()):
+            if not isinstance(self._pubcert, _PublicKey):
                 raise TypeError("The public certificate must be of "
                                 "type PublicKey")
 
