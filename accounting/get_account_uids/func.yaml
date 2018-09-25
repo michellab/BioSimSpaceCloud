@@ -1,0 +1,7 @@
+name: node-accounting-get-account-uids
+version: 0.0.1
+runtime: docker
+type: sync
+format: json
+timeout: 20
+path: /get-account-uids

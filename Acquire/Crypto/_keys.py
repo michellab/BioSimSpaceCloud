@@ -2,6 +2,7 @@
 import os as _os
 import tempfile as _tempfile
 import re as _re
+import base64 as _base64
 
 from cryptography.hazmat.primitives.asymmetric import rsa as _rsa
 from cryptography.hazmat.primitives import serialization as _serialization
@@ -25,6 +26,27 @@ except:
 __all__ = ["PrivateKey", "PublicKey"]
 
 
+def _bytes_to_string(b):
+    """Return the passed binary bytes safely encoded to
+       a base64 utf-8 string"""
+    if b is None:
+        return None
+    else:
+        return _base64.b64encode(b).decode("utf-8")
+
+
+def _string_to_bytes(s):
+    """Return the passed base64 utf-8 encoded binary data
+       back converted from a string back to bytes. Note that
+       this can only convert strings that were encoded using
+       bytes_to_string - you cannot use this to convert
+       arbitrary strings to bytes"""
+    if s is None:
+        return None
+    else:
+        return _base64.b64decode(s.encode("utf-8"))
+
+
 def _assert_strong_passphrase(passphrase, mangleFunction):
     """This function returns whether or not the passed
        passphrase is sufficiently strong. To be strong,
@@ -34,7 +56,7 @@ def _assert_strong_passphrase(passphrase, mangleFunction):
     """
 
     if mangleFunction:
-        passphrase = str( mangleFunction(passphrase) )
+        passphrase = str(mangleFunction(passphrase))
     else:
         passphrase = str(passphrase)
 
@@ -100,7 +122,7 @@ class PublicKey:
     def read(filename):
         """Read and return a public key from 'filename'"""
         with open(filename, "rb") as FILE:
-             return PublicKey.read_bytes(FILE.read())
+            return PublicKey.read_bytes(FILE.read())
 
     def encrypt(self, message):
         """Encrypt and return the passed message. For short messages this
@@ -109,7 +131,7 @@ class PublicKey:
            symmetric key, will encrypt the message using that, and will then
            encrypt the symmetric key. This returns some bytes
         """
-        if isinstance(message,str):
+        if isinstance(message, str):
             message = str.encode("utf-8")
 
         try:
@@ -124,7 +146,7 @@ class PublicKey:
             pass
 
         # this is a longer message that cannot be encoded using
-        # an asymmetric key - need to use a symmetric key
+        # an asymmetric key - need to use a symmetric key
         key = _Fernet.generate_key()
         f = _Fernet(key)
         token = f.encrypt(message)
@@ -163,6 +185,27 @@ class PublicKey:
                        "Error validating the signature "
                        "for the passed message: %s" % str(e))
 
+    def to_data(self):
+        """Return this public key as a json-serialisable dictionary"""
+        data = {}
+
+        b = self.bytes()
+
+        if b is not None:
+            data["bytes"] = _bytes_to_string(self.bytes())
+
+        return data
+
+    @staticmethod
+    def from_data(data):
+        """Construct from the passed json-deserialised dictionary"""
+        key = PublicKey()
+
+        if (data and len(data) > 0):
+            key = PublicKey.read_bytes(_string_to_bytes(data["bytes"]))
+
+        return key
+
 
 class PrivateKey:
     """This is a holder for an in-memory private key"""
@@ -177,7 +220,7 @@ class PrivateKey:
     def __str__(self):
         """Return a string representation of this key"""
         return "PrivateKey( public_key='%s' )" % \
-                    self.public_key().bytes().decode("utf-8")
+            self.public_key().bytes().decode("utf-8")
 
     @staticmethod
     def read_bytes(data, passphrase, mangleFunction=None):
@@ -196,8 +239,8 @@ class PrivateKey:
                              password=passphrase.encode("utf-8"),
                              backend=_default_backend())
         except Exception as e:
-            raise KeyManipulationError( "Cannot unlock key. %s" % \
-                                         str(e) )
+            raise KeyManipulationError("Cannot unlock key. %s" %
+                                       str(e))
 
         return PrivateKey(private_key)
 
@@ -215,7 +258,7 @@ class PrivateKey:
         except IOError as e:
             raise KeyManipulationError(
                     "Cannot read the private keyfile %s: %s" %
-                    (filename,str(e)))
+                    (filename, str(e)))
 
         return PrivateKey.read_bytes(data, passphrase, mangleFunction)
 
@@ -257,9 +300,9 @@ class PrivateKey:
     def key_size_in_bytes(self):
         """Return the number of bytes in this key"""
         if self._privkey is None:
-             return 0
+            return 0
         else:
-             return int( self._privkey.key_size / 8 )
+            return int(self._privkey.key_size / 8)
 
     def decrypt(self, message):
         """Decrypt and return the passed message"""
@@ -292,8 +335,9 @@ class PrivateKey:
                             algorithm=_hashes.SHA256(),
                             label=None))
         except Exception as e:
-            raise DecryptionError("Cannot decrypt the symmetric key used "
-                   "to encrypt the long message: %s" % str(e))
+            raise DecryptionError(
+                "Cannot decrypt the symmetric key used "
+                "to encrypt the long message: %s" % str(e))
 
         f = _Fernet(symkey)
 
@@ -320,3 +364,28 @@ class PrivateKey:
                      _hashes.SHA256())
 
         return signature
+
+    def to_data(self, passphrase, mangleFunction=None):
+        """Return the json-serialisable data for this key"""
+        data = {}
+
+        b = self.bytes(passphrase, mangleFunction)
+
+        if b is not None:
+            data["bytes"] = _bytes_to_string(b)
+
+        return data
+
+    @staticmethod
+    def from_data(data, passphrase, mangleFunction=None):
+        """Return a private key constructed from the passed json-deserialised
+           dictionary
+        """
+
+        key = PrivateKey()
+
+        if (data and len(data) > 0):
+            key = PrivateKey.read_bytes(_string_to_bytes(data["bytes"]),
+                                        passphrase, mangleFunction)
+
+        return key

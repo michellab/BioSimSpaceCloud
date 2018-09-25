@@ -27,9 +27,19 @@ class IdentityService(_Service):
         else:
             _Service.__init__(self)
 
-    def whois(self, username=None, user_uid=None):
+    def whois(self, username=None, user_uid=None, session_uid=None):
         """Do a whois lookup to map from username to user_uid or
-           vice versa
+           vice versa. If 'session_uid' is provided, then also validate
+           that this is a correct login session, and return also
+           the public key and signing certificate for this login session.
+
+           This should return a dictionary with the following keys
+           optionally contained;
+
+           username = name of the user
+           user_uid = uid of the user
+           public_key = public key for the session with uid 'session_uid'
+           public_cert = public certificate for that login session
         """
 
         if (username is None) and (user_uid is None):
@@ -39,21 +49,30 @@ class IdentityService(_Service):
 
         key = _PrivateKey()
 
+        response = None
+
+        if session_uid is None:
+            args = {}
+        else:
+            args = {"session_uid": str(session_uid)}
+
         try:
             if username:
+                args["username"] = str(username)
                 response = _call_function(
                                 "%s/whois" % self.service_url(),
-                                {"username": username},
+                                args,
                                 public_cert=self.public_certificate(),
                                 response_key=key)
-                lookup_uid = response["uuid"]
+                lookup_uid = response["user_uid"]
             else:
                 lookup_uid = None
 
             if user_uid:
+                args["user_uid"] = str(user_uid)
                 response = _call_function(
                     "%s/whois" % self.service_url(),
-                    {"uuid": user_uid},
+                    args,
                     public_cert=self.public_certificate(),
                     response_key=key)
                 lookup_username = response["username"]
@@ -81,4 +100,12 @@ class IdentityService(_Service):
                     "'%s'. We think %s, but the identity service says %s" %
                     (username, user_uid, lookup_uid))
 
-        return (username, user_uid)
+        result = {"username": username, "user_uid": user_uid}
+
+        try:
+            result["public_key"] = response["public_key"]
+            result["public_cert"] = response["public_cert"]
+        except:
+            pass
+
+        return result

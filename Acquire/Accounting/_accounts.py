@@ -95,13 +95,18 @@ class Accounts:
             account_uid = None
 
         if account_uid is not None:
+            m.unlock()
             raise AccountError("The account called '%s' in group '%s' "
                                "already exists!" % (name, self.group()))
 
         # write a temporary UID to the object store so that we
         # can ensure we are the only function to create it
-        _ObjectStore.set_string_object(bucket, account_key,
-                                       "under_construction")
+        try:
+            _ObjectStore.set_string_object(bucket, account_key,
+                                           "under_construction")
+        except:
+            m.unlock()
+            raise
 
         m.unlock()
 
