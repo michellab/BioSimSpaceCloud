@@ -13,6 +13,7 @@ from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
 from Acquire.Crypto import PrivateKey as _PrivateKey
+from Acquire.Crypto import PublicKey as _PublicKey
 
 from ._qrcode import create_qrcode as _create_qrcode
 from ._qrcode import has_qrcode as _has_qrcode
@@ -110,8 +111,8 @@ def get_session_keys(username=None, user_uid=None, session_uid=None,
 
     return {"username": response["username"],
             "user_uid": response["user_uid"],
-            "public_key": response["public_key"],
-            "public_cert": response["public_cert"]}
+            "public_key": _PublicKey.from_data(response["public_key"]),
+            "public_cert": _PublicKey.from_data(response["public_cert"])}
 
 
 class User:
