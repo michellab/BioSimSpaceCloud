@@ -132,6 +132,9 @@ class User:
 
         self._user_uid = None
 
+    def __str__(self):
+        return "User(name='%s', status=%s)" % (self.username(), self.status())
+
     def __enter__(self):
         """Enter function used by 'with' statements'"""
         pass

@@ -7,7 +7,7 @@ from Acquire.Service import Service as _Service
 from Acquire.Accounting import Authorisation as _Authorisation
 from Acquire.Accounting import create_decimal as _create_decimal
 
-from ._errors import LoginError
+from ._errors import LoginError, AccountError
 
 __all__ = ["Account", "get_accounts", "create_account"]
 
@@ -78,7 +78,14 @@ def _get_account_uid(user, account_name, accounting_service=None,
             response_key=privkey,
             public_cert=accounting_service.public_certificate())
 
-    return result["account_uid"]
+    account_uids = result["account_uids"]
+
+    for account_uid in account_uids:
+        if account_uids[account_uid] == account_name:
+            return account_uid
+
+    raise AccountError("There is no account called '%s' for '%s'" %
+                       (account_name, str(user)))
 
 
 def _get_account_uids(user, accounting_service=None, accounting_url=None):
@@ -228,7 +235,7 @@ class Account:
         if self.is_null():
             return "Account::null"
         else:
-            return "Account(name=%s, uid=%s)" % (self.name(), self.uid())
+            return "Account(name='%s', uid=%s)" % (self.name(), self.uid())
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -253,6 +260,13 @@ class Account:
             return None
         else:
             return self._account_name
+
+    def owner(self):
+        """Return the user who owns this account"""
+        if self.is_null():
+            return None
+        else:
+            return self._user
 
     def is_logged_in(self):
         """Return whether or not the user has an authenticated login
