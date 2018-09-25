@@ -33,7 +33,7 @@ def handler(ctx, data=None, loop=None):
             user_uid = None
 
         try:
-            account_name = str(args["user_name"])
+            account_name = str(args["account_name"])
         except:
             account_name = None
 
