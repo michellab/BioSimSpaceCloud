@@ -100,8 +100,8 @@ def handler(ctx, data=None, loop=None):
 
     try:
         username = args["username"]
-        public_key = PublicKey._from_data(args["public_key"])
-        public_cert = PublicKey._from_data(args["public_certificate"])
+        public_key = PublicKey.from_data(args["public_key"])
+        public_cert = PublicKey.from_data(args["public_certificate"])
 
         ip_addr = None
         hostname = None
