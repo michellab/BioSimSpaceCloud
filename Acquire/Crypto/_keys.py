@@ -208,12 +208,19 @@ class PublicKey:
     @staticmethod
     def from_data(data):
         """Construct from the passed json-deserialised dictionary"""
-        key = PublicKey()
+        if isinstance(data, str):
+            return PublicKey.read_bytes(_string_to_bytes(data))
 
-        if (data and len(data) > 0):
-            key = PublicKey.read_bytes(_string_to_bytes(data["bytes"]))
+        elif isinstance(data, bytes):
+            return PublicKey.read_bytes(data)
 
-        return key
+        else:
+            key = PublicKey()
+
+            if (data and len(data) > 0):
+                key = PublicKey.read_bytes(_string_to_bytes(data["bytes"]))
+
+            return key
 
 
 class PrivateKey:
@@ -400,10 +407,18 @@ class PrivateKey:
            dictionary
         """
 
-        key = PrivateKey()
+        if isinstance(data, str):
+            return PrivateKey.read_bytes(_string_to_bytes(data),
+                                         passphrase, mangleFunction)
 
-        if (data and len(data) > 0):
-            key = PrivateKey.read_bytes(_string_to_bytes(data["bytes"]),
-                                        passphrase, mangleFunction)
+        elif isinstance(data, bytes):
+            return PrivateKey.read_bytes(data, passphrase, mangleFunction)
 
-        return key
+        else:
+            key = PrivateKey()
+
+            if (data and len(data) > 0):
+                key = PrivateKey.read_bytes(_string_to_bytes(data["bytes"]),
+                                            passphrase, mangleFunction)
+
+            return key
