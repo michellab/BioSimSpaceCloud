@@ -26,6 +26,7 @@ def handler(ctx, data=None, loop=None):
     args = unpack_arguments(data, get_service_private_key)
 
     account = None
+    balance_status = None
 
     try:
         try:
@@ -49,7 +50,7 @@ def handler(ctx, data=None, loop=None):
             identity_url = None
 
         if user_uid is None:
-            raise ListAccountsError("You must supply the user_uid")
+            raise AccountError("You must supply the user_uid")
 
         identity_service = get_trusted_service_info(identity_url)
 
@@ -69,7 +70,8 @@ def handler(ctx, data=None, loop=None):
 
         # load the account
         bucket = login_to_service_account()
-        account = accounts.get_account(account_name, bucket=bucket)
+        account = Accounts(user_uid).get_account(account_name, bucket=bucket)
+        balance_status = account.balance_status(bucket=bucket)
 
         status = 0
         message = "Success"
@@ -81,10 +83,9 @@ def handler(ctx, data=None, loop=None):
 
     if account:
         return_value["description"] = account.description()
-        return_value["overdraft_limit"] = account.overdraft_limit()
+        return_value["overdraft_limit"] = account.get_overdraft_limit()
 
-        balance_status = account.balance_status()
-
+    if balance_status:
         for key in balance_status.keys():
             return_value[key] = balance_status[key]
 

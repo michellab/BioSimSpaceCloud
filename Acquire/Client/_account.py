@@ -329,7 +329,7 @@ class Account:
         privkey = _PrivateKey()
 
         result = _call_function(
-                    "%s/get_info" % self._accounting_service.service_url(),
+                    "%s/get-info" % self._accounting_service.service_url(),
                     args,
                     args_key=self._accounting_service.public_key(),
                     response_key=privkey,
