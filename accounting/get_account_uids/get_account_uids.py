@@ -3,7 +3,7 @@ import json
 import os
 
 from Acquire.Service import unpack_arguments, get_service_private_key, \
-                            get_trusted_service_info
+                            get_trusted_service_info, login_to_service_account
 from Acquire.Service import create_return_value, pack_return_value
 
 from Acquire.Accounting import Accounts, Authorisation
@@ -67,17 +67,20 @@ def handler(ctx, data=None, loop=None):
         authorisation.verify(response["public_cert"])
 
         # try to create a 'main' account for this user
-        accounts = Accounts(user_uid).list_accounts()
-
         account_uids = {}
+        accounts = Accounts(user_uid)
 
         if account_name is None:
-            for account in accounts:
+            bucket = login_to_service_account()
+            account_names = accounts.list_accounts(bucket=bucket)
+
+            for account_name in account_names:
+                account = accounts.get_account(account_name, bucket=bucket)
                 account_uids[account.uid()] = account.name()
+
         else:
-            for account in accounts:
-                if account.name() == account_name:
-                    account_uids[account.uid()] = account.name()
+            account = accounts.get_account(account_name)
+            account_uids[account.uid()] = account.name()
 
         status = 0
         message = "Success"
