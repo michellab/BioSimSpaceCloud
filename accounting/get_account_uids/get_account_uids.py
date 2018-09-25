@@ -47,30 +47,40 @@ def handler(ctx, data=None, loop=None):
         except:
             identity_url = None
 
-        if user_uid is None or identity_url is None or authorisation is None:
-            raise ListAccountsError("You must supply either the username "
-                                    "or user_uid")
+        if user_uid is None:
+            raise ListAccountsError("You must supply the user_uid")
 
-        identity_service = get_trusted_service_info(identity_url)
+        is_authorised = False
 
-        if not identity_service.is_identity_service():
-            raise ListAccountsError("Cannot add as '%s' is not an identity "
-                                    "service" % (identity_url))
+        if authorisation is not None and identity_url is not None:
+            identity_service = get_trusted_service_info(identity_url)
 
-        # check that user exists in the identity service and get the
-        # signing key associated with the passed session UID
-        response = identity_service.whois(
+            if not identity_service.is_identity_service():
+                raise ListAccountsError("Cannot add as '%s' is not an "
+                                        "identit service" % (identity_url))
+
+            # check that user exists in the identity service and get the
+            # signing key associated with the passed session UID
+            response = identity_service.whois(
                                     user_uid=user_uid,
                                     session_uid=authorisation.session_uid())
 
-        # check that this authorisation has been correctly signed by the user
-        authorisation.verify(response["public_cert"])
+            # check that this authorisation has been correctly
+            # signed by the user
+            authorisation.verify(response["public_cert"])
+
+            is_authorised = True
 
         # try to create a 'main' account for this user
         account_uids = {}
         accounts = Accounts(user_uid)
 
         if account_name is None:
+            if not is_authorised:
+                raise PermissionError(
+                    "You cannot list general information about a user's "
+                    "accounts unless you have authenticated as the user!")
+
             bucket = login_to_service_account()
             account_names = accounts.list_accounts(bucket=bucket)
 
@@ -79,7 +89,19 @@ def handler(ctx, data=None, loop=None):
                 account_uids[account.uid()] = account.name()
 
         else:
-            account = accounts.get_account(account_name)
+            if not is_authorised:
+                try:
+                    account = accounts.get_account(account_name)
+                except:
+                    # don't leak any information
+                    raise ListAccountsError(
+                        "No account called '%s' for user '%s'" %
+                        (account_name, user_uid))
+            else:
+                # allow the user to see the real exception if this
+                # account doesn't exist
+                account = accounts.get_account(account_name)
+
             account_uids[account.uid()] = account.name()
 
         status = 0

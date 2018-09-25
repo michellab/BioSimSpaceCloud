@@ -45,7 +45,7 @@ def _get_accounting_service(accounting_url=None):
 
 
 def _get_account_uid(user, account_name, accounting_service=None,
-                    accounting_url=None):
+                     accounting_url=None):
     """Return the UID of the account called 'account_name' that
         belongs to passed user on the passed accounting_service
     """
@@ -57,20 +57,17 @@ def _get_account_uid(user, account_name, accounting_service=None,
 
     elif not accounting_service.is_accounting_service():
         raise ValueError("You can only query account using "
-                            "a valid accounting service")
-
-    if not user.is_logged_in():
-        raise PermissionError(
-            "You can only get information about about a user's accounts "
-            "if they have authenticated their login")
-
-    auth = _Authorisation(session_uid=user.session_uid(),
-                          signing_key=user.signing_key())
+                         "a valid accounting service")
 
     args = {"user_uid": user.uid(),
-            "account_name": str(account_name),
-            "authorisation": auth.to_data(),
-            "identity_url": user.identity_service().canonical_url()}
+            "account_name": str(account_name)}
+
+    if user.is_logged_in():
+        auth = _Authorisation(session_uid=user.session_uid(),
+                              signing_key=user.signing_key())
+
+        args["authorisation"] = auth.to_data()
+        args["identity_url"] = user.identity_service().canonical_url()
 
     privkey = _PrivateKey()
 
@@ -166,7 +163,7 @@ def create_account(user, account_name, description=None,
             (account_name, user.name()))
 
     authorisation = _Authorisation(session_uid=user.session_uid(),
-                                    signing_key=user.signing_key())
+                                   signing_key=user.signing_key())
 
     args = {"user_uid": user.uid(),
             "account_name": str(account_name),
@@ -207,7 +204,7 @@ class Account:
        interface that allows the account to be used as a receiver
        of value
     """
-    def __init__(self, account_name=None, user=None, accounting_service=None,
+    def __init__(self, user=None, account_name=None, accounting_service=None,
                  accounting_url=None):
         """Construct the Account with the passed account_name, which is owned
            by the passed user. The account must already exist on the service,
