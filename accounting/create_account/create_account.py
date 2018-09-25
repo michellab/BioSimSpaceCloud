@@ -39,12 +39,12 @@ def handler(ctx, data=None, loop=None):
             raise CreateAccountError("You must supply either the username "
                                      "or user_uid")
 
-        identity_service_url = args["identity_service_url"]
-        identity_service = get_trusted_service_info(identity_service_url)
+        identity_url = args["identity_url"]
+        identity_service = get_trusted_service_info(identity_url)
 
         if not identity_service.is_identity_service():
             raise CreateAccountError("Cannot add as '%s' is not an identity "
-                                     "service" % (identity_service_url))
+                                     "service" % (identity_url))
 
         # check that user exists in the identity service
         (username, user_uid) = identity_service.whois(username, user_uid)
