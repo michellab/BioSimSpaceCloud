@@ -10,6 +10,8 @@ from Acquire.ObjectStore import ObjectStore, string_to_bytes
 
 from Acquire.Identity import UserAccount, LoginSession
 
+from Acquire.Crypto import PublicKey
+
 
 class InvalidLoginError(Exception):
     pass
@@ -98,8 +100,8 @@ def handler(ctx, data=None, loop=None):
 
     try:
         username = args["username"]
-        public_key = string_to_bytes(args["public_key"])
-        public_cert = string_to_bytes(args["public_certificate"])
+        public_key = PublicKey._from_data(args["public_key"])
+        public_cert = PublicKey._from_data(args["public_certificate"])
 
         ip_addr = None
         hostname = None
