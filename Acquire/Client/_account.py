@@ -180,7 +180,10 @@ class Account:
                 "authorisation": authorisation.to_data(),
                 "identity_url": user.identity_service().canonical_url()}
 
-        if description is not None:
+        if description is None:
+            args["description"] = "Account '%s' for '%s'" % \
+                                    (str(account_name), user.name())
+        else:
             args["description"] = str(description)
 
         privkey = _PrivateKey()

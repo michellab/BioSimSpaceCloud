@@ -3,7 +3,7 @@ import json
 import os
 
 from Acquire.Service import unpack_arguments, get_service_private_key, \
-                            get_trusted_service_info
+                            get_trusted_service_info, login_to_service_account
 from Acquire.Service import create_return_value, pack_return_value
 
 from Acquire.Accounting import Accounts
@@ -39,6 +39,20 @@ def handler(ctx, data=None, loop=None):
             raise CreateAccountError("You must supply either the username "
                                      "or user_uid")
 
+        try:
+            account_name = args["account_name"]
+        except:
+            account_name = None
+
+        try:
+            description = args["description"]
+        except:
+            description = None
+
+        if account_name is None or description is None:
+            raise CreateAccountError("You must supply both an account name "
+                                     "and a description to create an account")
+
         identity_url = args["identity_url"]
         identity_service = get_trusted_service_info(identity_url)
 
@@ -50,8 +64,11 @@ def handler(ctx, data=None, loop=None):
         (username, user_uid) = identity_service.whois(username, user_uid)
 
         # try to create a 'main' account for this user
-        accounts = Accounts(user_uid)
-        accounts.create_account("main")
+        bucket = login_to_service_account()
+
+        accounts = Accounts(user_uid, bucket=bucket)
+        accounts.create_account(name=account_name, description=description,
+                                bucket=bucket)
 
         status = 0
         message = "Success"
