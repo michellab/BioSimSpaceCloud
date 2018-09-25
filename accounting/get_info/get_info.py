@@ -86,11 +86,11 @@ def handler(ctx, data=None, loop=None):
 
     if account:
         return_value["description"] = account.description()
-        return_value["overdraft_limit"] = account.get_overdraft_limit()
+        return_value["overdraft_limit"] = str(account.get_overdraft_limit())
 
     if balance_status:
         for key in balance_status.keys():
-            return_value[key] = balance_status[key]
+            return_value[key] = str(balance_status[key])
 
     return pack_return_value(return_value, args)
 
