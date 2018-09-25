@@ -354,15 +354,9 @@ class User:
         session_key = _PrivateKey()
         signing_key = _PrivateKey()
 
-        # we will send the public key to the authentication
-        # service so that it can validate all future communication
-        # and requests
-        pubkey = _bytes_to_string(session_key.public_key().bytes())
-        certkey = _bytes_to_string(signing_key.public_key().bytes())
-
         args = {"username": self._username,
-                "public_key": pubkey,
-                "public_certificate": certkey,
+                "public_key": session_key.public_key().to_data(),
+                "public_certificate": signing_key.public_key().to_data(),
                 "ipaddr": None}
 
         # get information from the local machine to help
@@ -441,8 +435,6 @@ class User:
 
         qrcode = None
 
-        print(result)
-
         if _has_qrcode():
             try:
                 self._login_qrcode = _create_qrcode(self._login_url)
@@ -465,8 +457,6 @@ class User:
                 "session_uid": self._session_uid}
 
         result = _call_function("%s/get-status" % identity_url, args)
-
-        print(result)
 
         # look for status = 0
         try:

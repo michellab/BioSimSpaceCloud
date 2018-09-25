@@ -100,6 +100,15 @@ class PublicKey:
         """Return a string representation of this key"""
         return "PublicKey('%s')" % self.bytes().decode("utf-8")
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.bytes() == other.bytes()
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def write(self, filename):
         """Write this public key to 'filename'"""
         if self._pubkey is None:
@@ -221,6 +230,15 @@ class PrivateKey:
         """Return a string representation of this key"""
         return "PrivateKey( public_key='%s' )" % \
             self.public_key().bytes().decode("utf-8")
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.public_key() == other.public_key()
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     @staticmethod
     def read_bytes(data, passphrase, mangleFunction=None):

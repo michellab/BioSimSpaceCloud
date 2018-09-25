@@ -50,3 +50,15 @@ def test_keys():
     assert(m == long_message)
 
     os.unlink("test.pem")
+
+    data = pubkey.to_data()
+
+    pubkey2 = PublicKey.from_data(data)
+
+    assert(pubkey.bytes() == pubkey2.bytes())
+
+    data = privkey.to_data("testPass33")
+
+    privkey2 = PrivateKey.from_data(data, "testPass33")
+
+    assert(privkey == privkey2)

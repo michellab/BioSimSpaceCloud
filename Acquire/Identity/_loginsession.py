@@ -4,8 +4,7 @@ import uuid as _uuid
 
 import base64 as _base64
 
-from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
-from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
+from Acquire.Crypto import PublicKey as _PublicKey
 
 from ._errors import LoginSessionError
 
@@ -33,7 +32,14 @@ class LoginSession:
             except:
                 pass
 
-            self._pubkey = public_key
+            try:
+                self._pubkey = _PublicKey.from_data(public_key)
+            except:
+                self._pubkey = public_key
+
+            if not isinstance(self._pubkey, _PublicKey()):
+                raise TypeError("The public key must be of type PublicKey")
+
             self._uid = str(_uuid.uuid4())
             self._request_datetime = _datetime.datetime.utcnow()
             self._status = "unapproved"
@@ -44,7 +50,14 @@ class LoginSession:
             except:
                 pass
 
-            self._pubcert = public_cert
+            try:
+                self._pubcert = _PublicKey.from_data(public_cert)
+            except:
+                self._pubcert = public_cert
+
+            if not isinstance(self._pubcert, _PublicKey()):
+                raise TypeError("The public certificate must be of "
+                                "type PublicKey")
 
         if ip_addr:
             self._ipaddr = ip_addr
@@ -281,8 +294,8 @@ class LoginSession:
 
         # the keys and certificate are arbitrary binary data.
         # These need to be base64 encoded and then turned into strings
-        data["public_key"] = _bytes_to_string(self._pubkey)
-        data["public_certificate"] = _bytes_to_string(self._pubcert)
+        data["public_key"] = self._pubkey.to_data()
+        data["public_certificate"] = self._pubcert.to_data()
 
         data["status"] = self._status
         data["ipaddr"] = self._ipaddr
@@ -325,12 +338,13 @@ class LoginSession:
             # the keys and secret are arbitrary binary data.
             # These need to be base64 encoded and then turned into strings
             try:
-                logses._pubkey = _string_to_bytes(data["public_key"])
+                logses._pubkey = _PublicKey.from_data(data["public_key"])
             except:
                 logses._pubkey = None
 
             try:
-                logses._pubcert = _string_to_bytes(data["public_certificate"])
+                logses._pubcert = _PublicKey.from_data(
+                                                data["public_certificate"])
             except:
                 logses._pubcert = None
 

@@ -36,6 +36,8 @@ def _get_key(key):
     """
     if key is None:
         return None
+    elif isinstance(key, _PublicKey()):
+        return key
     elif isinstance(key, dict):
         try:
             key = key["encryption_public_key"]

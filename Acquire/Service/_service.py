@@ -72,6 +72,10 @@ class Service:
         """Return the uuid of this service"""
         return self._uuid
 
+    def uid(self):
+        """Synonym for uuid"""
+        return self.uuid()
+
     def service_type(self):
         """Return the type of this service"""
         return self._service_type
@@ -183,15 +187,13 @@ class Service:
         data["service_url"] = self._service_url
 
         # keys are binary and need to be encoded
-        data["public_certificate"] = _bytes_to_string(self._pubcert.bytes())
-        data["public_key"] = _bytes_to_string(self._pubkey.bytes())
+        data["public_certificate"] = self._pubcert.to_data()
+        data["public_key"] = self._pubkey.to_data()
 
         if password:
             # only serialise private data if a password was provided
-            data["private_certificate"] = _bytes_to_string(
-                                         self._privcert.bytes(password))
-            data["private_key"] = _bytes_to_string(
-                                         self._privkey.bytes(password))
+            data["private_certificate"] = self._privcert.to_data(password)
+            data["private_key"] = self._privkey.to_data(password)
             data["otpsecret"] = _bytes_to_string(self._otpsecret)
             data["admin_password"] = _bytes_to_string(self._admin_password)
 
@@ -208,13 +210,12 @@ class Service:
 
         if password:
             # get the private info...
-            service._privkey = _PrivateKey.read_bytes(
-                                _string_to_bytes(data["private_key"]),
-                                password)
+            service._privkey = _PrivateKey.from_data(data["private_key"],
+                                                     password)
 
-            service._privcert = _PrivateKey.read_bytes(
-                                _string_to_bytes(data["private_certificate"]),
-                                password)
+            service._privcert = _PrivateKey.from_data(
+                                                data["private_certificate"],
+                                                password)
 
             service._otpsecret = _string_to_bytes(data["otpsecret"])
 
@@ -229,10 +230,8 @@ class Service:
         service._service_url = data["service_url"]
         service._canonical_url = service._service_url
 
-        service._pubkey = _PublicKey.read_bytes(
-                                _string_to_bytes(data["public_key"]))
-        service._pubcert = _PublicKey.read_bytes(
-                                _string_to_bytes(data["public_certificate"]))
+        service._pubkey = _PublicKey.from_data(data["public_key"])
+        service._pubcert = _PublicKey.from_data(data["public_certificate"])
 
         if service.is_identity_service():
             from Acquire.Identity import IdentityService as _IdentityService

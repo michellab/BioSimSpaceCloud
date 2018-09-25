@@ -110,8 +110,8 @@ def handler(ctx, data=None, loop=None):
                         "You cannot get the keys for a session "
                         "for which the user has not logged in!")
 
-            public_key = login_session.public_key().to_data()
-            public_cert = login_session.public_certificate().to_data()
+            public_key = login_session.public_key()
+            public_cert = login_session.public_certificate()
 
         status = 0
         message = "Success"
@@ -129,10 +129,10 @@ def handler(ctx, data=None, loop=None):
         return_value["username"] = username
 
     if public_key:
-        return_value["public_key"] = public_key
+        return_value["public_key"] = public_key.to_data()
 
     if public_cert:
-        return_value["public_cert"] = public_cert
+        return_value["public_cert"] = public_cert.to_data()
 
     return pack_return_value(return_value, args)
 
