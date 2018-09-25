@@ -964,6 +964,19 @@ class Account:
         result = self._get_current_balance(bucket)
         return result[3]
 
+    def balance_status(self, bucket=None):
+        """Return the overall balance status as a dictionary
+           with keys 'balance', 'liability', 'receivable' and
+           'spent_today'
+        """
+        result = self._get_current_balance(bucket)
+        d = {}
+        d["balance"] = result[0]
+        d["liability"] = result[1]
+        d["receivable"] = result[2]
+        d["spent_today"] = result[3]
+        return d
+
     def get_overdraft_limit(self):
         """Return the overdraft limit of this account"""
         if self.is_null():

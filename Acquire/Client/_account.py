@@ -1,4 +1,6 @@
 
+import datetime as _datetime
+
 from Acquire.Crypto import PrivateKey as _PrivateKey
 
 from Acquire.Service import call_function as _call_function
@@ -231,6 +233,9 @@ class Account:
         else:
             self._account_uid = None
 
+        self._last_update = None
+        self._description = None
+
     def __str__(self):
         if self.is_null():
             return "Account::null"
@@ -277,6 +282,107 @@ class Account:
         except:
             return False
 
+    def last_update_time(self):
+        """Return the time of the last update of the balance"""
+        return self._last_update
+
+    def _refresh(self, force_update=False):
+        """Refresh the current status of this account. This fetches
+           the latest data, e.g. balance, limits etc. Note that this
+           limits you to refreshing at most once every five seconds...
+        """
+        if self.is_null():
+            self._overdraft_limit = _create_decimal(0)
+            self._balance = _create_decimal(0)
+            self._liability = _create_decimal(0)
+            self._receivable = _create_decimal(0)
+            self._spent_today = _create_decimal(0)
+            return
+
+        if force_update:
+            should_refresh = True
+        else:
+            should_refresh = False
+
+            if self._last_update is None:
+                should_refresh = True
+            else:
+                should_refresh = (_datetime.datetime.now() -
+                                  self._last_update).seconds > 5
+
+        if not should_refresh:
+            return
+
+        if not self.is_logged_in():
+            raise PermissionError(
+                "You cannot get information about this account "
+                "until after the owner has successfully authenticated.")
+
+        auth = _Authorisation(session_uid=self._user.session_uid(),
+                              signing_key=self._user.signing_key())
+
+        args = {"user_uid": self._user.uid(),
+                "identity_url": self._user.identity_service().canonical_url(),
+                "authorisation": auth.to_data(),
+                "account_uid": self.uid()}
+
+        privkey = _PrivateKey()
+
+        result = _call_function(
+                    "%s/get_info" % self._accounting_service.service_url(),
+                    args,
+                    args_key=self._accounting_service.public_key(),
+                    response_key=privkey,
+                    public_cert=self._accounting_service.public_certificate())
+
+        self._overdraft_limit = _create_decimal(result["overdraft_limit"])
+        self._balance = _create_decimal(result["balance"])
+        self._liability = _create_decimal(result["liability"])
+        self._receivable = _create_decimal(result["receivable"])
+        self._spent_today = _create_decimal(result["spent_today"])
+        self._description = result["description"]
+
+        self._last_update = _datetime.datetime.now()
+
+    def description(self):
+        """Return the description of this account"""
+        if not self._description:
+            self._refresh()
+
+        return self._description
+
+    def balance(self, force_update=False):
+        """Return the current balance of this account"""
+        self._refresh(force_update)
+        return self._balance
+
+    def liability(self, force_update=False):
+        """Return the current total liability of this account"""
+        self._refresh(force_update)
+        return self._liability
+
+    def receivable(self, force_update=False):
+        """Return the current total accounts receivable of this account"""
+        self._refresh(force_update)
+        return self._receivable
+
+    def spent_today(self, force_update=False):
+        """Return the current amount spent today on this account"""
+        self._refresh(force_update)
+        return self._spent_today
+
+    def overdraft_limit(self, force_update=False):
+        """Return the overdraft limit of this account"""
+        self._refresh(force_update)
+        return self._overdraft_limit
+
+    def is_beyond_overdraft_limit(self, force_update=False):
+        """Return whether or not the current balance is beyond
+           the overdraft limit
+        """
+        self._refresh(force_update)
+        return (self._balance - self._liability) < -(self._overdraft_limit)
+
     def perform(self, transaction, account_uid, is_provisional=False):
         """Tell this accounting service to apply the transfer described
            in 'transaction' from this account to the account with
@@ -303,7 +409,7 @@ class Account:
             is_provisional = False
 
         args = {"user_uid": self._user.uid(),
-                "identity_url": self._user.identity_service.canonical_url(),
+                "identity_url": self._user.identity_service().canonical_url(),
                 "transaction": transaction.to_data(),
                 "debit_account_uid": str(self._account_uid),
                 "credit_account_uid": str(account_uid),
@@ -339,7 +445,7 @@ class Account:
                               signing_key=self._user.signing_key())
 
         args = {"user_uid": self._user.uid(),
-                "identity_url": self._user.identity_service.canonical_url(),
+                "identity_url": self._user.identity_service().canonical_url(),
                 "credit_note": credit_note.to_data(),
                 "authorisation": auth.to_data()}
 
@@ -375,7 +481,7 @@ class Account:
                               signing_key=self._user.signing_key())
 
         args = {"user_uid": self._user.uid(),
-                "identity_url": self._user.identity_service.canonical_url(),
+                "identity_url": self._user.identity_service().canonical_url(),
                 "credit_note": credit_note.to_data(),
                 "authorisation": auth.to_data()}
 
