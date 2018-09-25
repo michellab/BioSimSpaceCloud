@@ -24,6 +24,8 @@ def handler(ctx, data=None, loop=None):
 
     args = unpack_arguments(data, get_service_private_key)
 
+    account_uid = None
+
     try:
         try:
             user_uid = args["user_uid"]
@@ -65,7 +67,10 @@ def handler(ctx, data=None, loop=None):
 
         # try to create a 'main' account for this user
         accounts = Accounts(user_uid)
-        accounts.create_account(name=account_name, description=description)
+        account = accounts.create_account(name=account_name,
+                                          description=description)
+
+        account_uid = account.uid()
 
         status = 0
         message = "Success"
@@ -74,6 +79,9 @@ def handler(ctx, data=None, loop=None):
         error = e
 
     return_value = create_return_value(status, message, log, error)
+
+    if account_uid:
+        return_value["account_uid"] = account_uid
 
     return pack_return_value(return_value, args)
 
