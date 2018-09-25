@@ -54,7 +54,7 @@ def handler(ctx, data=None, loop=None):
             # get the signing certificate from the login session and
             # validate that the permission object has been signed by
             # the user requesting the logout
-            cert = PublicKey.read_bytes(login_session.public_certificate())
+            cert = login_session.public_certificate()
 
             cert.verify(signature, permission)
 
