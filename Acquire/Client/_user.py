@@ -26,7 +26,7 @@ try:
 except:
     _has_socket = False
 
-__all__ = ["User", "username_to_uuid", "uuid_to_username"]
+__all__ = ["User", "username_to_uid", "uid_to_username"]
 
 
 class _LoginStatus(_Enum):
@@ -69,26 +69,49 @@ def _get_identity_service(identity_url=None):
     return service
 
 
-def uuid_to_username(uuid, identity_url=None):
-    """Function to return the username for the passed uuid"""
+def uid_to_username(user_uid, identity_url=None):
+    """Function to return the username for the passed uid"""
     if identity_url is None:
         identity_url = _get_identity_url()
 
     response = _call_function("%s/whois" % identity_url,
-                              {"uuid": str(uuid)})
+                              {"user_uid": str(user_uid)})
 
     return response["username"]
 
 
-def username_to_uuid(username, identity_url=None):
-    """Function to return the uuid for the passed username"""
+def username_to_uid(username, identity_url=None):
+    """Function to return the uid for the passed username"""
     if identity_url is None:
         identity_url = _get_identity_url()
 
     response = _call_function("%s/whois" % identity_url,
                               {"username": username})
 
-    return response["uuid"]
+    return response["user_uid"]
+
+
+def get_session_keys(username=None, user_uid=None, session_uid=None,
+                     identity_url=None):
+    """Function to return the session keys for the specified user"""
+    if username is None and user_uid is None:
+        raise ValueError("You must supply either the username or user_uid!")
+
+    if session_uid is None:
+        raise ValueError("You must supply a valid UID for a login session")
+
+    if identity_url is None:
+        identity_url = _get_identity_url()
+
+    response = _call_function("%s/whois" % identity_url,
+                              {"username": username,
+                               "user_uid": user_uid,
+                               "session_uid": session_uid})
+
+    return {"username": response["username"],
+            "user_uid": response["user_uid"],
+            "public_key": response["public_key"],
+            "public_cert": response["public_cert"]}
 
 
 class User:
@@ -140,8 +163,8 @@ class User:
            user across all systems
         """
         if self._user_uid is None:
-            self._user_uid = username_to_uuid(self.username(),
-                                              self.identity_url())
+            self._user_uid = username_to_uid(self.username(),
+                                             self.identity_service_url())
         return self._user_uid
 
     def status(self):
