@@ -27,7 +27,7 @@ try:
 except:
     _has_socket = False
 
-__all__ = ["User", "username_to_uid", "uid_to_username"]
+__all__ = ["User", "username_to_uid", "uid_to_username", "get_session_keys"]
 
 
 class _LoginStatus(_Enum):

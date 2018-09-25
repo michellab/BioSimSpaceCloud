@@ -292,10 +292,11 @@ class LoginSession:
         except:
             data["logout_timestamp"] = None
 
-        # the keys and certificate are arbitrary binary data.
-        # These need to be base64 encoded and then turned into strings
-        data["public_key"] = self._pubkey.to_data()
-        data["public_certificate"] = self._pubcert.to_data()
+        if self._pubkey:
+            data["public_key"] = self._pubkey.to_data()
+
+        if self._pubcert:
+            data["public_certificate"] = self._pubcert.to_data()
 
         data["status"] = self._status
         data["ipaddr"] = self._ipaddr
@@ -335,11 +336,16 @@ class LoginSession:
             except:
                 logses._logout_datetime = None
 
-            # the keys and secret are arbitrary binary data.
-            # These need to be base64 encoded and then turned into strings
-            logses._pubkey = _PublicKey.from_data(data["public_key"])
-            logses._pubcert = _PublicKey.from_data(
+            try:
+                logses._pubkey = _PublicKey.from_data(data["public_key"])
+            except:
+                logses._pubkey = None
+
+            try:
+                logses._pubcert = _PublicKey.from_data(
                                             data["public_certificate"])
+            except:
+                logses._pubcert = None
 
             logses._status = data["status"]
             logses._ipaddr = data["ipaddr"]
