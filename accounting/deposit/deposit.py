@@ -46,7 +46,7 @@ def handler(ctx, data=None, loop=None):
         except:
             try:
                 transaction = Transaction(
-                                args["deposit"],
+                                args["value"],
                                 "Deposit on %s" % datetime.datetime.now())
             except:
                 transaction = None
@@ -55,38 +55,44 @@ def handler(ctx, data=None, loop=None):
             raise PermissionError("You must supply a valid authorisation "
                                   "to deposit funds into your account")
 
-        authorisation.verify()
-        user_uid = authorisation.user_uid()
+        if transaction is None or transaction.is_null():
+            raise ValueError("You must supply a valid transaction that "
+                             "represents the deposit")
 
-        # load the account from which the transaction will be performed
-        bucket = login_to_service_account()
-        accounts = Accounts(user_uid)
+        if transaction.value() > 0:
+            authorisation.verify()
+            user_uid = authorisation.user_uid()
 
-        # deposits are made by transferring funds from the user's
-        # 'billing' account to their 'deposits' account.
-        deposit_account = accounts.create_account(
-                            "deposits", "Deposit account",
-                            bucket=bucket)
+            # load the account from which the transaction will be performed
+            bucket = login_to_service_account()
+            accounts = Accounts(user_uid)
 
-        billing_account = accounts.create_account(
-                            "billing", "Billing account",
-                            overdraft_limit=150, bucket=bucket)
+            # deposits are made by transferring funds from the user's
+            # 'billing' account to their 'deposits' account.
+            deposit_account = accounts.create_account(
+                                "deposits", "Deposit account",
+                                bucket=bucket)
 
-        billing_balance = billing_account.balance() - transaction.value()
+            billing_account = accounts.create_account(
+                                "billing", "Billing account",
+                                overdraft_limit=150, bucket=bucket)
 
-        if billing_balance < -50.0:
-            # there are sufficient funds that need to be transferred that
-            # it is worth really charging the user
-            invoice_user = user_uid
-            invoice_value = billing_balance
+            billing_balance = billing_account.balance() - transaction.value()
 
-        # we have enough information to perform the transaction
-        transaction_records = Ledger.perform(transactions=transaction,
-                                             debit_account=billing_account,
-                                             credit_account=deposit_account,
-                                             authorisation=authorisation,
-                                             is_provisional=False,
-                                             bucket=bucket)
+            if billing_balance < -50.0:
+                # there are sufficient funds that need to be transferred that
+                # it is worth really charging the user
+                invoice_user = user_uid
+                invoice_value = billing_balance
+
+            # we have enough information to perform the transaction
+            transaction_records = Ledger.perform(
+                                    transactions=transaction,
+                                    debit_account=billing_account,
+                                    credit_account=deposit_account,
+                                    authorisation=authorisation,
+                                    is_provisional=False,
+                                    bucket=bucket)
 
         status = 0
         message = "Success"
