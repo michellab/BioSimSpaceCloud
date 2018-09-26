@@ -48,7 +48,7 @@ class Authorisation:
             self._identity_url = user.identity_service().canonical_url()
             self._auth_timestamp = _datetime.datetime.now().timestamp()
 
-            message = self._get_message(account.uid())
+            message = self._get_message(account_uid)
             self._signature = user.signing_key().sign(message)
 
             self._last_validated_time = _datetime.datetime.now()
@@ -163,7 +163,7 @@ class Authorisation:
 
         return ((now -
                 _datetime.datetime.fromtimestamp(
-                    self._auth_timestamp)).second > stale_time)
+                    self._auth_timestamp)).seconds > stale_time)
 
     def is_verified(self, refresh_time=3600, stale_time=7200):
         """Return whether or not this authorisation has been verified. Note
@@ -180,7 +180,7 @@ class Authorisation:
         now = _datetime.datetime.now()
 
         if self._last_validated_time is not None:
-            if (now - self._last_validated_time).second < refresh_time:
+            if (now - self._last_validated_time).seconds < refresh_time:
                 # no need to re-validate
                 return not self.is_stale(stale_time)
 
