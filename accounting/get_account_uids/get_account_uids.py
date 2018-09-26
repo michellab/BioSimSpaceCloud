@@ -28,11 +28,6 @@ def handler(ctx, data=None, loop=None):
 
     try:
         try:
-            user_uid = str(args["user_uid"])
-        except:
-            user_uid = None
-
-        try:
             account_name = str(args["account_name"])
         except:
             account_name = None
@@ -43,33 +38,29 @@ def handler(ctx, data=None, loop=None):
             authorisation = None
 
         try:
-            identity_url = str(args["identity_url"])
+            user_uid = str(args["user_uid"])
         except:
-            identity_url = None
-
-        if user_uid is None:
-            raise ListAccountsError("You must supply the user_uid")
+            user_uid = None
 
         is_authorised = False
 
-        if authorisation is not None and identity_url is not None:
-            identity_service = get_trusted_service_info(identity_url)
+        if authorisation is not None:
+            if not isinstance(authorisation, Authorisation):
+                raise TypeError("All authorisations must be of type "
+                                "Authorisation")
 
-            if not identity_service.is_identity_service():
-                raise ListAccountsError("Cannot add as '%s' is not an "
-                                        "identit service" % (identity_url))
+            if user_uid:
+                if user_uid == authorisation.user_uid():
+                    authorisation.verify()
+                    is_authorised = True
+            else:
+                authorisation.verify()
+                user_uid = authorisation.user_uid()
+                is_authorised = True
 
-            # check that user exists in the identity service and get the
-            # signing key associated with the passed session UID
-            response = identity_service.whois(
-                                    user_uid=user_uid,
-                                    session_uid=authorisation.session_uid())
-
-            # check that this authorisation has been correctly
-            # signed by the user
-            authorisation.verify(response["public_cert"])
-
-            is_authorised = True
+        if user_uid is None:
+            raise ValueError("You must supply either an Authorisation or the "
+                             "user_uid")
 
         # try to create a 'main' account for this user
         account_uids = {}

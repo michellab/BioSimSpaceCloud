@@ -28,20 +28,6 @@ def handler(ctx, data=None, loop=None):
 
     try:
         try:
-            user_uid = args["user_uid"]
-        except:
-            user_uid = None
-
-        try:
-            username = args["username"]
-        except:
-            username = None
-
-        if user_uid is None and username is None:
-            raise CreateAccountError("You must supply either the username "
-                                     "or user_uid")
-
-        try:
             account_name = args["account_name"]
         except:
             account_name = None
@@ -61,24 +47,14 @@ def handler(ctx, data=None, loop=None):
             raise CreateAccountError("You must supply both an account name "
                                      "and a description to create an account")
 
-        identity_url = args["identity_url"]
-        identity_service = get_trusted_service_info(identity_url)
+        if not isinstance(authorisation, Authorisation):
+            raise TypeError("The passed authorisation must be of type "
+                            "Authorisation")
 
-        if not identity_service.is_identity_service():
-            raise CreateAccountError("Cannot add as '%s' is not an identity "
-                                     "service" % (identity_url))
-
-        # check that user exists in the identity service and get the
-        # signing key associated with the passed session UID
-        response = identity_service.whois(
-                                    user_uid=user_uid,
-                                    session_uid=authorisation.session_uid())
-
-        # check that this authorisation has been correctly signed by the user
-        authorisation.verify(response["public_cert"])
+        authorisation.verify()
 
         # try to create a 'main' account for this user
-        accounts = Accounts(user_uid)
+        accounts = Accounts(authorisation.user_uid())
         account = accounts.create_account(name=account_name,
                                           description=description)
 

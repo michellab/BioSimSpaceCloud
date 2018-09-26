@@ -27,15 +27,9 @@ def handler(ctx, data=None, loop=None):
 
     args = unpack_arguments(data, get_service_private_key)
 
-    account = None
     transaction_records = None
 
     try:
-        try:
-            user_uid = str(args["user_uid"])
-        except:
-            user_uid = None
-
         try:
             debit_account_uid = str(args["debit_account_uid"])
         except:
@@ -50,11 +44,6 @@ def handler(ctx, data=None, loop=None):
             authorisation = Authorisation.from_data(args["authorisation"])
         except:
             authorisation = None
-
-        try:
-            identity_url = str(args["identity_url"])
-        except:
-            identity_url = None
 
         try:
             transaction = Transaction.from_data(args["transaction"])
@@ -88,21 +77,12 @@ def handler(ctx, data=None, loop=None):
                                    "transaction is provisional using "
                                    "is_provisional")
 
-        identity_service = get_trusted_service_info(identity_url)
+        if authorisation is None:
+            raise PermissionError("You must supply a valid authorisation "
+                                  "to perform transactions between accounts")
 
-        if not identity_service.is_identity_service():
-            raise TransactionError("Cannot perform transaction as '%s' is not "
-                                   "an identity service" % (identity_url))
-
-        # check that user exists in the identity service and get the
-        # signing key associated with the passed session UID
-        response = identity_service.whois(
-                                user_uid=user_uid,
-                                session_uid=authorisation.session_uid())
-
-        # check that this authorisation has been correctly
-        # signed by the user
-        authorisation.verify(response["public_cert"])
+        authorisation.verify(account_uid=debit_account_uid)
+        user_uid = authorisation.user_uid()
 
         # load the account from which the transaction will be performed
         bucket = login_to_service_account()
@@ -135,10 +115,6 @@ def handler(ctx, data=None, loop=None):
         error = e
 
     return_value = create_return_value(status, message, log, error)
-
-    if account:
-        return_value["description"] = account.description()
-        return_value["overdraft_limit"] = str(account.get_overdraft_limit())
 
     if transaction_records:
         for i in range(0, len(transaction_records)):

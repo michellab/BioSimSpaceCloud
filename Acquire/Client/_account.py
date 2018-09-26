@@ -66,11 +66,8 @@ def _get_account_uid(user, account_name, accounting_service=None,
             "account_name": str(account_name)}
 
     if user.is_logged_in():
-        auth = _Authorisation(session_uid=user.session_uid(),
-                              signing_key=user.signing_key())
-
+        auth = _Authorisation(user=user)
         args["authorisation"] = auth.to_data()
-        args["identity_url"] = user.identity_service().canonical_url()
 
     privkey = _PrivateKey()
 
@@ -107,12 +104,8 @@ def _get_account_uids(user, accounting_service=None, accounting_url=None):
             "You can only get information about about a user's accounts "
             "if they have authenticated their login")
 
-    auth = _Authorisation(session_uid=user.session_uid(),
-                          signing_key=user.signing_key())
-
-    args = {"user_uid": user.uid(),
-            "authorisation": auth.to_data(),
-            "identity_url": user.identity_service().canonical_url()}
+    auth = _Authorisation(user=user)
+    args = {"authorisation": auth.to_data()}
 
     privkey = _PrivateKey()
 
@@ -172,13 +165,10 @@ def create_account(user, account_name, description=None,
             "'%s' as the user login has not been authenticated." %
             (account_name, user.name()))
 
-    authorisation = _Authorisation(session_uid=user.session_uid(),
-                                   signing_key=user.signing_key())
+    authorisation = _Authorisation(user=user)
 
-    args = {"user_uid": user.uid(),
-            "account_name": str(account_name),
-            "authorisation": authorisation.to_data(),
-            "identity_url": user.identity_service().canonical_url()}
+    args = {"account_name": str(account_name),
+            "authorisation": authorisation.to_data()}
 
     if description is None:
         args["description"] = "Account '%s' for '%s'" % \
@@ -319,12 +309,9 @@ class Account:
                 "You cannot get information about this account "
                 "until after the owner has successfully authenticated.")
 
-        auth = _Authorisation(session_uid=self._user.session_uid(),
-                              signing_key=self._user.signing_key())
+        auth = _Authorisation(account_uid=self._account_uid, user=self._user)
 
-        args = {"user_uid": self._user.uid(),
-                "identity_url": self._user.identity_service().canonical_url(),
-                "authorisation": auth.to_data(),
+        args = {"authorisation": auth.to_data(),
                 "account_name": self.name()}
 
         privkey = _PrivateKey()
@@ -408,17 +395,14 @@ class Account:
         if transaction.is_null():
             return None
 
-        auth = _Authorisation(session_uid=self._user.session_uid(),
-                              signing_key=self._user.signing_key())
+        auth = _Authorisation(account_uid=self._account_uid, user=self._user)
 
         if is_provisional:
             is_provisional = True
         else:
             is_provisional = False
 
-        args = {"user_uid": self._user.uid(),
-                "identity_url": self._user.identity_service().canonical_url(),
-                "transaction": transaction.to_data(),
+        args = {"transaction": transaction.to_data(),
                 "debit_account_uid": str(self.uid()),
                 "credit_account_uid": str(account.uid()),
                 "is_provisional": is_provisional,
@@ -449,12 +433,9 @@ class Account:
                 "account! %s versus %s" % (credit_note.account_uid(),
                                            self.uid()))
 
-        auth = _Authorisation(session_uid=self._user.session_uid(),
-                              signing_key=self._user.signing_key())
+        auth = _Authorisation(account_uid=self._account_uid, user=self._user)
 
-        args = {"user_uid": self._user.uid(),
-                "identity_url": self._user.identity_service().canonical_url(),
-                "credit_note": credit_note.to_data(),
+        args = {"credit_note": credit_note.to_data(),
                 "authorisation": auth.to_data()}
 
         if receipted_value is not None:
@@ -485,12 +466,9 @@ class Account:
                 "account! %s versus %s" % (credit_note.account_uid(),
                                            self.uid()))
 
-        auth = _Authorisation(session_uid=self._user.session_uid(),
-                              signing_key=self._user.signing_key())
+        auth = _Authorisation(account_uid=self._account_uid, user=self._user)
 
-        args = {"user_uid": self._user.uid(),
-                "identity_url": self._user.identity_service().canonical_url(),
-                "credit_note": credit_note.to_data(),
+        args = {"credit_note": credit_note.to_data(),
                 "authorisation": auth.to_data()}
 
         privkey = _PrivateKey()

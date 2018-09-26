@@ -30,11 +30,6 @@ def handler(ctx, data=None, loop=None):
 
     try:
         try:
-            user_uid = str(args["user_uid"])
-        except:
-            user_uid = None
-
-        try:
             account_name = str(args["account_name"])
         except:
             account_name = None
@@ -44,36 +39,20 @@ def handler(ctx, data=None, loop=None):
         except:
             authorisation = None
 
-        try:
-            identity_url = str(args["identity_url"])
-        except:
-            identity_url = None
-
         if account_name is None:
             raise AccountError("You must supply the account_name")
 
-        if user_uid is None:
-            raise AccountError("You must supply the user_uid")
-
-        identity_service = get_trusted_service_info(identity_url)
-
-        if not identity_service.is_identity_service():
-            raise AccountError("Cannot add as '%s' is not an "
-                               "identity service" % (identity_url))
-
-        # check that user exists in the identity service and get the
-        # signing key associated with the passed session UID
-        response = identity_service.whois(
-                                user_uid=user_uid,
-                                session_uid=authorisation.session_uid())
-
-        # check that this authorisation has been correctly
-        # signed by the user
-        authorisation.verify(response["public_cert"])
+        if authorisation is None:
+            raise AccountError("You must supply a valid authorisation")
 
         # load the account
         bucket = login_to_service_account()
-        account = Accounts(user_uid).get_account(account_name, bucket=bucket)
+        account = Accounts(authorisation.user_uid()).get_account(account_name,
+                                                                 bucket=bucket)
+
+        # validate the authorisation for this account
+        authorisation.verify(account_uid=account.uid())
+
         balance_status = account.balance_status(bucket=bucket)
 
         status = 0
