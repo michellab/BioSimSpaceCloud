@@ -21,7 +21,11 @@ def _create_decimal(value):
     """Create a decimal from the passed value. This is a decimal that
        has 6 decimal places and is clamped between 0 <= value < 1 quadrillion
     """
-    d = _Decimal("%.6f" % value, _getcontext())
+    try:
+        d = _Decimal("%.6f" % value, _getcontext())
+    except:
+        value = _Decimal(value, _getcontext())
+        d = _Decimal("%.6f" % value, _getcontext())
 
     if d < 0:
         raise TransactionError(
