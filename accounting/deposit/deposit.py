@@ -100,6 +100,11 @@ def handler(ctx, data=None, loop=None):
     return_value = create_return_value(status, message, log, error)
 
     if transaction_records:
+        try:
+            transaction_records[0]
+        except:
+            transaction_records = [transaction_records]
+
         for i in range(0, len(transaction_records)):
             transaction_records[i] = transaction_records[i].to_data()
 
