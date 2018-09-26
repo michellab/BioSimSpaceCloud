@@ -11,12 +11,14 @@ class Authorisation:
     """This class holds the information needed to authorise a transaction
        in an account
     """
-    def __init__(self, account=None, account_uid=None, user=None):
+    def __init__(self, account=None, account_uid=None, user=None,
+                 testing_key=None):
         """Create an authorisation for the passed account (or account_uid)
            that is authorised by the passed user (who must be authenticated)
-        """
 
-        account_uid = None
+           If testing_key is passed, then this authorisation is being
+           tested as part of the unit tests
+        """
 
         if account is not None:
             account_uid = account.uid()
@@ -27,7 +29,7 @@ class Authorisation:
         self._last_validated_time = None
 
         if account_uid is not None:
-            if user is None:
+            if user is None and testing_key is None:
                 raise ValueError(
                     "You must pass in an authenticated user who will "
                     "provide authorisation for this account")
@@ -52,6 +54,22 @@ class Authorisation:
             self._signature = user.signing_key().sign(message)
 
             self._last_validated_time = _datetime.datetime.now()
+            self._last_verified_uid = account_uid
+            self._last_verified_key = None
+
+        elif testing_key is not None:
+            self._user_uid = "some user uid"
+            self._session_uid = "some session uid"
+            self._identity_url = "some identity_url"
+            self._auth_timestamp = _datetime.datetime.now().timestamp()
+            self._is_testing = True
+
+            message = self._get_message(account_uid)
+            self._signature = testing_key.sign(message)
+
+            self._last_validated_time = _datetime.datetime.now()
+            self._last_verified_uid = account_uid
+            self._last_verified_key = testing_key.public_key()
 
     def is_null(self):
         """Return whether or not this authorisation is null"""
@@ -165,7 +183,8 @@ class Authorisation:
                 _datetime.datetime.fromtimestamp(
                     self._auth_timestamp)).seconds > stale_time)
 
-    def is_verified(self, refresh_time=3600, stale_time=7200):
+    def is_verified(self, refresh_time=3600, stale_time=7200,
+                    account_uid=None, testing_key=None):
         """Return whether or not this authorisation has been verified. Note
            that this will cache any verification for 'refresh_time' (in
            seconds), but re-verification can be forced if 'force' is True.
@@ -180,6 +199,12 @@ class Authorisation:
         now = _datetime.datetime.now()
 
         if self._last_validated_time is not None:
+            if self._last_verified_uid != account_uid:
+                return False
+
+            if self._last_verified_key != testing_key:
+                return False
+
             if (now - self._last_validated_time).seconds < refresh_time:
                 # no need to re-validate
                 return not self.is_stale(stale_time)
@@ -187,7 +212,7 @@ class Authorisation:
         return False
 
     def verify(self, account_uid=None, refresh_time=3600, stale_time=7200,
-               force=False):
+               force=False, testing_key=None):
         """Verify that this is a valid authorisation provided by the
            user for the account with passed 'account_uid'. This will
            cache the verification for 'refresh_time' (in seconds), but
@@ -197,6 +222,9 @@ class Authorisation:
            authorisation will be considered stale (and thus not valid).
            By default this is 7200 seconds (2 hours), meaning that the
            authorisation must be used within 2 hours to be valid.
+
+           If 'testing_key' is passed, then this object is being
+           tested as part of the unit tests
         """
 
         if self.is_null():
@@ -207,8 +235,28 @@ class Authorisation:
 
         if not force:
             if self.is_verified(refresh_time=refresh_time,
-                                stale_time=stale_time):
+                                stale_time=stale_time,
+                                account_uid=account_uid,
+                                testing_key=testing_key):
                 return
+
+        if testing_key is not None:
+            if not self._is_testing:
+                raise PermissionError(
+                    "You cannot pass a test key to a non-testing "
+                    "Authorisation")
+
+            message = self._get_message(account_uid)
+
+            try:
+                testing_key.verify(self._signature, message)
+            except Exception as e:
+                raise PermissionError(str(e))
+
+            self._last_validated_time = _datetime.datetime.now()
+            self._last_verified_uid = account_uid
+            self._last_verified_key = testing_key
+            return
 
         try:
             # we need to get the public signing key for this session
@@ -231,13 +279,26 @@ class Authorisation:
             response["public_cert"].verify(self._signature, message)
 
             self._last_validated_time = _datetime.datetime.now()
+            self._last_verified_uid = account_uid
+            self._last_verified_key = None
         except PermissionError:
             raise
         except Exception as e:
-            raise PermissionError("Cannot verify the authorisation: %s" %
-                                  str(e))
+            if account_uid:
+                raise PermissionError(
+                    "Cannot verify the authorisation for account %s: %s" %
+                    (account_uid, str(e)))
+            else:
+                raise PermissionError(
+                    "Cannot verify the authorisation: %s" %
+                    (str(e)))
         except:
-            raise PermissionError("Cannot verify the authorisation")
+            if account_uid:
+                raise PermissionError(
+                    "Cannot verify the authorisation for account %s" %
+                    account_uid)
+            else:
+                raise PermissionError("Cannot verify the authorisation")
 
     @staticmethod
     def from_data(data):
@@ -251,6 +312,9 @@ class Authorisation:
             auth._auth_timestamp = data["auth_timestamp"]
             auth._signature = _string_to_bytes(data["signature"])
             auth._last_validated_time = None
+
+            if "is_testing" in data:
+                auth._is_testing = data["is_testing"]
 
         return auth
 
@@ -266,5 +330,10 @@ class Authorisation:
         data["identity_url"] = str(self._identity_url)
         data["auth_timestamp"] = self._auth_timestamp
         data["signature"] = _bytes_to_string(self._signature)
+
+        try:
+            data["is_testing"] = self._is_testing
+        except:
+            pass
 
         return data
