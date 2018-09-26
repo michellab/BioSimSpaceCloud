@@ -7,6 +7,7 @@ from Acquire.Service import call_function as _call_function
 from Acquire.Service import Service as _Service
 
 from Acquire.Accounting import Authorisation as _Authorisation
+from Acquire.Accounting import Transaction as _Transaction
 from Acquire.Accounting import create_decimal as _create_decimal
 
 from ._errors import LoginError, AccountError
@@ -383,11 +384,10 @@ class Account:
         self._refresh(force_update)
         return (self._balance - self._liability) < -(self._overdraft_limit)
 
-    def perform(self, transaction, account_uid, is_provisional=False):
+    def perform(self, transaction, account, is_provisional=False):
         """Tell this accounting service to apply the transfer described
-           in 'transaction' from this account to the account with
-           passed 'account_uid'. Note that
-           the user must have logged into this account so that they
+           in 'transaction' from this account to the passed account. Note
+           that the user must have logged into this account so that they
            have authorised this transaction. This returns the record
            of this transaction
         """
@@ -395,10 +395,18 @@ class Account:
             raise PermissionError("You cannot transfer value from '%s' to "
                                   "'%s' because you have not authenticated "
                                   "the user who owns this account" %
-                                  (str(self), str(account_uid)))
+                                  (str(self), str(account)))
+
+        if not isinstance(transaction, _Transaction):
+            raise TypeError("The passed transaction must be of type "
+                            "Transaction")
+
+        if not isinstance(account, Account):
+            raise TypeError("The passed credit account must be of type "
+                            "Account")
 
         if transaction.is_null():
-            return
+            return None
 
         auth = _Authorisation(session_uid=self._user.session_uid(),
                               signing_key=self._user.signing_key())
@@ -411,8 +419,8 @@ class Account:
         args = {"user_uid": self._user.uid(),
                 "identity_url": self._user.identity_service().canonical_url(),
                 "transaction": transaction.to_data(),
-                "debit_account_uid": str(self._account_uid),
-                "credit_account_uid": str(account_uid),
+                "debit_account_uid": str(self.uid()),
+                "credit_account_uid": str(account.uid()),
                 "is_provisional": is_provisional,
                 "authorisation": auth.to_data()}
 
@@ -425,7 +433,7 @@ class Account:
                     response_key=privkey,
                     public_cert=self._accounting_service.public_certificate())
 
-        return result["transaction_record"]
+        return result["transaction_records"]
 
     def receipt(self, credit_note, receipted_value=None):
         """Receipt the passed credit note that contains a request to

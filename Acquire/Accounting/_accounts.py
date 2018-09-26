@@ -16,7 +16,11 @@ __all__ = ["Accounts"]
 
 class Accounts:
     """This class provides the interface to grouping and ungrouping
-       accounts, and associating them with users and services
+       accounts, and associating them with users and services. An account
+       can belong to multiple groups. Authorisation of access to accounts
+       is based on which group they are in. Typically the groups will
+       refer to users, e.g. all of the accounts for a user will be in the
+       user's group, and can then be authorised by authorising the user
     """
     def __init__(self, group=None):
         """Construct an interface to the group of accounts called 'group'.
@@ -73,6 +77,24 @@ class Accounts:
                                "group '%s'" % (name, self.group()))
 
         return _Account(uid=account_uid, bucket=bucket)
+
+    def contains(self, account, bucket=None):
+        """Return whether or not this group contains the passed account"""
+        if not isinstance(account, _Account):
+            raise TypeError("The passed account must be of type Account")
+
+        if bucket is None:
+            bucket = _login_to_service_account()
+
+        # read the UID of the account in this group that matches the
+        # passed account's name
+        try:
+            account_uid = _ObjectStore.get_string_object(
+                            bucket, self._account_key(account.name()))
+        except:
+            account_uid = None
+
+        return account.uid() == account_uid
 
     def create_account(self, name, description=None, bucket=None):
         """Create a new account called 'name' in this group. This will raise
