@@ -22,10 +22,11 @@ def create_decimal(value):
        has 6 decimal places and is clamped between
        -1 quadrillion < value < 1 quadrillion
     """
-    if isinstance(value, str):
+    try:
+        d = _Decimal("%.6f" % value, get_decimal_context())
+    except:
         value = _Decimal(value, get_decimal_context())
-
-    d = _Decimal("%.6f" % value, get_decimal_context())
+        d = _Decimal("%.6f" % value, get_decimal_context())
 
     if d <= -1000000000000:
         raise AccountError(
