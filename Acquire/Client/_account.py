@@ -12,7 +12,8 @@ from Acquire.Accounting import create_decimal as _create_decimal
 
 from ._errors import LoginError, AccountError
 
-__all__ = ["Account", "get_accounts", "create_account"]
+__all__ = ["Account", "get_accounts", "create_account",
+           "deposit", "withdraw"]
 
 
 def _get_accounting_url():
@@ -196,6 +197,47 @@ def create_account(user, account_name, description=None,
     return account
 
 
+def deposit(user, value, description=None,
+            accounting_service=None, accounting_url=None):
+    """Tell the system to allow the user to deposit 'value' from
+       their (real) financial account to the system accounts
+    """
+    authorisation = _Authorisation(user=user)
+
+    if accounting_service is None:
+        accounting_service = _get_accounting_service(accounting_url)
+    else:
+        if not accounting_service.is_accounting_service():
+            raise TypeError("You can only deposit funds using an "
+                            "accounting service!")
+
+    args = {"authorisation": authorisation.to_data()}
+
+    if description is None:
+        args["value"] = str(_create_decimal(value))
+    else:
+        args["transaction"] = _Transaction(value, description).to_data()
+
+    privkey = _PrivateKey()
+
+    result = _call_function(
+                    "%s/deposit" % accounting_service.service_url(),
+                    args=args,
+                    args_key=accounting_service.public_key(),
+                    response_key=privkey,
+                    public_cert=accounting_service.public_certificate())
+
+    return result
+
+
+def withdraw(user, value, description=None,
+             accounting_service=None, accounting_url=None):
+    """Tell the system to allow the user to withdraw 'value' from
+       the system accounts back to their (real) financial account
+    """
+    raise NotImplementedError("withdrawals are not yet implemented!")
+
+
 class Account:
     """This is the client-side handle that is used to interact with
        an account on the service. If the account is created with a valid
@@ -371,7 +413,7 @@ class Account:
         self._refresh(force_update)
         return (self._balance - self._liability) < -(self._overdraft_limit)
 
-    def perform(self, transaction, account, is_provisional=False):
+    def perform(self, transaction, credit_account, is_provisional=False):
         """Tell this accounting service to apply the transfer described
            in 'transaction' from this account to the passed account. Note
            that the user must have logged into this account so that they
@@ -382,13 +424,13 @@ class Account:
             raise PermissionError("You cannot transfer value from '%s' to "
                                   "'%s' because you have not authenticated "
                                   "the user who owns this account" %
-                                  (str(self), str(account)))
+                                  (str(self), str(credit_account)))
 
         if not isinstance(transaction, _Transaction):
             raise TypeError("The passed transaction must be of type "
                             "Transaction")
 
-        if not isinstance(account, Account):
+        if not isinstance(credit_account, Account):
             raise TypeError("The passed credit account must be of type "
                             "Account")
 
@@ -404,7 +446,7 @@ class Account:
 
         args = {"transaction": transaction.to_data(),
                 "debit_account_uid": str(self.uid()),
-                "credit_account_uid": str(account.uid()),
+                "credit_account_uid": str(credit_account.uid()),
                 "is_provisional": is_provisional,
                 "authorisation": auth.to_data()}
 

@@ -1,0 +1,7 @@
+name: node-accounting-deposit
+version: 0.0.1
+runtime: docker
+type: sync
+format: json
+timeout: 20
+path: /deposit

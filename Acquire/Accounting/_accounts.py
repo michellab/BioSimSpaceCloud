@@ -96,9 +96,10 @@ class Accounts:
 
         return account.uid() == account_uid
 
-    def create_account(self, name, description=None, bucket=None):
-        """Create a new account called 'name' in this group. This will raise
-           an exception if an account with this name already exists
+    def create_account(self, name, description=None,
+                       overdraft_limit=None, bucket=None):
+        """Create a new account called 'name' in this group. This will
+           return the existing account if it already exists
         """
         if name is None:
             raise ValueError("You must pass a name of the new account")
@@ -107,6 +108,20 @@ class Accounts:
 
         if bucket is None:
             bucket = _login_to_service_account()
+
+        try:
+            account_uid = _ObjectStore.get_string_object(bucket, account_key)
+        except:
+            account_uid = None
+
+        if account_uid is not None:
+            # this account already exists - just return it
+            account = _Account(uid=account_uid, bucket=bucket)
+
+            if overdraft_limit is not None:
+                account.set_overdraft_limit(overdraft_limit, bucket=bucket)
+
+            return account
 
         # make sure that no-one has created this account before
         m = _Mutex(account_key, timeout=600, lease_time=600, bucket=bucket)
@@ -120,6 +135,10 @@ class Accounts:
             m.unlock()
             # this account already exists - just return it
             account = _Account(uid=account_uid, bucket=bucket)
+
+            if overdraft_limit is not None:
+                account.set_overdraft_limit(overdraft_limit, bucket=bucket)
+
             return account
 
         # write a temporary UID to the object store so that we
@@ -145,6 +164,9 @@ class Accounts:
                 pass
 
             raise
+
+        if overdraft_limit is not None:
+            account.set_overdraft_limit(overdraft_limit, bucket=bucket)
 
         _ObjectStore.set_string_object(bucket, account_key, account.uid())
 

@@ -984,7 +984,7 @@ class Account:
 
         return self._overdraft_limit
 
-    def set_overdraft_limit(self, limit):
+    def set_overdraft_limit(self, limit, bucket=None):
         """Set the overdraft limit of this account to 'limit'"""
         if self.is_null():
             return
@@ -1007,7 +1007,7 @@ class Account:
                                    "balance!" % (limit))
             else:
                 # save the new limit to the object store
-                self._save_account()
+                self._save_account(bucket)
 
     def is_beyond_overdraft_limit(self, bucket=None):
         """Return whether or not the current balance is beyond
