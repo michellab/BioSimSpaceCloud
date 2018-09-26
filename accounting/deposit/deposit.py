@@ -44,12 +44,9 @@ def handler(ctx, data=None, loop=None):
         try:
             transaction = Transaction.from_data(args["transaction"])
         except:
-            try:
-                transaction = Transaction(
-                                args["value"],
-                                "Deposit on %s" % datetime.datetime.now())
-            except:
-                transaction = None
+            transaction = Transaction(
+                            args["value"],
+                            "Deposit on %s" % datetime.datetime.now())
 
         if authorisation is None:
             raise PermissionError("You must supply a valid authorisation "
