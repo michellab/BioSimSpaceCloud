@@ -24,7 +24,7 @@ class PairedNote:
 
     def __str__(self):
         return "PairedNote(debit_note=%s, credit_note=%s)" % \
-                    (str(self._debit_note),str(self._credit_note))
+                    (str(self._debit_note), str(self._credit_note))
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):

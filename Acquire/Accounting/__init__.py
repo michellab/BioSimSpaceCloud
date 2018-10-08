@@ -11,7 +11,6 @@ from ._errors import *
 from ._transaction import *
 from ._transactionrecord import *
 from ._accounting_service import *
-from ._authorisation import *
 from ._creditnote import *
 from ._debitnote import *
 from ._lineitem import *

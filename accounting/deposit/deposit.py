@@ -7,8 +7,9 @@ from Acquire.Service import unpack_arguments, get_service_private_key, \
                             get_trusted_service_info, login_to_service_account
 from Acquire.Service import create_return_value, pack_return_value
 
-from Acquire.Accounting import Account, Accounts, Authorisation, \
-                               Transaction, Ledger
+from Acquire.Accounting import Account, Accounts, Transaction, Ledger
+
+from Acquire.Identity import Authorisation
 
 
 class TransactionError(Exception):

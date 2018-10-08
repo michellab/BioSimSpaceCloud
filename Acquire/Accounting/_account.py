@@ -9,8 +9,9 @@ from Acquire.Service import login_to_service_account \
                         as _login_to_service_account
 from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
+from Acquire.Identity import Authorisation as _Authorisation
+
 from ._transaction import Transaction as _Transaction
-from ._authorisation import Authorisation as _Authorisation
 from ._debitnote import DebitNote as _DebitNote
 from ._creditnote import CreditNote as _CreditNote
 from ._lineitem import LineItem as _LineItem

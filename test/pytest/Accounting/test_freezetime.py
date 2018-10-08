@@ -5,8 +5,10 @@ import datetime
 from threading import Thread, RLock
 
 from Acquire.Accounting import Account, Transaction, TransactionRecord, \
-                               Ledger, Authorisation, Receipt, Refund, \
+                               Ledger, Receipt, Refund, \
                                create_decimal
+
+from Acquire.Identity import Authorisation
 
 from Acquire.Service import login_to_service_account
 

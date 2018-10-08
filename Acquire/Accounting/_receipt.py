@@ -1,8 +1,9 @@
 
 from ._decimal import create_decimal as _create_decimal
 from ._creditnote import CreditNote as _CreditNote
-from ._authorisation import Authorisation as _Authorisation
 from ._transaction import Transaction as _Transaction
+
+from Acquire.Identity import Authorisation as _Authorisation
 
 __all__ = ["Receipt"]
 

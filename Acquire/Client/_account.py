@@ -6,7 +6,8 @@ from Acquire.Crypto import PrivateKey as _PrivateKey
 from Acquire.Service import call_function as _call_function
 from Acquire.Service import Service as _Service
 
-from Acquire.Accounting import Authorisation as _Authorisation
+from Acquire.Identity import Authorisation as _Authorisation
+
 from Acquire.Accounting import Transaction as _Transaction
 from Acquire.Accounting import create_decimal as _create_decimal
 
@@ -351,7 +352,7 @@ class Account:
                 "You cannot get information about this account "
                 "until after the owner has successfully authenticated.")
 
-        auth = _Authorisation(account_uid=self._account_uid, user=self._user)
+        auth = _Authorisation(resource=self._account_uid, user=self._user)
 
         args = {"authorisation": auth.to_data(),
                 "account_name": self.name()}
@@ -437,7 +438,7 @@ class Account:
         if transaction.is_null():
             return None
 
-        auth = _Authorisation(account_uid=self._account_uid, user=self._user)
+        auth = _Authorisation(resource=self._account_uid, user=self._user)
 
         if is_provisional:
             is_provisional = True
@@ -475,7 +476,7 @@ class Account:
                 "account! %s versus %s" % (credit_note.account_uid(),
                                            self.uid()))
 
-        auth = _Authorisation(account_uid=self._account_uid, user=self._user)
+        auth = _Authorisation(resource=self._account_uid, user=self._user)
 
         args = {"credit_note": credit_note.to_data(),
                 "authorisation": auth.to_data()}
@@ -508,7 +509,7 @@ class Account:
                 "account! %s versus %s" % (credit_note.account_uid(),
                                            self.uid()))
 
-        auth = _Authorisation(account_uid=self._account_uid, user=self._user)
+        auth = _Authorisation(resource=self._account_uid, user=self._user)
 
         args = {"credit_note": credit_note.to_data(),
                 "authorisation": auth.to_data()}

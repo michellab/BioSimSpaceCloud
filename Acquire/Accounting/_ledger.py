@@ -8,8 +8,9 @@ from Acquire.Service import login_to_service_account \
 
 from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
+from Acquire.Identity import Authorisation as _Authorisation
+
 from ._account import Account as _Account
-from ._authorisation import Authorisation as _Authorisation
 from ._transaction import Transaction as _Transaction
 from ._transactionrecord import TransactionRecord as _TransactionRecord
 from ._transactionrecord import TransactionState as _TransactionState

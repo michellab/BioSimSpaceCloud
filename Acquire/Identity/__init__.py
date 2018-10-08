@@ -8,6 +8,7 @@ identifying and authenticating users.
 
 from ._identity_service import *
 from ._loginsession import *
+from ._authorisation import *
 from ._useraccount import *
 from ._errors import *
 

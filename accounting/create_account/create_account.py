@@ -6,7 +6,8 @@ from Acquire.Service import unpack_arguments, get_service_private_key, \
                             get_trusted_service_info
 from Acquire.Service import create_return_value, pack_return_value
 
-from Acquire.Accounting import Accounts, Authorisation
+from Acquire.Accounting import Accounts
+from Acquire.Identity import Authorisation
 
 
 class CreateAccountError(Exception):

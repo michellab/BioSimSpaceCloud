@@ -2,8 +2,9 @@
 from Acquire.Service import login_to_service_account \
                     as _login_to_service_account
 
+from Acquire.Identity import Authorisation as _Authorisation
+
 from ._transaction import Transaction as _Transaction
-from ._authorisation import Authorisation as _Authorisation
 
 from ._errors import LedgerError
 
@@ -269,7 +270,7 @@ class DebitNote:
                             "Account")
 
         if authorisation is not None:
-            from ._authorisation import Authorisation as _Authorisation
+            from Acquire.Identity import Authorisation as _Authorisation
 
             if not isinstance(authorisation, _Authorisation):
                 raise TypeError("Authorisation must be of type Authorisation")

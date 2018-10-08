@@ -11,7 +11,6 @@ from Acquire.ObjectStore import ObjectStore as _ObjectStore
 from Acquire.ObjectStore import Mutex as _Mutex
 
 from ._account import Account as _Account
-from ._authorisation import Authorisation as _Authorisation
 from ._transaction import Transaction as _Transaction
 from ._debitnote import DebitNote as _DebitNote
 from ._creditnote import CreditNote as _CreditNote

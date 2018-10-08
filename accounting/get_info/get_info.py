@@ -6,7 +6,9 @@ from Acquire.Service import unpack_arguments, get_service_private_key, \
                             get_trusted_service_info, login_to_service_account
 from Acquire.Service import create_return_value, pack_return_value
 
-from Acquire.Accounting import Accounts, Authorisation
+from Acquire.Accounting import Accounts
+
+from Acquire.Identity import Authorisation
 
 
 class AccountError(Exception):
@@ -51,7 +53,7 @@ def handler(ctx, data=None, loop=None):
                                                                  bucket=bucket)
 
         # validate the authorisation for this account
-        authorisation.verify(account_uid=account.uid())
+        authorisation.verify(resource=account.uid())
 
         balance_status = account.balance_status(bucket=bucket)
 

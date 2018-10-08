@@ -8,31 +8,32 @@ __all__ = ["Authorisation"]
 
 
 class Authorisation:
-    """This class holds the information needed to authorise a transaction
-       in an account
+    """This class holds the information needed to show that a user
+       has authorised an action. This contains a signed token that
+       records the time that the authorisation that was signed, together
+       with an extra key (or secret) that can be used by the user
+       and provider to verify that the authorisation is for the
+       correct resource
     """
-    def __init__(self, account=None, account_uid=None, user=None,
-                 testing_key=None):
-        """Create an authorisation for the passed account (or account_uid)
+    def __init__(self, resource=None, user=None, testing_key=None):
+        """Create an authorisation for the passed resource
            that is authorised by the passed user (who must be authenticated)
 
            If testing_key is passed, then this authorisation is being
            tested as part of the unit tests
         """
 
-        if account is not None:
-            account_uid = account.uid()
-        elif account_uid is not None:
-            account_uid = str(account_uid)
+        if resource is not None:
+            resource = str(resource)
 
         self._signature = None
         self._last_validated_time = None
 
-        if account_uid is not None:
+        if resource is not None:
             if user is None and testing_key is None:
                 raise ValueError(
                     "You must pass in an authenticated user who will "
-                    "provide authorisation for this account")
+                    "provide authorisation for resource '%s'" % resource)
 
         if user is not None:
             from Acquire.Client import User as _User
@@ -50,11 +51,11 @@ class Authorisation:
             self._identity_url = user.identity_service().canonical_url()
             self._auth_timestamp = _datetime.datetime.now().timestamp()
 
-            message = self._get_message(account_uid)
+            message = self._get_message(resource)
             self._signature = user.signing_key().sign(message)
 
             self._last_validated_time = _datetime.datetime.now()
-            self._last_verified_uid = account_uid
+            self._last_verified_resource = resource
             self._last_verified_key = None
 
         elif testing_key is not None:
@@ -64,30 +65,30 @@ class Authorisation:
             self._auth_timestamp = _datetime.datetime.now().timestamp()
             self._is_testing = True
 
-            message = self._get_message(account_uid)
+            message = self._get_message(resource)
             self._signature = testing_key.sign(message)
 
             self._last_validated_time = _datetime.datetime.now()
-            self._last_verified_uid = account_uid
+            self._last_verified_resource = resource
             self._last_verified_key = testing_key.public_key()
 
     def is_null(self):
         """Return whether or not this authorisation is null"""
         return self._signature is None
 
-    def _get_message(self, account_uid=None):
+    def _get_message(self, resource=None):
         """Internal function that is used to generate the message for
-           the account with UID 'account_uid' that is signed. This message
+           the resource that is signed. This message
            encodes information about the user and identity service that
-           signed the message, as well as the account UID. This helps
+           signed the message, as well as the resource. This helps
            prevent tamporing with the data in this authorisation
         """
-        if account_uid is None:
+        if resource is None:
             return "%s|%s|%s|%s" % (self._user_uid, self._session_uid,
                                     self._identity_url, self._auth_timestamp)
         else:
             return "%s|%s|%s|%s|%s" % (self._user_uid, self._session_uid,
-                                       self._identity_url, account_uid,
+                                       self._identity_url, str(resource),
                                        self._auth_timestamp)
 
     def __str__(self):
@@ -184,7 +185,7 @@ class Authorisation:
                     self._auth_timestamp)).seconds > stale_time)
 
     def is_verified(self, refresh_time=3600, stale_time=7200,
-                    account_uid=None, testing_key=None):
+                    resource=None, testing_key=None):
         """Return whether or not this authorisation has been verified. Note
            that this will cache any verification for 'refresh_time' (in
            seconds), but re-verification can be forced if 'force' is True.
@@ -199,7 +200,7 @@ class Authorisation:
         now = _datetime.datetime.now()
 
         if self._last_validated_time is not None:
-            if self._last_verified_uid != account_uid:
+            if self._last_verified_resource != resource:
                 return False
 
             if self._last_verified_key != testing_key:
@@ -211,10 +212,10 @@ class Authorisation:
 
         return False
 
-    def verify(self, account_uid=None, refresh_time=3600, stale_time=7200,
+    def verify(self, resource=None, refresh_time=3600, stale_time=7200,
                force=False, testing_key=None):
         """Verify that this is a valid authorisation provided by the
-           user for the account with passed 'account_uid'. This will
+           user for the passed 'resource'. This will
            cache the verification for 'refresh_time' (in seconds), but
            re-verification can be forced if 'force' is True.
 
@@ -236,7 +237,7 @@ class Authorisation:
         if not force:
             if self.is_verified(refresh_time=refresh_time,
                                 stale_time=stale_time,
-                                account_uid=account_uid,
+                                resource=resource,
                                 testing_key=testing_key):
                 return
 
@@ -246,7 +247,7 @@ class Authorisation:
                     "You cannot pass a test key to a non-testing "
                     "Authorisation")
 
-            message = self._get_message(account_uid)
+            message = self._get_message(resource)
 
             try:
                 testing_key.verify(self._signature, message)
@@ -254,7 +255,7 @@ class Authorisation:
                 raise PermissionError(str(e))
 
             self._last_validated_time = _datetime.datetime.now()
-            self._last_verified_uid = account_uid
+            self._last_verified_resource = resource
             self._last_verified_key = testing_key
             return
 
@@ -274,29 +275,29 @@ class Authorisation:
                                     user_uid=self._user_uid,
                                     session_uid=self._session_uid)
 
-            message = self._get_message(account_uid)
+            message = self._get_message(resource)
 
             response["public_cert"].verify(self._signature, message)
 
             self._last_validated_time = _datetime.datetime.now()
-            self._last_verified_uid = account_uid
+            self._last_verified_resource = resource
             self._last_verified_key = None
         except PermissionError:
             raise
         except Exception as e:
-            if account_uid:
+            if resource:
                 raise PermissionError(
-                    "Cannot verify the authorisation for account %s: %s" %
-                    (account_uid, str(e)))
+                    "Cannot verify the authorisation for resource %s: %s" %
+                    (resource, str(e)))
             else:
                 raise PermissionError(
                     "Cannot verify the authorisation: %s" %
                     (str(e)))
         except:
-            if account_uid:
+            if resource:
                 raise PermissionError(
-                    "Cannot verify the authorisation for account %s" %
-                    account_uid)
+                    "Cannot verify the authorisation for resource %s" %
+                    resource)
             else:
                 raise PermissionError("Cannot verify the authorisation")
 

@@ -1,5 +1,5 @@
 
-from ._authorisation import Authorisation as _Authorisation
+from Acquire.Identity import Authorisation as _Authorisation
 
 __all__ = ["LineItem"]
 
@@ -12,7 +12,7 @@ class LineItem:
         self._uid = uid
 
         if authorisation is not None:
-            from ._authorisation import Authorisation as _Authorisation
+            from Acquire.Identity import Authorisation as _Authorisation
 
             if not isinstance(authorisation, _Authorisation):
                 raise TypeError("Authorisation must be of type Authorisation!")
