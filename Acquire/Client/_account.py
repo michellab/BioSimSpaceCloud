@@ -307,6 +307,10 @@ class Account:
         else:
             return self._user
 
+    def user(self):
+        """Synonym for owner"""
+        return self.owner()
+
     def is_logged_in(self):
         """Return whether or not the user has an authenticated login
            to this account
@@ -374,6 +378,10 @@ class Account:
         self._description = result["description"]
 
         self._last_update = _datetime.datetime.now()
+
+    def accounting_service(self):
+        """Return the accounting service managing this account"""
+        return self._accounting_service
 
     def description(self):
         """Return the description of this account"""

@@ -48,12 +48,12 @@ class TransactionRecord:
        'value' of the receipt. Note that the actual value CANNOT exceed the
        original provisional value that was agreed by the debtor
     """
-    def __init__(self, uid=None):
+    def __init__(self, uid=None, bucket=None):
         """Load the transaction record from the object store using the
            passed UID
         """
         if uid:
-            self._load_transaction(uid)
+            self._load_transaction(uid, bucket)
         else:
             self._debit_note = None
             self._credit_note = None

@@ -270,7 +270,7 @@ class Account:
                   _create_decimal(last_data["receivable"]))
 
         # ok, now we go from the last day until today and sum up the
-        # transactions from each day to create the daily balances
+        # line items from each day to create the daily balances
         # (not including today, as we only want the balance at the beginning
         #  of today)
         for d in range(day+1, today+1):
