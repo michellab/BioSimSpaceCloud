@@ -10,9 +10,3 @@ def test_expand_files():
     (a, b) = expand_source_destination("*", "")
 
     assert(len(a) == len(b))
-
-    for i, f in enumerate(a):
-        sys.stderr.write("%s => %s\n" % (a[i], b[i]))
-
-    assert(False)
-

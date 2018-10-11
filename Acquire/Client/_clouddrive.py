@@ -15,7 +15,7 @@ from ._errors import LoginError
 __all__ = ["CloudDrive", "expand_source_destination"]
 
 
-def list_all_files(directory, ignore_hidden=False):
+def list_all_files(directory, ignore_hidden=True):
     """Return a list of the path relative to 'directory' of
        all files contained in 'directory'. If is_hidden is True, then include
        all hidden files - otherwise these are ignored
@@ -28,6 +28,9 @@ def list_all_files(directory, ignore_hidden=False):
     for (root, dirs, filenames) in _os.walk(directory):
         root = root[len(directory)+1:]
 
+        if ignore_hidden and root.startswith("."):
+            continue
+
         for filename in filenames:
             if not (filename.startswith(".") and ignore_hidden):
                 all_files.append(_os.path.join(root, filename))
@@ -35,7 +38,7 @@ def list_all_files(directory, ignore_hidden=False):
     return all_files
 
 
-def expand_source_destination(source, destination, include_hidden=False):
+def expand_source_destination(source, destination, ignore_hidden=True):
     """This function expands the 'source' and 'destination' into a pair
        of lists - the source files and the destination files.
     """
@@ -54,7 +57,7 @@ def expand_source_destination(source, destination, include_hidden=False):
                                       % abspath)
 
             if _os.path.isdir(abspath):
-                dirfiles = list_all_files(abspath)
+                dirfiles = list_all_files(abspath, ignore_hidden)
 
                 for dirfile in dirfiles:
                     abs_filenames.append(_os.path.join(abspath, dirfile))
