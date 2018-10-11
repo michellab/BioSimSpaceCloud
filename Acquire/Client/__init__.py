@@ -10,6 +10,7 @@ from ._service_wallet import *
 from ._user import *
 from ._account import *
 from ._wallet import *
+from ._clouddrive import *
 from ._errors import *
 
 try:

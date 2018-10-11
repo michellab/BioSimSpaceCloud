@@ -33,8 +33,8 @@ def _get_accounting_service(accounting_url=None):
     try:
         service = _Service.from_data(response["service_info"])
     except:
-        raise LoginError("Have not received the identity service info from "
-                         "the identity service at '%s' - got '%s'" %
+        raise LoginError("Have not received the accounting service info from "
+                         "the access service at '%s' - got '%s'" %
                          (accounting_url, response))
 
     if not service.is_accounting_service():
@@ -55,7 +55,8 @@ def _get_account_uid(user, account_name, accounting_service=None,
         belongs to passed user on the passed accounting_service
     """
     if account_name is None:
-        return None
+        # return the UID of the default account for this user
+        account_name = "main"
 
     if accounting_service is None:
         accounting_service = _get_accounting_service(accounting_url)
@@ -254,7 +255,11 @@ class Account:
            or else an exception will be raised
         """
         if user is not None:
-            self._account_name = account_name
+            if account_name is None:
+                self._account_name = "main"
+            else:
+                self._account_name = str(account_name)
+
             self._user = user
 
             if accounting_service is None:

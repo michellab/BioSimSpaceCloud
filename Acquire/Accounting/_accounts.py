@@ -73,6 +73,11 @@ class Accounts:
             account_uid = None
 
         if account_uid is None:
+            # ensure that the user always has a "main" account
+            if name == "main":
+                return self.create_account("main", "primary user account",
+                                           overdraft_limit=0, bucket=bucket)
+
             raise AccountError("There is no account called '%s' in the "
                                "group '%s'" % (name, self.group()))
 
