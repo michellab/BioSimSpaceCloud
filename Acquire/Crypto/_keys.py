@@ -329,6 +329,14 @@ class PrivateKey:
         else:
             return int(self._privkey.key_size / 8)
 
+    def encrypt(self, message):
+        """Encrypt and return the passed message"""
+        return self.public_key().encrypt(message)
+
+    def verify(self, signature, message):
+        """Verify the passed signature is correct for the passed message"""
+        return self.public_key().verify(signature, message)
+
     def decrypt(self, message):
         """Decrypt and return the passed message"""
         key_size = self.key_size_in_bytes()
