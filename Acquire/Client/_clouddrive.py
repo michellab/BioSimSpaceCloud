@@ -1,7 +1,4 @@
 
-import glob as _glob
-import os as _os
-
 from Acquire.Crypto import PrivateKey as _PrivateKey
 
 from Acquire.Service import call_function as _call_function
@@ -12,74 +9,7 @@ from ._account import Account as _Account
 
 from ._errors import LoginError
 
-__all__ = ["CloudDrive", "expand_source_destination"]
-
-
-def list_all_files(directory, ignore_hidden=True):
-    """Return a list of the path relative to 'directory' of
-       all files contained in 'directory'. If is_hidden is True, then include
-       all hidden files - otherwise these are ignored
-    """
-    if not _os.path.isdir(directory):
-        return []
-
-    all_files = []
-
-    for (root, dirs, filenames) in _os.walk(directory):
-        root = root[len(directory)+1:]
-
-        if ignore_hidden and root.startswith("."):
-            continue
-
-        for filename in filenames:
-            if not (filename.startswith(".") and ignore_hidden):
-                all_files.append(_os.path.join(root, filename))
-
-    return all_files
-
-
-def expand_source_destination(source, destination, ignore_hidden=True):
-    """This function expands the 'source' and 'destination' into a pair
-       of lists - the source files and the destination files.
-    """
-    if not isinstance(source, list):
-        source = [str(source)]
-
-    # expand all of the sources into the full paths of files (which must exist)
-    abs_filenames = []
-    rel_filenames = []
-
-    for s in source:
-        for f in _glob.glob(str(s)):
-            abspath = _os.path.abspath(f)
-            if not _os.path.exists(abspath):
-                raise FileExistsError("The file '%s' does not exist!"
-                                      % abspath)
-
-            if _os.path.isdir(abspath):
-                dirfiles = list_all_files(abspath, ignore_hidden)
-
-                for dirfile in dirfiles:
-                    abs_filenames.append(_os.path.join(abspath, dirfile))
-                    rel_filenames.append(dirfile)
-            else:
-                abs_filenames.append(abspath)
-                rel_filenames.append(_os.path.basename(abspath))
-
-    des_filenames = []
-
-    if destination is None:
-        des_filenames = rel_filenames
-    elif len(rel_filenames) == 1:
-        if destination.endswith("/"):
-            des_filenames.append(_os.path.join(destination, abs_filenames[0]))
-        else:
-            des_filenames.append(destination)
-    else:
-        for rel_filename in rel_filenames:
-            des_filenames.append(_os.path.join(destination, rel_filename))
-
-    return (abs_filenames, des_filenames)
+__all__ = ["CloudDrive"]
 
 
 def _get_access_url():
@@ -173,14 +103,28 @@ class CloudDrive:
            This will return the list of read-only handles to allow you
            (or anyone else) to read these files.
         """
-        (abs_filenames, des_filenames) = expand_source_destination(
-                                            source, destination,
-                                            ignore_hidden)
 
-        if len(abs_filenames) == 0:
-            return []
+        if source is None:
+            return
 
         if account is None:
             account = _Account(user=self._user)
 
         from Acquire.Access import FileWriteRequest as _FileWriteRequest
+
+        request = _FileWriteRequest(source=source, destination=destination,
+                                    ignore_hidden=ignore_hidden,
+                                    account=account)
+
+        args = {"request": request.to_data()}
+
+        privkey = _PrivateKey()
+
+        result = _call_function(
+                    "%s/request" % self._access_service.service_url(),
+                    args,
+                    args_key=self._access_service.public_key(),
+                    response_key=privkey,
+                    public_cert=self._access_service.public_certificate())
+
+        return result

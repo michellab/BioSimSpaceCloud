@@ -15,7 +15,7 @@ def test_filewriterequest():
 
     testkey = PrivateKey()
 
-    r = FileWriteRequest(filenames=filenames, testing_key=testkey)
+    r = FileWriteRequest(source=filenames, testing_key=testkey)
 
     data = r.to_data()
 
@@ -36,7 +36,7 @@ def test_filewriterequest():
 
     testkey2 = PrivateKey()
 
-    r2 = FileWriteRequest(filenames=filenames, testing_key=testkey2)
+    r2 = FileWriteRequest(source=filenames, testing_key=testkey2)
 
     assert(r != r2)
     assert(r.uid() != r2.uid())

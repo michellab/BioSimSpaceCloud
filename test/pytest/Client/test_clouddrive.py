@@ -2,11 +2,12 @@
 import os
 import sys
 
-from Acquire.Client import expand_source_destination
+from Acquire.Access import FileWriteRequest
+
 
 def test_expand_files():
-    basedir = os.path.dirname(os.path.abspath(__file__))
+    # basedir = os.path.dirname(os.path.abspath(__file__))
 
-    (a, b) = expand_source_destination("*", "")
+    (a, b) = FileWriteRequest.expand_source_and_destination("*", "")
 
     assert(len(a) == len(b))

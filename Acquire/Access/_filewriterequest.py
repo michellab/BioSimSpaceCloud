@@ -3,6 +3,7 @@ from uuid import uuid4 as _uuid4
 import copy as _copy
 import os as _os
 import hashlib as _hashlib
+import glob as _glob
 
 from ._request import Request as _Request
 
@@ -46,59 +47,146 @@ def _get_filesize_and_checksum(filename):
     return (size, str(md5.hexdigest()))
 
 
+def _list_all_files(directory, ignore_hidden=True):
+    """Return a list of the path relative to 'directory' of
+       all files contained in 'directory'. If is_hidden is True, then include
+       all hidden files - otherwise these are ignored
+    """
+    if not _os.path.isdir(directory):
+        return []
+
+    all_files = []
+
+    for (root, dirs, filenames) in _os.walk(directory):
+        root = root[len(directory)+1:]
+
+        if ignore_hidden and root.startswith("."):
+            continue
+
+        for filename in filenames:
+            if not (filename.startswith(".") and ignore_hidden):
+                all_files.append(_os.path.join(root, filename))
+
+    return all_files
+
+
+def _clean_path(path):
+    """This function cleans the passed path so that doesn't contain
+       redundant slashes or '..' etc., so that all backslashes are forwards
+       slashes, and that the trailing slash is removed
+    """
+    if path is None:
+        return ""
+
+    path = _os.path.normpath(path)
+
+    # remove all ".." and "." from this path
+    if path.find(".") != -1:
+        parts = path.split("/")
+        for i, part in enumerate(parts):
+            if part == "." or part == "..":
+                parts[i] = ""
+
+        path = _os.path.normpath("/".join(parts))
+
+    return path
+
+
+def _expand_source_destination(source, destination=None,
+                               root=None, ignore_hidden=True):
+    """This function expands the 'source' and 'destination' into a pair
+       of lists - the source files and the destination keys in the
+       object store.
+    """
+    if source is None:
+        return ([], [])
+
+    if not isinstance(source, list):
+        source = [str(source)]
+
+    is_destination_dir = False
+    try:
+        is_destination_dir = destination.endswith("/")
+    except:
+        pass
+
+    destination = _os.path.normpath(_os.path.join(_clean_path(root),
+                                                  _clean_path(destination)))
+
+    # expand all of the sources into the full paths of files (which must exist)
+    source_filenames = []
+    rel_filenames = []
+
+    for s in source:
+        for f in _glob.glob(str(s)):
+            abspath = _os.path.abspath(f)
+            if not _os.path.exists(abspath):
+                raise FileExistsError("The file '%s' does not exist!"
+                                      % abspath)
+
+            if _os.path.isdir(abspath):
+                dirfiles = _list_all_files(abspath, ignore_hidden)
+
+                for dirfile in dirfiles:
+                    source_filenames.append(_os.path.join(abspath, dirfile))
+                    rel_filenames.append(dirfile)
+            else:
+                source_filenames.append(abspath)
+                rel_filenames.append(_os.path.basename(abspath))
+
+    destination_keys = []
+
+    if len(rel_filenames) == 1:
+        if is_destination_dir:
+            destination_keys.append(_os.path.join(destination,
+                                                  rel_filenames[0]))
+        else:
+            destination_keys.append(destination)
+    else:
+        for rel_filename in rel_filenames:
+            destination_keys.append(_os.path.join(destination, rel_filename))
+
+    if len(source_filenames) != len(destination_keys):
+        raise ValueError("Something went wrong as the number of source "
+                         "filenames should be equal to the number of keys")
+
+    return (source_filenames, destination_keys)
+
+
 class FileWriteRequest(_Request):
     """This class holds a request to write a file (or files) to a remote
        object store
     """
-    def __init__(self, filenames=None, filekeys=None, root_key=None,
-                 account=None, testing_key=None):
-        """Construct the request to write the files whose filenames are
-           in 'filenames' to the object store. These will be written to
-           the object store at keys based on the pass root_key and the name
-           of the file (ignoring the file path). For example,
-           /path/to/file.txt with root_key="root" will be written to
-           /root/file.txt
-
-           If you want to specify the object store keys yourself, then
-           place them into the optional 'filekeys' list, which must have
-           the same size as the filenames list.
-
-           if 'root_key' is supplied, then all files will be written under
-           'root_key' in the object store.
+    def __init__(self, source=None, destination=None, root=None,
+                 ignore_hidden=True, account=None, testing_key=None):
+        """Construct the request to write the files specified in 'source'
+           to 'destination' in the cloud object store. You can optionally
+           pass a 'root' for all of the keys in the object store, and,
+           if the source is a directory, you can ignore hidden files using
+           'ignore_hidden=True'.
 
            You must pass the 'account' from which payment will be taken to
            write files to the object store.
         """
         super().__init__()
 
-        self._filekeys = []
-        self._filesizes = []
+        (filenames, keys) = FileWriteRequest.expand_source_and_destination(
+                                                source, destination,
+                                                root, ignore_hidden)
+
+        self._destination_keys = keys
+        self._source_filenames = filenames
+        self._file_sizes = []
         self._checksums = []
 
-        if filenames is not None:
-            if filekeys is None:
-                for filename in filenames:
-                    (filesize, checksum) = _get_filesize_and_checksum(filename)
-                    self._filekeys.append(_get_key(root_key, filename))
-                    self._filesizes.append(filesize)
-                    self._checksums.append(checksum)
-            else:
-                if len(filekeys) != len(filenames):
-                    raise ValueError(
-                        "The number of filenames (%d) must equal the number "
-                        "of passed filekeys (%d)" %
-                        (len(filenames), len(filekeys)))
-
-                for i, filename in enumerate(filenames):
-                    filekey = _clean_key(root_key, filekeys[i])
-                    (filesize, checksum) = _get_filesize_and_checksum(filename)
-                    self._filekeys.append(filekey)
-                    self._filesizes.append(filesize)
-                    self._checksums.append(checksum)
-
-        if len(self._filekeys) == 0:
+        if len(self._source_filenames) == 0:
             self._uid = None
             return
+
+        for filename in self._source_filenames:
+            (size, checksum) = _get_filesize_and_checksum(filename)
+            self._file_sizes.append(size)
+            self._checksums.append(checksum)
 
         self._is_testing = False
 
@@ -172,15 +260,24 @@ class FileWriteRequest(_Request):
         """Return the authorisation behind this request"""
         return self._authorisation
 
-    def filekeys(self):
+    def source_filenames(self):
+        """Return the filenames of the files to be copied. Note that this
+           information is only available in the copy of the object that
+           created the request - it is not saved when this object is
+           serialised to json as we don't want to leak potentially
+           sensitive data to the object store
+        """
+        return self._source_filenames
+
+    def destination_keys(self):
         """Return the object store keys to which the files will be
            written
         """
-        return _copy.copy(self._filekeys)
+        return _copy.copy(self._destination_keys)
 
     def filesizes(self):
         """Return the sizes of the files that are requested to be written"""
-        return _copy.copy(self.filesizes)
+        return _copy.copy(self._file_sizes)
 
     def checksums(self):
         """Return the checksums of the files that are requested
@@ -196,6 +293,19 @@ class FileWriteRequest(_Request):
         except:
             return None
 
+    @staticmethod
+    def expand_source_and_destination(source, destination, root=None,
+                                      ignore_hidden=True):
+        """This function expands the passed source and destination objects
+           into the list of absolute paths of local source files, and the
+           full keys of those files once they are uploaded to the object
+           store. This returns a pair of lists - the lists match the
+           absolute path of the local file to the desired full key
+           of the file in the object store
+        """
+        return _expand_source_destination(source, destination, root,
+                                          ignore_hidden)
+
     def accounting_service_url(self):
         """Return the canonical URL of the service holding the account"""
         try:
@@ -210,12 +320,16 @@ class FileWriteRequest(_Request):
 
         data = super().to_data()
         data["uid"] = self._uid
-        data["filekeys"] = self._filekeys
-        data["filesizes"] = self._filesizes
+        data["destination_keys"] = self._destination_keys
+        data["file_sizes"] = self._file_sizes
         data["checksums"] = self._checksums
         data["authorisation"] = self._authorisation.to_data()
         data["account_uid"] = self._account_uid
         data["accounting_service_url"] = self._accounting_service_url
+
+        # don't write self._source_filenames as this contains
+        # potentially sensitive local data that is not needed
+        # by the cloud object store
 
         return data
 
@@ -225,8 +339,8 @@ class FileWriteRequest(_Request):
 
         if (data and len(data) > 0):
             f._uid = data["uid"]
-            f._filekeys = data["filekeys"]
-            f._filesizes = data["filesizes"]
+            f._destination_keys = data["destination_keys"]
+            f._file_sizes = data["file_sizes"]
             f._checksums = data["checksums"]
             f._authorisation = _Authorisation.from_data(data["authorisation"])
             f._account_uid = data["account_uid"]
