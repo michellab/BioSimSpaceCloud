@@ -275,8 +275,6 @@ class Authorisation:
                                     user_uid=self._user_uid,
                                     session_uid=self._session_uid)
 
-            message = self._get_message(resource)
-
             try:
                 logout_timestamp = response["logout_timestamp"]
             except:
@@ -288,11 +286,16 @@ class Authorisation:
                 logout_time = _datetime.datetime.fromtimestamp(
                                                         logout_timestamp)
 
+                raise PermissionError("LOGOUT %s vs %s" %
+                        (str(logout_time), str(self.signature_time())))
+
                 if logout_time < self.signature_time():
                     raise PermissionError(
                         "This authorisation was signed after the user logged "
                         "out. This means that the authorisation is not valid. "
                         "Please log in again and create a new authorisation.")
+
+            message = self._get_message(resource)
 
             response["public_cert"].verify(self._signature, message)
 

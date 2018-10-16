@@ -31,6 +31,7 @@ def handler(ctx, data=None, loop=None):
 
     try:
         request = Request.from_data(args["request"])
+
         access_token = request.to_data()
 
     except Exception as e:
