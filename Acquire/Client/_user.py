@@ -109,10 +109,17 @@ def get_session_keys(username=None, user_uid=None, session_uid=None,
                                "user_uid": user_uid,
                                "session_uid": session_uid})
 
-    return {"username": response["username"],
-            "user_uid": response["user_uid"],
-            "public_key": _PublicKey.from_data(response["public_key"]),
-            "public_cert": _PublicKey.from_data(response["public_cert"])}
+    try:
+        response["public_key"] = _PublicKey.from_data(response["public_key"])
+    except:
+        pass
+
+    try:
+        response["public_cert"] = _PublicKey.from_data(response["public_cert"])
+    except:
+        pass
+
+    return response
 
 
 class User:
