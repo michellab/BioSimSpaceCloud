@@ -100,7 +100,7 @@ class IdentityService(_Service):
                     "'%s'. We think %s, but the identity service says %s" %
                     (username, user_uid, lookup_uid))
 
-        result = {"username": username, "user_uid": user_uid}
+        result = response
 
         try:
             result["public_key"] = _PublicKey.from_data(
