@@ -107,6 +107,9 @@ def handler(ctx, data=None, loop=None):
                                    ObjectStore.get_object_from_json(
                                        bucket, user_session_key))
             except:
+                login_session = None
+
+            if login_session is None:
                 user_session_key = "expired_sessions/%s/%s" % \
                                        (user_account.sanitised_name(),
                                         session_uid)

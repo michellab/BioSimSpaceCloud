@@ -10,10 +10,6 @@ from Acquire.ObjectStore import ObjectStore
 from Acquire.Identity import UserAccount, LoginSession
 
 
-class InvalidSessionError(Exception):
-    pass
-
-
 def handler(ctx, data=None, loop=None):
     """This function will allow anyone to query the current login
        status of the session with passed UID"""
@@ -40,9 +36,25 @@ def handler(ctx, data=None, loop=None):
         user_session_key = "sessions/%s/%s" % \
             (user_account.sanitised_name(), session_uid)
 
-        login_session = LoginSession.from_data(
-                           ObjectStore.get_object_from_json(
-                               bucket, user_session_key))
+        try:
+            login_session = LoginSession.from_data(
+                               ObjectStore.get_object_from_json(
+                                   bucket, user_session_key))
+        except:
+            login_session = None
+
+        if login_session is None:
+            user_session_key = "expired_sessions/%s/%s" % \
+                                    (user_account.sanitised_name(),
+                                     session_uid)
+
+            login_session = LoginSession.from_data(
+                                ObjectStore.get_object_from_json(
+                                    bucket, user_session_key))
+
+        if login_session is None:
+            raise InvalidSessionError(
+                    "Cannot find the session '%s'" % session_uid)
 
         status = 0
         message = "Success: Status = %s" % login_session.status()
