@@ -128,8 +128,16 @@ def handler(ctx, data=None, loop=None):
                         "You cannot get the keys for a session "
                         "for which the user has not logged in!")
 
-            public_key = login_session.public_key()
-            public_cert = login_session.public_certificate()
+            try:
+                public_key = login_session.public_key()
+            except:
+                pass
+
+            try:
+                public_cert = login_session.public_certificate()
+            except:
+                pass
+
             login_status = login_session.status()
 
         status = 0

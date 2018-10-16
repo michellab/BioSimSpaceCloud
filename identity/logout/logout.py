@@ -67,6 +67,16 @@ def handler(ctx, data=None, loop=None):
             # this session no longer exists...
             log.append("Session %s no longer exists..." % user_session_key)
 
+        # only save sessions that were successfully approved
+        if login_session:
+            if login_session.is_logged_out():
+                expired_session_key = "expired_sessions/%s/%s" % \
+                                       (user_account.sanitised_name(),
+                                        session_uid)
+
+                ObjectStore.set_object_from_json(bucket, expired_session_key,
+                                                 login_session.to_data())
+
         try:
             ObjectStore.delete_object(bucket, user_session_key)
         except Exception as e:
@@ -78,16 +88,6 @@ def handler(ctx, data=None, loop=None):
         except Exception as e:
             log.append(str(e))
             pass
-
-        # only save sessions that were successfully approved
-        if login_session:
-            if login_session.is_logged_out():
-                user_session_key = "expired_sessions/%s/%s" % \
-                                       (user_account.sanitised_name(),
-                                        session_uid)
-
-                ObjectStore.set_object_from_json(bucket, user_session_key,
-                                                 login_session.to_data())
 
         status = 0
         message = "Successfully logged out"
