@@ -124,10 +124,10 @@ def handler(ctx, data=None, loop=None):
 
             if login_session.is_approved():
                 public_key = login_session.public_key()
-                public_cert = login_session.public_cert()
+                public_cert = login_session.public_certificate()
 
             elif login_session.is_logged_out():
-                public_cert = login_session.public_cert()
+                public_cert = login_session.public_certificate()
                 logout_timestamp = login_session.logout_time().timestamp()
 
             else:
