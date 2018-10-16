@@ -106,7 +106,7 @@ class LoginSession:
         """Return the public certificate"""
         if self._pubcert is None:
             raise LoginSessionError(
-               "You cannot	get a public certificate from "
+               "You cannot get a public certificate from "
                "a logged out or otherwise denied session")
 
         elif self.is_suspicious():
@@ -216,7 +216,7 @@ class LoginSession:
            from this session, as it has now been terminated
            (and so the keys are no longer valid)
         """
-        self._pubcert = None
+        self._pubkey = None
 
     def set_denied(self):
         """Register that this request has been denied"""
