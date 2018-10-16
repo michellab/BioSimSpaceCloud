@@ -1,6 +1,7 @@
 
 import json
 import datetime
+import uuid
 
 from Acquire.Service import get_service_private_key, unpack_arguments, \
                             login_to_service_account
@@ -22,6 +23,7 @@ def handler(ctx, data=None, loop=None):
     status = 0
     message = None
     provisioning_uri = None
+    assigned_device_uid = None
     log = []
 
     args = unpack_arguments(data, get_service_private_key)
@@ -36,6 +38,11 @@ def handler(ctx, data=None, loop=None):
             remember_device = args["remember_device"]
         except:
             remember_device = False
+
+        try:
+            device_uid = args["device_uid"]
+        except:
+            device_uid = None
 
         # create the user account for the user
         user_account = UserAccount(username)
@@ -95,11 +102,40 @@ def handler(ctx, data=None, loop=None):
             raise LoginError("No account available with username '%s'" %
                              username)
 
+        if device_uid:
+            # see if this device has been seen before
+            device_key = "devices/%s/%s" % (user_account.sanitised_name(),
+                                            device_uid)
+
+            device_secret = ObjectStore.get_string_object(bucket,
+                                                          device_key)
+
+            if device_secret is None:
+                raise LoginError(
+                    "The login device is not recognised. Please try to "
+                    "log in again using your master one-time-password.")
+        else:
+            device_secret = None
+
         # now try to log into this account using the supplied
         # password and one-time-code
         try:
-            _provisioning_uri = user_account.validate_password(
-                                        password, otpcode, remember_device)
+            if device_secret:
+                user_account.validate_password(password, otpcode,
+                                               device_secret=device_secret)
+            elif remember_device:
+                (device_secret, provisioning_uri) = \
+                            user_account.validate_password(
+                                        password, otpcode,
+                                        remember_device=True)
+
+                device_uid = str(uuid.uuid4())
+                device_key = "devices/%s/%s" % (user_account.sanitised_name(),
+                                                device_uid)
+
+                assigned_device_uid = device_uid
+            else:
+                user_account.validate_password(password, otpcode)
         except:
             # don't leak info about why validation failed
             raise LoginError("The password or OTP code is incorrect")
@@ -142,7 +178,6 @@ def handler(ctx, data=None, loop=None):
                 # Low probability there is some recycling,
                 # but very suspicious if the code was validated within the last
                 # 10 minutes... (as 3 minute timeout of a code)
-
                 suspect_key = "sessions/%s/%s" % (
                     user_account.sanitised_name(), session)
 
@@ -182,6 +217,11 @@ def handler(ctx, data=None, loop=None):
         ObjectStore.set_object_from_json(bucket, login_session_key,
                                          login_session.to_data())
 
+        # save the device secret as everything has now worked
+        if assigned_device_uid:
+            ObjectStore.set_string_object(bucket, device_key,
+                                          device_secret)
+
         # finally, remove this from the list of requested logins
         try:
             ObjectStore.delete_object(bucket, request_session_key)
@@ -191,7 +231,6 @@ def handler(ctx, data=None, loop=None):
 
         status = 0
         message = "Success: Status = %s" % login_session.status()
-        provisioning_uri = _provisioning_uri
 
     except Exception as e:
         status = -1
@@ -201,6 +240,7 @@ def handler(ctx, data=None, loop=None):
 
     if provisioning_uri:
         return_value["provisioning_uri"] = provisioning_uri
+        return_value["device_uid"] = assigned_device_uid
 
     return pack_return_value(return_value, args)
 

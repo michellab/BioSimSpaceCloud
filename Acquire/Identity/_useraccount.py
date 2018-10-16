@@ -12,7 +12,8 @@ from Acquire.Service import get_service_info as _get_service_info
 
 from ._errors import UsernameError, ExistingAccountError, UserValidationError
 
-__all__ = [ "UserAccount" ]
+__all__ = ["UserAccount"]
+
 
 class UserAccount:
     """This class holds all information about a user's account,
@@ -96,16 +97,16 @@ class UserAccount:
         """Return the lines of the public key for this account"""
         return self._pubkey
 
-    def	private_key(self):
-       	"""Return the lines of the private key for this account"""
-       	return self._privkey
+    def private_key(self):
+        """Return the lines of the private key for this account"""
+        return self._privkey
 
     def status(self):
-       	"""Return the status for this account"""
+        """Return the status for this account"""
         if self._status is None:
             return "invalid"
 
-       	return self._status
+        return self._status
 
     def otp_secret(self):
         """Return the encrypted one-time-password secret"""
@@ -115,17 +116,16 @@ class UserAccount:
         """Set the private and public keys for this account. The
            keys can be set from files or from a binary read file..
         """
-
         if self._status is None or privkey is None or pubkey is None:
             return
 
         try:
-            privkey = open(privkey,"rb").read()
+            privkey = open(privkey, "rb").read()
         except:
             pass
 
         try:
-            pubkey = open(pubkey,"rb").read()
+            pubkey = open(pubkey, "rb").read()
         except:
             pass
 
@@ -154,30 +154,42 @@ class UserAccount:
             return None
 
         if len(username) < 3 or len(username) > 50:
-            raise UsernameError("The username must be between 3 and 50 characters!")
+            raise UsernameError(
+                "The username must be between 3 and 50 characters!")
 
-        return "_".join(username.split()).replace("/","") \
-                  .replace("@","_AT_").replace(".","_DOT_")
+        return "_".join(username.split()).replace("/", "") \
+                  .replace("@", "_AT_").replace(".", "_DOT_")
 
-    def validate_password(self, password, otpcode, remember_device=False):
+    def validate_password(self, password, otpcode, remember_device=False,
+                          device_secret=None):
         """Validate that the passed password and one-time-code are valid.
            If they are, then do nothing. Otherwise raise an exception.
            If 'remember_device' is true, then this returns the provisioning
            uri needed to initialise the OTP code for this account
         """
-
         if not self.is_active():
-            raise UserValidationError("Cannot validate against an inactive account")
+            raise UserValidationError(
+                "Cannot validate against an inactive account")
 
         # see if we can decrypt the private key using the password
         privkey = _PrivateKey.read_bytes(self._privkey, password)
 
-        # now decrypt the secret otp and validate the supplied otpcode
-        otp = _OTP.decrypt(self._otp_secret, privkey)
-        otp.verify(otpcode)
+        if device_secret:
+            # decrypt the passed device secret and check the supplied
+            # otpcode for that...
+            otp = _OTP.decrypt(_string_to_bytes(device_secret), privkey)
+            otp.verify(otpcode)
+        else:
+            # now decrypt the secret otp and validate the supplied otpcode
+            otp = _OTP.decrypt(self._otp_secret, privkey)
+            otp.verify(otpcode)
 
         if remember_device:
-            return otp.provisioning_uri(self.username())
+            # create a new OTP that is unique for this device and return
+            # this together with the provisioning code
+            otp = _OTP()
+            otpsecret = _bytes_to_string(otp.encrypt(privkey.public_key()))
+            return (otpsecret, otp.provisioning_uri(self.username()))
 
     def to_data(self):
         """Return a data representation of this object (dictionary)"""

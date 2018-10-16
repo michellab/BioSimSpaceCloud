@@ -235,12 +235,15 @@ class Wallet:
             if userinfo:
                 secret = self._wallet_key.decrypt(
                                     userinfo["otpsecret"]).decode("utf-8")
+                device_uid = userinfo["device_uid"]
                 self._manual_otpcode = False
+                self._device_uid = device_uid
                 return _pyotp.totp.TOTP(secret).now()
         except:
             pass
 
         self._manual_otpcode = True
+        self._device_uid = None
         return _getpass.getpass(
                     prompt="Please enter the one-time-password code: ")
 
@@ -340,6 +343,7 @@ class Wallet:
                 "password": password,
                 "otpcode": otpcode,
                 "remember_device": remember_device,
+                "device_uid": self._device_uid,
                 "short_uid": short_uid}
 
         print("\nLogging in to '%s', session '%s'..." % (
@@ -363,6 +367,11 @@ class Wallet:
                 provisioning_uri = response["provisioning_uri"]
             except:
                 provisioning_uri = None
+
+            try:
+                device_uid = response["device_uid"]
+            except:
+                device_uid = None
 
             otpsecret = None
 
@@ -400,6 +409,7 @@ class Wallet:
                     user_info["otpsecret"] = _bytes_to_string(
                                                 pubkey.encrypt(
                                                    otpsecret.encode("utf-8")))
+                    user_info["device_uid"] = device_uid
 
                 packed_data = _pack_arguments(user_info)
 
