@@ -306,6 +306,9 @@ class User:
                 "%s/logout" % identity_url, args,
                 args_key=self.identity_service().public_key())
             print(result)
+
+            self._status = _LoginStatus.LOGGED_OUT
+
             return result
 
     def register(self, password, identity_url=None):

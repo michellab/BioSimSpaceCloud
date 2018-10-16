@@ -108,6 +108,11 @@ class CloudDrive:
             return
 
         if account is None:
+            if not self._user.is_logged_in():
+                raise PermissionError(
+                    "You cannot upload files unless you have logged into "
+                    "your account. Please log in and try again.")
+
             account = _Account(user=self._user)
 
         from Acquire.Access import FileWriteRequest as _FileWriteRequest
