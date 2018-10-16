@@ -280,7 +280,7 @@ class Authorisation:
             except:
                 logout_timestamp = None
 
-            raise PermissionError("TEST: %s" % logout_timestamp)
+            raise PermissionError("TEST: %s | %s" % (logout_timestamp, str(response)))
 
             if logout_timestamp:
                 # the user has logged out from this session - ensure that
