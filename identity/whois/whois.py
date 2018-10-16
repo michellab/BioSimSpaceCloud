@@ -28,6 +28,7 @@ def handler(ctx, data=None, loop=None):
     username = None
     public_key = None
     public_cert = None
+    logout_timestamp = None
     login_status = None
 
     log = []
@@ -121,22 +122,18 @@ def handler(ctx, data=None, loop=None):
                 raise InvalidSessionError(
                         "Cannot find the session '%s'" % session_uid)
 
-            # only send valid keys if the user had logged in!
-            if not (login_session.is_approved() or
-                    login_session.is_logged_out()):
+            if login_session.is_approved():
+                public_key = login_session.public_key()
+                public_cert = login_session.public_cert()
+
+            elif login_session.is_logged_out():
+                public_cert = login_session.public_cert()
+                logout_timestamp = login_session.logout_time().timestamp()
+
+            else:
                 raise InvalidSessionError(
                         "You cannot get the keys for a session "
                         "for which the user has not logged in!")
-
-            try:
-                public_key = login_session.public_key()
-            except:
-                pass
-
-            try:
-                public_cert = login_session.public_certificate()
-            except:
-                pass
 
             login_status = login_session.status()
 
@@ -160,6 +157,9 @@ def handler(ctx, data=None, loop=None):
 
     if public_cert:
         return_value["public_cert"] = public_cert.to_data()
+
+    if logout_timestamp:
+        return_value["logout_timestamp"] = logout_timestamp
 
     if login_status:
         return_value["login_status"] = str(login_status)

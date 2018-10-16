@@ -277,6 +277,23 @@ class Authorisation:
 
             message = self._get_message(resource)
 
+            try:
+                logout_timestamp = response["logout_timestamp"]
+            except:
+                logout_timestamp = None
+
+            if logout_timestamp:
+                # the user has logged out from this session - ensure that
+                # the authorisation was created before the user logged out
+                logout_time = _datetime.datetime.fromtimestamp(
+                                                        logout_timestamp)
+
+                if logout_time < self.signature_time():
+                    raise PermissionError(
+                        "This authorisation was signed after the user logged "
+                        "out. This means that the authorisation is not valid. "
+                        "Please log in again and create a new authorisation.")
+
             response["public_cert"].verify(self._signature, message)
 
             self._last_validated_time = _datetime.datetime.now()
