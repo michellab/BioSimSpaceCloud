@@ -122,7 +122,8 @@ def handler(ctx, data=None, loop=None):
                         "Cannot find the session '%s'" % session_uid)
 
             # only send valid keys if the user had logged in!
-            if not login_session.is_approved():
+            if not (login_session.is_approved() or
+                    login_session.is_logged_out()):
                 raise InvalidSessionError(
                         "You cannot get the keys for a session "
                         "for which the user has not logged in!")
