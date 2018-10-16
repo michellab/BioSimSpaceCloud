@@ -280,16 +280,11 @@ class Authorisation:
             except:
                 logout_timestamp = None
 
-            raise PermissionError("TEST: %s | %s" % (logout_timestamp, str(response)))
-
             if logout_timestamp:
                 # the user has logged out from this session - ensure that
                 # the authorisation was created before the user logged out
                 logout_time = _datetime.datetime.fromtimestamp(
                                                         logout_timestamp)
-
-                raise PermissionError("LOGOUT %s vs %s" %
-                        (str(logout_time), str(self.signature_time())))
 
                 if logout_time < self.signature_time():
                     raise PermissionError(

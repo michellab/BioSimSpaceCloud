@@ -10,6 +10,10 @@ from Acquire.ObjectStore import ObjectStore
 from Acquire.Identity import UserAccount, LoginSession
 
 
+class InvalidSessionError(Exception):
+    pass
+
+
 def handler(ctx, data=None, loop=None):
     """This function will allow anyone to query the current login
        status of the session with passed UID"""
