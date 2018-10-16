@@ -211,19 +211,20 @@ class LoginSession:
             self._login_datetime = _datetime.datetime.utcnow()
             self._status = "approved"
 
-    def _clear_keys_and_certs(self):
-        """Function called to remove all keys and certificates
+    def _clear_keys(self):
+        """Function called to remove all keys
            from this session, as it has now been terminated
-           (and so the keys and certs are no longer valid)
+           (and so the keys are no longer valid)
         """
-        self._pubkey = None
         self._pubcert = None
 
     def set_denied(self):
         """Register that this request has been denied"""
         if self._uid:
             self._status = "denied"
-            self._clear_keys_and_certs()
+            self._clear_keys()
+            # also clear the certificate
+            self._pubcert = None
 
     def set_logged_out(self):
         """Register that this request has been closed as
@@ -231,7 +232,7 @@ class LoginSession:
         if self._uid:
             self._status = "logged_out"
             self._logout_datetime = _datetime.datetime.utcnow()
-            self._clear_keys_and_certs()
+            self._clear_keys()
 
     def login(self):
         """Convenience function to set the session into the logged in state"""

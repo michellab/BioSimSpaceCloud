@@ -28,6 +28,7 @@ def handler(ctx, data=None, loop=None):
     username = None
     public_key = None
     public_cert = None
+    login_status = None
 
     log = []
 
@@ -100,9 +101,25 @@ def handler(ctx, data=None, loop=None):
             user_session_key = "sessions/%s/%s" % \
                 (user_account.sanitised_name(), session_uid)
 
-            login_session = LoginSession.from_data(
-                               ObjectStore.get_object_from_json(
-                                   bucket, user_session_key))
+            try:
+                login_session = LoginSession.from_data(
+                                   ObjectStore.get_object_from_json(
+                                       bucket, user_session_key))
+            except:
+                login_session = None
+
+            if login_session is None:
+                user_session_key = "expired_sessions/%s/%s" % \
+                                       (user_account.sanitised_name(),
+                                        session_uid)
+
+                login_session = LoginSession.from_data(
+                                    ObjectStore.get_object_from_json(
+                                        bucket, user_session_key))
+
+            if login_session is None:
+                raise InvalidSessionError(
+                        "Cannot find the session '%s'" % session_uid)
 
             # only send valid keys if the user had logged in!
             if not login_session.is_approved():
@@ -112,6 +129,7 @@ def handler(ctx, data=None, loop=None):
 
             public_key = login_session.public_key()
             public_cert = login_session.public_certificate()
+            login_status = login_session.status()
 
         status = 0
         message = "Success"
@@ -123,16 +141,19 @@ def handler(ctx, data=None, loop=None):
     return_value = create_return_value(status, message, log)
 
     if user_uid:
-        return_value["user_uid"] = user_uid
+        return_value["user_uid"] = str(user_uid)
 
     if username:
-        return_value["username"] = username
+        return_value["username"] = str(username)
 
     if public_key:
         return_value["public_key"] = public_key.to_data()
 
     if public_cert:
         return_value["public_cert"] = public_cert.to_data()
+
+    if login_status:
+        return_value["login_status"] = str(login_status)
 
     return pack_return_value(return_value, args)
 
