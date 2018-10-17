@@ -44,4 +44,10 @@ USER $FN_USER
 # most often
 ADD function/* $HOME/
 
+# Now byte-compile everything
+USER root
+RUN python3 -m compileall Acquire/*
+
 ENTRYPOINT ["bash"]
+
+USER $FN_USER
