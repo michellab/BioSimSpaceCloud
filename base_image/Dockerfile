@@ -1,4 +1,4 @@
-FROM python:3.6-slim-stretch
+FROM python:3.7-slim-stretch
 LABEL maintainer="Christopher Woods <Christopher.Woods@bristol.ac.uk>"
 
 USER root
@@ -51,3 +51,4 @@ RUN python3 -m compileall Acquire/*
 ENTRYPOINT ["bash"]
 
 USER $FN_USER
+

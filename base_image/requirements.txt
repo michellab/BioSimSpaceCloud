@@ -1,6 +1,7 @@
-fdk
+fdk==0.0.32
 oci
 pyotp
 pycurl
 qrcode[pil]
 cachetools
+cython
