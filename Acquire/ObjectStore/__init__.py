@@ -10,8 +10,6 @@ by most of the other modules.
 from ._objstore import *
 from ._encoding import *
 from ._mutex import *
-from ._oci_objstore import *
-from ._testing_objstore import *
 from ._errors import *
 
 try:

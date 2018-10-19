@@ -7,16 +7,14 @@ import json as _json
 import glob as _glob
 import threading
 
-from ._objstore import set_object_store_backend as _set_object_store_backend
-
 from ._errors import ObjectStoreError
 
 _rlock = threading.RLock()
 
-__all__ = ["use_testing_object_store_backend"]
+__all__ = ["Testing_ObjectStore"]
 
 
-class _Testing_ObjectStore:
+class Testing_ObjectStore:
     """This is a dummy object store that writes objects to
        the standard posix filesystem when running tests
     """
@@ -45,7 +43,7 @@ class _Testing_ObjectStore:
     @staticmethod
     def get_string_object(bucket, key):
         """Return the string in 'bucket' associated with 'key'"""
-        return _Testing_ObjectStore.get_object(bucket, key).decode("utf-8")
+        return Testing_ObjectStore.get_object(bucket, key).decode("utf-8")
 
     @staticmethod
     def get_object_from_json(bucket, key):
@@ -57,7 +55,7 @@ class _Testing_ObjectStore:
         data = None
 
         try:
-            data = _Testing_ObjectStore.get_string_object(bucket, key)
+            data = Testing_ObjectStore.get_string_object(bucket, key)
         except:
             return None
 
@@ -91,15 +89,15 @@ class _Testing_ObjectStore:
         """Return all of the objects in the passed bucket"""
 
         objects = {}
-        names = _Testing_ObjectStore.get_all_object_names(bucket, prefix)
+        names = Testing_ObjectStore.get_all_object_names(bucket, prefix)
 
         if prefix:
             for name in names:
-                objects[name] = _Testing_ObjectStore.get_object(
+                objects[name] = Testing_ObjectStore.get_object(
                                     bucket, "%s/%s" % (prefix, name))
         else:
             for name in names:
-                objects[name] = _Testing_ObjectStore.get_object(bucket, name)
+                objects[name] = Testing_ObjectStore.get_object(bucket, name)
 
         return objects
 
@@ -107,7 +105,7 @@ class _Testing_ObjectStore:
     def get_all_strings(bucket, prefix=None):
         """Return all of the strings in the passed bucket"""
 
-        objects = _Testing_ObjectStore.get_all_objects(bucket, prefix)
+        objects = Testing_ObjectStore.get_all_objects(bucket, prefix)
 
         names = list(objects.keys())
 
@@ -143,20 +141,20 @@ class _Testing_ObjectStore:
         """Set the value of 'key' in 'bucket' to equal the contents
            of the file located by 'filename'"""
 
-        _Testing_ObjectStore.set_object(bucket, key,
+        Testing_ObjectStore.set_object(bucket, key,
                                         open(filename, 'rb').read())
 
     @staticmethod
     def set_string_object(bucket, key, string_data):
         """Set the value of 'key' in 'bucket' to the string 'string_data'"""
-        _Testing_ObjectStore.set_object(bucket, key,
+        Testing_ObjectStore.set_object(bucket, key,
                                         string_data.encode("utf-8"))
 
     @staticmethod
     def set_object_from_json(bucket, key, data):
         """Set the value of 'key' in 'bucket' to equal to contents
            of 'data', which has been encoded to json"""
-        _Testing_ObjectStore.set_string_object(bucket, key, _json.dumps(data))
+        Testing_ObjectStore.set_string_object(bucket, key, _json.dumps(data))
 
     @staticmethod
     def log(bucket, message, prefix="log"):
@@ -165,7 +163,7 @@ class _Testing_ObjectStore:
            to "log/timestamp"
         """
 
-        _Testing_ObjectStore.set_string_object(
+        Testing_ObjectStore.set_string_object(
             bucket, "%s/%s" % (
                 prefix, _datetime.datetime.utcnow().timestamp()), str(message))
 
@@ -180,7 +178,7 @@ class _Testing_ObjectStore:
     @staticmethod
     def get_log(bucket, log="log"):
         """Return the complete log as an xml string"""
-        objs = _Testing_ObjectStore.get_all_strings(bucket, log)
+        objs = Testing_ObjectStore.get_all_strings(bucket, log)
 
         lines = []
         lines.append("<log>")
@@ -202,7 +200,7 @@ class _Testing_ObjectStore:
     @staticmethod
     def clear_log(bucket, log="log"):
         """Clears out the log"""
-        _Testing_ObjectStore.delete_all_objects(bucket, log)
+        Testing_ObjectStore.delete_all_objects(bucket, log)
 
     @staticmethod
     def delete_object(bucket, key):
@@ -217,7 +215,7 @@ class _Testing_ObjectStore:
         """Removes all objects from the passed 'bucket' except those
            whose keys are or start with any key in 'keys'"""
 
-        names = _Testing_ObjectStore.get_all_object_names(bucket)
+        names = Testing_ObjectStore.get_all_object_names(bucket)
 
         for name in names:
             remove = True
@@ -228,9 +226,4 @@ class _Testing_ObjectStore:
                     break
 
             if remove:
-                _Testing_ObjectStore.delete_object(bucket, key)
-
-
-def use_testing_object_store_backend(backend):
-    _set_object_store_backend(_Testing_ObjectStore)
-    return "%s/testing_objstore" % backend
+                Testing_ObjectStore.delete_object(bucket, key)

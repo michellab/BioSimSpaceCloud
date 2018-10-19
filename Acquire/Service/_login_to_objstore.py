@@ -5,14 +5,6 @@ import json as _json
 from cachetools import cached as _cached
 from cachetools import TTLCache as _TTLCache
 
-from Acquire.ObjectStore import ObjectStore as _ObjectStore
-from Acquire.ObjectStore import use_oci_object_store_backend as \
-                                _use_oci_object_store_backend
-from Acquire.ObjectStore import use_testing_object_store_backend as \
-                                _use_testing_object_store_backend
-
-from ._account import Account as _Account
-
 from ._errors import ServiceAccountError
 
 # The cache can hold a maximum of 50 objects, and will be renewed
@@ -20,9 +12,7 @@ from ._errors import ServiceAccountError
 # cause problems for a maximum of 300 seconds)
 _cache = _TTLCache(maxsize=50, ttl=300)
 
-
 __all__ = ["login_to_service_account"]
-
 
 _current_testing_objstore = None
 
@@ -57,6 +47,9 @@ def login_to_service_account(testing_dir=None):
     has_bucket_data = False
 
     if (bucket_json is None) or (access_json is None):
+        from Acquire.ObjectStore import use_testing_object_store_backend as \
+                                        _use_testing_object_store_backend
+
         # see if this is running in testing mode...
         global _current_testing_objstore
         if testing_dir:
@@ -91,14 +84,19 @@ def login_to_service_account(testing_dir=None):
 
     # we have OCI login details, so make sure that we are using
     # the OCI object store backend
+    from Acquire.ObjectStore import use_oci_object_store_backend as \
+        _use_oci_object_store_backend
+
     _use_oci_object_store_backend()
 
     # now login and create/load the bucket for this account
     try:
-        account_bucket = _Account.create_and_connect_to_bucket(
-                                access_data,
-                                bucket_data["compartment"],
-                                bucket_data["bucket"])
+        from ._oci_account import OCIAccount as _OCIAccount
+
+        account_bucket = _OCIAccount.create_and_connect_to_bucket(
+                                    access_data,
+                                    bucket_data["compartment"],
+                                    bucket_data["bucket"])
     except Exception as e:
         raise ServiceAccountError(
              "Error connecting to the service account: %s" % str(e))

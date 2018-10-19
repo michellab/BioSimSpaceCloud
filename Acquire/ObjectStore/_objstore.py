@@ -7,9 +7,22 @@ import os as _os
 
 from ._errors import ObjectStoreError
 
-__all__ = ["ObjectStore", "set_object_store_backend"]
+__all__ = ["ObjectStore", "set_object_store_backend",
+           "use_testing_object_store_backend",
+           "use_oci_object_store_backend"]
 
 _objstore_backend = None
+
+
+def use_testing_object_store_backend(backend):
+    from ._testing_objstore import Testing_ObjectStore as _Testing_ObjectStore
+    set_object_store_backend(_Testing_ObjectStore)
+    return "%s/testing_objstore" % backend
+
+
+def use_oci_object_store_backend():
+    from ._oci_objstore import OCI_ObjectStore as _OCI_ObjectStore
+    set_object_store_backend(_OCI_ObjectStore)
 
 
 class ObjectStore:
@@ -91,7 +104,7 @@ def set_object_store_backend(backend):
     if backend == _objstore_backend:
         return
 
-    if not _objstore_backend is None:
+    if _objstore_backend is not None:
         raise ObjectStoreError("You cannot change the object store "
                                "backend once it has been already set!")
 

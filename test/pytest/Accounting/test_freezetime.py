@@ -167,6 +167,9 @@ def test_temporal_transactions(account1, account2, bucket):
 
 
 def test_parallel_transaction(account1, account2, bucket):
+    if not have_freezetime:
+        return
+
     zero = create_decimal(0)
 
     # test lots of transactions all happening in parallel

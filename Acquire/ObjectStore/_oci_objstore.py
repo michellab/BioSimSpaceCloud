@@ -5,21 +5,14 @@ import uuid as _uuid
 import json as _json
 import os as _os
 
-from ._objstore import set_object_store_backend as _set_object_store_backend
-
 from ._errors import ObjectStoreError
 
-try:
-    import oci as _oci
-    has_oci = True
-except:
-    has_oci = False
+__all__ = ["OCI_ObjectStore"]
 
-__all__ = [ "use_oci_object_store_backend" ]
 
-class _OCI_ObjectStore:
-    """This is the backend that abstracts using the Oracle Cloud Infrastructure
-       object store
+class OCI_ObjectStore:
+    """This is the backend that abstracts using the Oracle Cloud
+       Infrastructure object store
     """
 
     @staticmethod
@@ -41,13 +34,14 @@ class _OCI_ObjectStore:
             except:
                 is_chunked = False
                 pass
-                
+
             if not is_chunked:
                 raise ObjectStoreError("No object at key '%s'" % key)
 
         if not is_chunked:
             with open(filename, 'wb') as f:
-                for chunk in response.data.raw.stream(1024 * 1024, decode_content=False):
+                for chunk in response.data.raw.stream(1024 * 1024,
+                                                      decode_content=False):
                     f.write(chunk)
 
             return filename
@@ -56,19 +50,20 @@ class _OCI_ObjectStore:
         with open(filename, 'wb') as f:
             next_chunk = 1
             while True:
-                for chunk in response.data.raw.stream(1024 * 1024, decode_content=False):
+                for chunk in response.data.raw.stream(1024 * 1024,
+                                                      decode_content=False):
                     f.write(chunk)
 
                 # now get and write the rest of the chunks
                 next_chunk += 1
-                
+
                 try:
-                    response = bucket["client"].get_object(bucket["namespace"],
-                                                           bucket["bucket_name"],
-                                                           "%s/%d" % (key,next_chunk))
+                    response = bucket["client"].get_object(
+                        bucket["namespace"], bucket["bucket_name"],
+                        "%s/%d" % (key, next_chunk))
                 except:
                     break
-                                                           
+
     @staticmethod
     def get_object(bucket, key):
         """Return the binary data contained in the key 'key' in the
@@ -95,7 +90,8 @@ class _OCI_ObjectStore:
 
         data = None
 
-        for chunk in response.data.raw.stream(1024 * 1024, decode_content=False):
+        for chunk in response.data.raw.stream(1024 * 1024,
+                                              decode_content=False):
             if not data:
                 data = chunk
             else:
@@ -104,19 +100,21 @@ class _OCI_ObjectStore:
         if is_chunked:
             # keep going through to find more chunks
             next_chunk = 1
-            
+
             while True:
                 next_chunk += 1
-                
+
                 try:
-                    response = bucket["client"].get_object(bucket["namespace"],
-                                                           bucket["bucket_name"],
-                                                           "%s/%d" % (key,next_chunk))
+                    response = bucket["client"].get_object(
+                                        bucket["namespace"],
+                                        bucket["bucket_name"],
+                                        "%s/%d" % (key, next_chunk))
                 except:
                     response = None
                     break
 
-                for chunk in response.data.raw.stream(1024 * 1024, decode_content=False):
+                for chunk in response.data.raw.stream(1024 * 1024,
+                                                      decode_content=False):
                     if not data:
                         data = chunk
                     else:
@@ -127,7 +125,7 @@ class _OCI_ObjectStore:
     @staticmethod
     def get_string_object(bucket, key):
         """Return the string in 'bucket' associated with 'key'"""
-        return _OCI_ObjectStore.get_object(bucket, key).decode("utf-8")
+        return OCI_ObjectStore.get_object(bucket, key).decode("utf-8")
 
     @staticmethod
     def get_object_from_json(bucket, key):
@@ -135,11 +133,10 @@ class _OCI_ObjectStore:
            the passed bucket. This returns None if there is no data
            at this key
         """
-
         data = None
 
         try:
-            data = _OCI_ObjectStore.get_string_object(bucket,key)
+            data = OCI_ObjectStore.get_string_object(bucket, key)
         except:
             return None
 
@@ -154,36 +151,35 @@ class _OCI_ObjectStore:
 
         names = []
 
-        for object in objects.objects:
+        for obj in objects.objects:
             if prefix:
-                if object.name.startswith(prefix):
-                    names.append( object.name[len(prefix)+1:] )
+                if obj.name.startswith(prefix):
+                    names.append(obj.name[len(prefix)+1:])
             else:
-                names.append( object.name )
+                names.append(obj.name)
 
         return names
 
     @staticmethod
     def get_all_objects(bucket, prefix=None):
         """Return all of the objects in the passed bucket"""
-
         objects = {}
-        names = _OCI_ObjectStore.get_all_object_names(bucket, prefix)
+        names = OCI_ObjectStore.get_all_object_names(bucket, prefix)
 
         if prefix:
             for name in names:
-                objects[name] = _OCI_ObjectStore.get_object(bucket, "%s/%s" % (prefix,name))
+                objects[name] = OCI_ObjectStore.get_object(
+                                        bucket, "%s/%s" % (prefix, name))
         else:
             for name in names:
-                objects[name] = _OCI_ObjectStore.get_object(bucket, name)
+                objects[name] = OCI_ObjectStore.get_object(bucket, name)
 
         return objects
 
     @staticmethod
     def get_all_strings(bucket, prefix=None):
         """Return all of the strings in the passed bucket"""
-
-        objects = _OCI_ObjectStore.get_all_objects(bucket, prefix)
+        objects = OCI_ObjectStore.get_all_objects(bucket, prefix)
 
         names = list(objects.keys())
 
@@ -198,12 +194,12 @@ class _OCI_ObjectStore:
 
     @staticmethod
     def set_object(bucket, key, data):
-         """Set the value of 'key' in 'bucket' to binary 'data'"""
-         f = _io.BytesIO(data)
+        """Set the value of 'key' in 'bucket' to binary 'data'"""
+        f = _io.BytesIO(data)
 
-         bucket["client"].put_object(bucket["namespace"],
-                                     bucket["bucket_name"],
-                                     key, f)
+        bucket["client"].put_object(bucket["namespace"],
+                                    bucket["bucket_name"],
+                                    key, f)
 
     @staticmethod
     def set_object_from_file(bucket, key, filename):
@@ -211,56 +207,56 @@ class _OCI_ObjectStore:
            of the file located by 'filename'"""
 
         with open(filename, 'rb') as f:
-            bucket["client"].put_object(bucket["namespace"], 
-                                        bucket["bucket_name"], 
+            bucket["client"].put_object(bucket["namespace"],
+                                        bucket["bucket_name"],
                                         key, f)
 
     @staticmethod
     def set_string_object(bucket, key, string_data):
         """Set the value of 'key' in 'bucket' to the string 'string_data'"""
-        _OCI_ObjectStore.set_object(bucket, key, string_data.encode("utf-8"))
+        OCI_ObjectStore.set_object(bucket, key, string_data.encode("utf-8"))
 
     @staticmethod
     def set_object_from_json(bucket, key, data):
         """Set the value of 'key' in 'bucket' to equal to contents
            of 'data', which has been encoded to json"""
-        _OCI_ObjectStore.set_string_object(bucket, key, _json.dumps(data))
- 
+        OCI_ObjectStore.set_string_object(bucket, key, _json.dumps(data))
+
     @staticmethod
     def log(bucket, message, prefix="log"):
-         """Log the the passed message to the object store in 
-            the bucket with key "key/timestamp" (defaults
-            to "log/timestamp"
-         """
-
-         _OCI_ObjectStore.set_string_object(
-                bucket, "%s/%s" % (prefix,_datetime.datetime.utcnow().timestamp()),
-                           str(message))
+        """Log the the passed message to the object store in
+           the bucket with key "key/timestamp" (defaults
+           to "log/timestamp"
+        """
+        OCI_ObjectStore.set_string_object(
+                bucket, "%s/%s" % (prefix,
+                                   _datetime.datetime.utcnow().timestamp()),
+                str(message))
 
     @staticmethod
     def delete_all_objects(bucket, prefix=None):
         """Deletes all objects..."""
 
         if prefix:
-            for object in _OCI_ObjectStore.get_all_object_names(bucket,prefix):
-                if len(object) == 0:
+            for obj in OCI_ObjectStore.get_all_object_names(bucket, prefix):
+                if len(obj) == 0:
                     bucket["client"].delete_object(bucket["namespace"],
                                                    bucket["bucket_name"],
                                                    prefix)
                 else:
                     bucket["client"].delete_object(bucket["namespace"],
                                                    bucket["bucket_name"],
-                                                   "%s/%s" % (prefix,object))
+                                                   "%s/%s" % (prefix, obj))
         else:
-            for object in _OCI_ObjectStore.get_all_object_names(bucket):
-                bucket["client"].delete_object(bucket["namespace"], 
+            for obj in OCI_ObjectStore.get_all_object_names(bucket):
+                bucket["client"].delete_object(bucket["namespace"],
                                                bucket["bucket_name"],
-                                               object)
+                                               obj)
 
     @staticmethod
     def get_log(bucket, log="log"):
         """Return the complete log as an xml string"""
-        objs = _OCI_ObjectStore.get_all_strings(bucket, log)
+        objs = OCI_ObjectStore.get_all_strings(bucket, log)
 
         lines = []
         lines.append("<log>")
@@ -269,11 +265,11 @@ class _OCI_ObjectStore:
         timestamps.sort()
 
         for timestamp in timestamps:
-            lines.append( "<logitem>" )
-            lines.append( "<timestamp>%s</timestamp>" % \
-                    _datetime.datetime.fromtimestamp(float(timestamp)) )
-            lines.append( "<message>%s</message>" % objs[timestamp] )
-            lines.append( "</logitem>" )
+            lines.append("<logitem>")
+            lines.append("<timestamp>%s</timestamp>" %
+                         _datetime.datetime.fromtimestamp(float(timestamp)))
+            lines.append("<message>%s</message>" % objs[timestamp])
+            lines.append("</logitem>")
 
         lines.append("</log>")
 
@@ -282,15 +278,15 @@ class _OCI_ObjectStore:
     @staticmethod
     def clear_log(bucket, log="log"):
         """Clears out the log"""
-        _OCI_ObjectStore.delete_all_objects(bucket, log)
+        OCI_ObjectStore.delete_all_objects(bucket, log)
 
     @staticmethod
     def delete_object(bucket, key):
         """Removes the object at 'key'"""
         try:
             bucket["client"].delete_object(bucket["namespace"],
-                                                   bucket["bucket_name"],
-                                                   key)
+                                           bucket["bucket_name"],
+                                           key)
         except:
             pass
 
@@ -298,8 +294,7 @@ class _OCI_ObjectStore:
     def clear_all_except(bucket, keys):
         """Removes all objects from the passed 'bucket' except those
            whose keys are or start with any key in 'keys'"""
-
-        names = _OCI_ObjectStore.get_all_object_names(bucket)
+        names = OCI_ObjectStore.get_all_object_names(bucket)
 
         for name in names:
             remove = True
@@ -313,6 +308,3 @@ class _OCI_ObjectStore:
                 bucket["client"].delete_object(bucket["namespace"],
                                                bucket["bucket_name"],
                                                name)
-
-def use_oci_object_store_backend():
-    _set_object_store_backend( _OCI_ObjectStore )
