@@ -1,7 +1,5 @@
 
 import os as _os
-import tempfile as _tempfile
-import re as _re
 import base64 as _base64
 
 import lazy_import as _lazy_import
@@ -11,6 +9,9 @@ from ._errors import WeakPassphraseError, KeyManipulationError, \
 from ._errors import DecryptionError
 
 _pyotp = _lazy_import.lazy_module("pyotp")
+
+_tempfile = _lazy_import.lazy_module("tempfile")
+_re = _lazy_import.lazy_module("re")
 
 _rsa = _lazy_import.lazy_module(
             "cryptography.hazmat.primitives.asymmetric.rsa")
