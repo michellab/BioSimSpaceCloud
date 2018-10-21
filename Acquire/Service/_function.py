@@ -1,8 +1,6 @@
 
 import json as _json
-import traceback as _traceback
 
-from urllib.parse import urlencode as _urlencode
 from io import BytesIO as _BytesIO
 
 from Acquire.Crypto import PublicKey as _PublicKey
@@ -61,6 +59,8 @@ def create_return_value(status, message, log=None, error=None):
 
     if error:
         if isinstance(error, Exception):
+            import traceback as _traceback
+
             status = -2
             message = "%s: %s\nTraceback:\n%s" % (
                 str(error.__class__.__name__),
@@ -246,8 +246,18 @@ def call_function(function_url, args, args_key=None, response_key=None,
     args_json = None
     args_key = None
 
-    c.perform()
-    c.close()
+    try:
+        c.perform()
+        c.close()
+    except _pycurl.error as e:
+        raise RemoteFunctionCallError(
+            "Cannot call remote function '%s' because of a possible network "
+            "issue: curl errorcode %s, message '%s'" %
+            (function_url, e.args[0], e.args[1]))
+    except Exception as e:
+        raise RemoteFunctionCallError(
+            "Cannot call remote function '%s' because of a possible network "
+            "issue: %s" % (function_url, str(e)))
 
     result = buffer.getvalue().decode("utf-8")
 
