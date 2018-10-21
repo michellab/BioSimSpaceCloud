@@ -145,9 +145,9 @@ class Mutex:
            raised. The lock is held for a maximum of 'lease_time' seconds.
         """
         # if the user does not provide a timeout, then we will set a timeout
-        # of at 30 seconds
+        # to 10 seconds
         if timeout is None:
-            timeout = 30.0
+            timeout = 10.0
         else:
             timeout = float(timeout)
 

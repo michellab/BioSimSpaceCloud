@@ -5,7 +5,8 @@ import getpass as _getpass
 import glob as _glob
 import re as _re
 import base64 as _base64
-import pyotp as _pyotp
+
+import lazy_import as _lazy_import
 
 from Acquire.Service import call_function as _call_function
 from Acquire.Service import pack_arguments as _pack_arguments
@@ -19,6 +20,8 @@ from Acquire.Crypto import PrivateKey as _PrivateKey
 from Acquire.Crypto import OTP as _OTP
 
 from ._errors import LoginError
+
+_pyotp = _lazy_import.lazy_module("pyotp")
 
 __all__ = ["ServiceWallet"]
 

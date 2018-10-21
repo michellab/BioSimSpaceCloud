@@ -4,24 +4,24 @@ import tempfile as _tempfile
 import re as _re
 import base64 as _base64
 
-from cryptography.hazmat.primitives.asymmetric import rsa as _rsa
-from cryptography.hazmat.primitives import serialization as _serialization
-from cryptography.hazmat.backends import default_backend as _default_backend
-from cryptography.hazmat.primitives import hashes as _hashes
-from cryptography.hazmat.primitives.asymmetric import padding as _padding
-
-from cryptography.fernet import Fernet as _Fernet
+import lazy_import as _lazy_import
 
 from ._errors import WeakPassphraseError, KeyManipulationError, \
                      SignatureVerificationError
 from ._errors import DecryptionError
 
-try:
-    import pyotp as _pyotp
-    _has_pyotp = True
-except:
-    _has_pyotp = False
+_pyotp = _lazy_import.lazy_module("pyotp")
 
+_rsa = _lazy_import.lazy_module(
+            "cryptography.hazmat.primitives.asymmetric.rsa")
+_serialization = _lazy_import.lazy_module(
+            "cryptography.hazmat.primitives.serialization")
+_default_backend = _lazy_import.lazy_function(
+            "cryptography.hazmat.backends.default_backend")
+_hashes = _lazy_import.lazy_module("cryptography.hazmat.primitives.hashes")
+_padding = _lazy_import.lazy_module(
+            "cryptography.hazmat.primitives.asymmetric.padding")
+_fernet = _lazy_import.lazy_module("cryptography.fernet")
 
 __all__ = ["PrivateKey", "PublicKey"]
 
@@ -75,10 +75,9 @@ def _assert_strong_passphrase(passphrase, mangleFunction):
 
 def _generate_private_key():
     """Internal function that is used to generate all of our private keys"""
-    return _rsa.generate_private_key(
-                    public_exponent=65537,
-                    key_size=2048,
-                    backend=_default_backend())
+    return _rsa.generate_private_key(public_exponent=65537,
+                                     key_size=2048,
+                                     backend=_default_backend())
 
 
 class PublicKey:
@@ -93,8 +92,9 @@ class PublicKey:
             return None
 
         return self._pubkey.public_bytes(
-                    encoding=_serialization.Encoding.PEM,
-                    format=_serialization.PublicFormat.SubjectPublicKeyInfo)
+            encoding=_serialization.Encoding.PEM,
+            format=_serialization.PublicFormat
+                                 .SubjectPublicKeyInfo)
 
     def __str__(self):
         """Return a string representation of this key"""
@@ -156,8 +156,8 @@ class PublicKey:
 
         # this is a longer message that cannot be encoded using
         # an asymmetric key - need to use a symmetric key
-        key = _Fernet.generate_key()
-        f = _Fernet(key)
+        key = _fernet.Fernet.generate_key()
+        f = _fernet.Fernet(key)
         token = f.encrypt(message)
 
         encrypted_key = self._pubkey.encrypt(
@@ -372,7 +372,7 @@ class PrivateKey:
                 "Cannot decrypt the symmetric key used "
                 "to encrypt the long message: %s" % str(e))
 
-        f = _Fernet(symkey)
+        f = _fernet.Fernet(symkey)
 
         try:
             return f.decrypt(message[key_size:])

@@ -2,12 +2,6 @@
 import json as _json
 import traceback as _traceback
 
-try:
-    import pycurl as _pycurl
-    has_pycurl = True
-except:
-    has_pycurl = False
-
 from urllib.parse import urlencode as _urlencode
 from io import BytesIO as _BytesIO
 
@@ -226,8 +220,9 @@ def call_function(function_url, args, args_key=None, response_key=None,
        service signing certificate, and we will validate the
        signature using 'public_cert'
     """
-
-    if not has_pycurl:
+    try:
+        import pycurl as _pycurl
+    except:
         raise RemoteFunctionCallError(
             "Cannot call remote functions as "
             "the pycurl module cannot be imported! It needs "
