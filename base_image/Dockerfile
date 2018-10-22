@@ -35,6 +35,10 @@ ADD requirements.txt $HOME
 RUN pip3 install --no-cache --no-cache-dir -r requirements.txt
 RUN rm -fr ~/.cache/pip /tmp* requirements.txt func.yaml Dockerfile .venv
 
+# Copy in the updated version of oci's __init__.py that we
+# have fixed to lazy load modules (thereby making it much quicker)
+ADD fast_oci__init__.py /usr/local/lib/python3.7/site-packages/oci/__init__.py
+
 RUN /usr/bin/fix-permissions $HOME
 
 # Become the $FN_USER so that nothing runs as root
