@@ -14,7 +14,7 @@ __all__ = ["CloudDrive"]
 
 def _get_access_url():
     """Function to discover and return the default access service url"""
-    return "http://130.61.60.88:8080/r/access"
+    return "http://130.61.60.88:8080/t/access"
 
 
 def _get_access_service(access_url=None):
