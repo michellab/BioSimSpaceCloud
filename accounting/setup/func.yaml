@@ -1,5 +1,5 @@
 name: node-accounting-setup
-version: 0.0.13
+version: 0.0.21
 runtime: docker
 type: sync
 format: json

@@ -1,7 +1,11 @@
+schema_version: 20180708
 name: node-identity-register
-version: 0.0.42
+version: 0.0.1
 runtime: docker
-type: sync
 format: json
+type: sync
 timeout: 20
-path: /register
+triggers:
+- name: register
+  type: http
+  source: /register

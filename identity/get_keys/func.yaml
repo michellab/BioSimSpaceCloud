@@ -1,7 +1,11 @@
+schema_version: 20180708
 name: node-identity-get-keys
-version: 0.0.12
+version: 0.0.1
 runtime: docker
-type: sync
 format: json
+type: sync
 timeout: 20
-path: /get-keys
+triggers:
+- name: get-keys
+  type: http
+  source: /get-keys

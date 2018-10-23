@@ -1,5 +1,5 @@
 name: node-accounting-deposit
-version: 0.0.1
+version: 0.0.13
 runtime: docker
 type: sync
 format: json

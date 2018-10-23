@@ -1,7 +1,11 @@
+schema_version: 20180708
 name: node-identity-login
-version: 0.0.38
+version: 0.0.1
 runtime: docker
-type: sync
 format: json
+type: sync
 timeout: 20
-path: /login
+triggers:
+- name: login
+  type: http
+  source: /login

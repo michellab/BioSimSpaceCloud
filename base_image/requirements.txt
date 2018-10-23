@@ -1,5 +1,6 @@
 fdk==0.0.32
 oci
+lazy_import
 pyotp
 pycurl
 qrcode[pil]

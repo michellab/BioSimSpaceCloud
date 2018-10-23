@@ -1,7 +1,11 @@
+schema_version: 20180708
 name: node-identity-logout
-version: 0.0.25
+version: 0.0.1
 runtime: docker
-type: sync
 format: json
+type: sync
 timeout: 20
-path: /logout
+triggers:
+- name: logout
+  type: http
+  source: /logout
