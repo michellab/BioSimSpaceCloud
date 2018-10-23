@@ -40,7 +40,7 @@ class _LoginStatus(_Enum):
 
 def _get_identity_url():
     """Function to discover and return the default identity url"""
-    return "http://130.61.60.88:8080/r/identity"
+    return "http://130.61.60.88:8080/t/identity"
 
 
 def _get_identity_service(identity_url=None):
@@ -228,7 +228,7 @@ class User:
     def identity_service_url(self):
         """Return the URL to the identity service. This is the full URL
            to the service, minus the actual function to be called, e.g.
-           https://function_service.com/r/identity
+           https://function_service.com/t/identity
         """
         self._check_for_error()
 

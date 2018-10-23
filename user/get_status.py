@@ -2,7 +2,7 @@
 from Acquire import call_function
 
 # Get the status output of all of the services
-server = "http://130.61.60.88:8080/r"
+server = "http://130.61.60.88:8080/t"
 
 # First, the identity service
 print( call_function("%s/identity" % server, {}) )

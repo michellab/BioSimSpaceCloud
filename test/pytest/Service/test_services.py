@@ -11,7 +11,7 @@ def test_login_to_service():
     if skip_slow:
         return
 
-    root_url = "http://130.61.60.88:8080/r"
+    root_url = "http://130.61.60.88:8080/t"
 
     identity_service_url = "%s/identity" % root_url
     access_service_url = "%s/access" % root_url
