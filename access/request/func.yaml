@@ -1,7 +1,11 @@
-name: node-access-request
-version: 0.0.8
+schema_version: 20180708
+name: access-request
+version: 0.0.2
 runtime: docker
-type: sync
 format: json
+type: sync
 timeout: 20
-path: /request
+triggers:
+- name: request
+  type: http
+  source: /request

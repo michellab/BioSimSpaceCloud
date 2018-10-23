@@ -1,7 +1,11 @@
-name: node-access-status
-version: 0.0.31
+schema_version: 20180708
+name: access-root
+version: 0.0.2
 runtime: docker
-type: sync
 format: json
+type: sync
 timeout: 20
-path: /
+triggers:
+- name: root
+  type: http
+  source: /

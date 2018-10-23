@@ -1,7 +1,11 @@
-name: node-access-setup
-version: 0.0.30
+schema_version: 20180708
+name: access-setup
+version: 0.0.2
 runtime: docker
-type: sync
 format: json
+type: sync
 timeout: 20
-path: /setup
+triggers:
+- name: setup
+  type: http
+  source: /setup

@@ -8,7 +8,7 @@ import json
 import sys
 import os
 
-from Acquire import PrivateKey
+from Acquire.Crypto import PrivateKey
 
 ## First create the login info to connect to the account
 

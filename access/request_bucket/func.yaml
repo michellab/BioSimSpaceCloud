@@ -1,7 +1,11 @@
-name: node-access-request-bucket
-version: 0.0.8
+schema_version: 20180708
+name: access-request-bucket
+version: 0.0.2
 runtime: docker
-type: sync
 format: json
+type: sync
 timeout: 20
-path: /request-bucket
+triggers:
+- name: request-bucket
+  type: http
+  source: /request-bucket

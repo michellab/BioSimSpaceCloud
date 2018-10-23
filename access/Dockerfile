@@ -1,5 +1,5 @@
 FROM chryswoods/acquire-base:latest
 
-ADD status.py $HOME
+ADD root.py $HOME
 
-ENTRYPOINT ["python", "status.py"]
+ENTRYPOINT ["python", "root.py"]
