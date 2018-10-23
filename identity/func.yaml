@@ -1,6 +1,6 @@
 schema_version: 20180708
-name: node-identity
-version: 0.0.1
+name: identity-root
+version: 0.0.5
 runtime: docker
 format: json
 type: sync

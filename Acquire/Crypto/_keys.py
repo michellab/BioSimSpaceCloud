@@ -62,8 +62,8 @@ def _assert_strong_passphrase(passphrase, mangleFunction):
         passphrase = str(passphrase)
 
     if len(passphrase) < 6 or len(passphrase) > 20:
-        raise WeakPassphraseError("The pass-phrase must contain between "
-                                  "6 and 20 characters")
+        raise WeakPassphraseError("The pass-phrase '%s' must contain between "
+                                  "6 and 20 characters" % passphrase)
 
     if not (_re.search(r'[A-Z]', passphrase) and
             _re.search(r'[a-z]', passphrase) and
