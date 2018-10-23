@@ -1,7 +1,11 @@
-name: node-accounting-perform
-version: 0.0.9
+schema_version: 20180708
+name: accounting-perform
+version: 0.0.2
 runtime: docker
-type: sync
 format: json
+type: sync
 timeout: 20
-path: /perform
+triggers:
+- name: perform
+  type: http
+  source: /perform

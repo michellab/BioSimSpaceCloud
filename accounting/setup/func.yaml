@@ -1,7 +1,11 @@
-name: node-accounting-setup
-version: 0.0.21
+schema_version: 20180708
+name: accounting-setup
+version: 0.0.2
 runtime: docker
-type: sync
 format: json
+type: sync
 timeout: 20
-path: /setup
+triggers:
+- name: setup
+  type: http
+  source: /setup

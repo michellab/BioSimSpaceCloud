@@ -1,7 +1,11 @@
-name: node-accounting-deposit
-version: 0.0.13
+schema_version: 20180708
+name: accounting-deposit
+version: 0.0.2
 runtime: docker
-type: sync
 format: json
+type: sync
 timeout: 20
-path: /deposit
+triggers:
+- name: deposit
+  type: http
+  source: /deposit

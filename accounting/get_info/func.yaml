@@ -1,7 +1,11 @@
-name: node-accounting-get-info
-version: 0.0.12
+schema_version: 20180708
+name: accounting-get-info
+version: 0.0.2
 runtime: docker
-type: sync
 format: json
+type: sync
 timeout: 20
-path: /get-info
+triggers:
+- name: get-info
+  type: http
+  source: /get-info
