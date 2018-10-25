@@ -1,7 +1,7 @@
 
 import os as _os
 
-if _os.getenv("PROFILE"):
+if _os.getenv("PROFILE") == "1":
     profiling_code = True
     import cProfile as _cProfile
     import tempfile as _tempfile
