@@ -1,47 +1,23 @@
 
-import json
-import os
-
-from Acquire.Service import unpack_arguments, get_service_private_key, \
-                            create_return_value
-from Acquire.Service import get_service_info, pack_return_value
+from Acquire.Service import create_return_value
+from Acquire.Service import get_service_info
 
 
-def handler(ctx, data=None, loop=None):
+def run(args):
     """This function return the status and service info"""
 
     status = 0
     message = None
     service = None
 
-    log = []
+    service = get_service_info()
 
-    args = unpack_arguments(data, get_service_private_key)
+    status = 0
+    message = "Success"
 
-    try:
-        service = get_service_info()
-
-        status = 0
-        message = "Success"
-
-    except Exception as e:
-        status = -1
-        message = "Error %s: %s" % (e.__class__, str(e))
-
-    return_value = create_return_value(status, message, log)
+    return_value = create_return_value(status, message)
 
     if service:
         return_value["service_info"] = service.to_data()
 
-    # Pass the original arguments when creating the return value
-    # as it may specify different formats for return, or provide
-    # an encryption key to use for encrypting the result
-    return pack_return_value(return_value, args)
-
-if __name__ == "__main__":
-    try:
-        from fdk import handle
-        handle(handler)
-    except Exception as e:
-        print("Error running function: %s" % str(e))
-        raise
+    return return_value

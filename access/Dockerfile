@@ -1,5 +1,5 @@
 FROM chryswoods/acquire-base:latest
 
-ADD root.py $HOME
+ADD *.py $HOME/
 
-ENTRYPOINT ["python", "root.py"]
+ENTRYPOINT ["python", "route.py"]
