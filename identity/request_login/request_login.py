@@ -4,7 +4,7 @@ import json
 from Acquire.Service import get_service_private_key, unpack_arguments, \
                             login_to_service_account
 from Acquire.Service import create_return_value, pack_return_value, \
-                            get_service_info
+                            get_service_info, start_profile, end_profile
 
 from Acquire.ObjectStore import ObjectStore, string_to_bytes
 
@@ -88,6 +88,8 @@ def handler(ctx, data=None, loop=None):
        signing certificate. This will return a URL that the user
        must connect to to then log in and validate that request.
     """
+
+    pr = start_profile()
 
     status = 0
     message = None
@@ -202,6 +204,8 @@ def handler(ctx, data=None, loop=None):
 
     if user_uid:
         return_value["user_uid"] = user_uid
+
+    end_profile(pr, return_value)
 
     return pack_return_value(return_value, args)
 

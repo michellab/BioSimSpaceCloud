@@ -5,7 +5,8 @@ import uuid
 
 from Acquire.Service import get_service_private_key, unpack_arguments, \
                             login_to_service_account
-from Acquire.Service import create_return_value, pack_return_value
+from Acquire.Service import create_return_value, pack_return_value, \
+                            start_profile, end_profile
 
 from Acquire.Identity import UserAccount, LoginSession
 
@@ -19,6 +20,8 @@ class LoginError(Exception):
 def handler(ctx, data=None, loop=None):
     """This function is called by the user to log in and validate
        that a session is authorised to connect"""
+
+    pr = start_profile()
 
     status = 0
     message = None
@@ -241,6 +244,8 @@ def handler(ctx, data=None, loop=None):
     if provisioning_uri:
         return_value["provisioning_uri"] = provisioning_uri
         return_value["device_uid"] = assigned_device_uid
+
+    end_profile(pr, return_value)
 
     return pack_return_value(return_value, args)
 

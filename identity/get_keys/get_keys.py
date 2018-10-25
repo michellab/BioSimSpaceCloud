@@ -5,7 +5,8 @@ from Acquire.ObjectStore import ObjectStore, bytes_to_string
 
 from Acquire.Service import unpack_arguments, get_service_private_key, \
                             login_to_service_account
-from Acquire.Service import create_return_value, pack_return_value
+from Acquire.Service import create_return_value, pack_return_value, \
+                            start_profile, end_profile
 
 from Acquire.Identity import UserAccount, LoginSession
 
@@ -18,6 +19,8 @@ def handler(ctx, data=None, loop=None):
     """This function will allow anyone to obtain the public
        keys for the passed login session of a user with
        a specified login UID"""
+
+    pr = start_profile()
 
     status = 0
     message = None
@@ -101,6 +104,8 @@ def handler(ctx, data=None, loop=None):
 
     if logout_timestamp:
         return_value["logout_timestamp"] = logout_timestamp
+
+    end_profile(pr, return_value)
 
     return pack_return_value(return_value, args)
 

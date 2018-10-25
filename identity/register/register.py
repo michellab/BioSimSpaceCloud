@@ -3,7 +3,8 @@ import json
 
 from Acquire.Service import login_to_service_account, unpack_arguments, \
                             get_service_private_key
-from Acquire.Service import create_return_value, pack_return_value
+from Acquire.Service import create_return_value, pack_return_value, \
+                            start_profile, end_profile
 
 from Acquire.ObjectStore import ObjectStore
 
@@ -19,6 +20,8 @@ class ExistingAccountError(Exception):
 def handler(ctx, data=None, loop=None):
     """This function will allow a user to register an account with a
        username and password"""
+
+    pr = start_profile()
 
     status = 0
     message = None
@@ -117,6 +120,8 @@ def handler(ctx, data=None, loop=None):
 
     if provisioning_uri:
         return_value["provisioning_uri"] = provisioning_uri
+
+    end_profile(pr, return_value)
 
     return pack_return_value(return_value, args)
 

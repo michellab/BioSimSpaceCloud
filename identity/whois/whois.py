@@ -3,7 +3,8 @@ import json
 
 from Acquire.Service import unpack_arguments, get_service_private_key, \
                             login_to_service_account
-from Acquire.Service import create_return_value, pack_return_value
+from Acquire.Service import create_return_value, pack_return_value, \
+                            start_profile, end_profile
 
 from Acquire.ObjectStore import ObjectStore
 
@@ -21,6 +22,8 @@ class InvalidSessionError(Exception):
 def handler(ctx, data=None, loop=None):
     """This function will allow anyone to query who matches
        the passed UID or username (map from one to the other)"""
+
+    pr = start_profile()
 
     status = 0
     message = None
@@ -163,6 +166,8 @@ def handler(ctx, data=None, loop=None):
 
     if login_status:
         return_value["login_status"] = str(login_status)
+
+    end_profile(pr, return_value)
 
     return pack_return_value(return_value, args)
 

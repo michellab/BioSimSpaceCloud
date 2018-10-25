@@ -4,7 +4,7 @@ import json
 from Acquire.Service import pack_return_value, unpack_arguments, \
                             get_service_private_key
 from Acquire.Service import login_to_service_account, create_return_value, \
-                            pack_return_value
+                            pack_return_value, start_profile, end_profile
 
 from Acquire.Identity import UserAccount, LoginSession
 
@@ -21,6 +21,8 @@ def handler(ctx, data=None, loop=None):
     """This function will allow the current user to authorise
        a logout from the current session - this will be authorised
        by signing the request to logout"""
+
+    pr = start_profile()
 
     status = 0
     message = None
@@ -97,6 +99,8 @@ def handler(ctx, data=None, loop=None):
         message = "Error %s: %s" % (e.__class__, str(e))
 
     return_value = create_return_value(status, message, log)
+
+    end_profile(pr, return_value)
 
     return pack_return_value(return_value, args)
 
