@@ -3,6 +3,8 @@
 
 from __future__ import absolute_import
 
+import lazy_import as _lazy_import
+
 Bucket = _lazy_import.lazy_class("oci.object_storage.models.bucket.Bucket")
 BucketSummary = _lazy_import.lazy_class("oci.object_storage.models.bucket_summary.BucketSummary")
 CommitMultipartUploadDetails = _lazy_import.lazy_class("oci.object_storage.models.commit_multipart_upload_details.CommitMultipartUploadDetails")
