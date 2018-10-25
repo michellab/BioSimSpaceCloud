@@ -105,9 +105,9 @@ def get_session_keys(username=None, user_uid=None, session_uid=None,
         identity_url = _get_identity_url()
 
     response = _call_function(identity_url, "whois",
-                              username=str(username),
-                              user_uid=str(user_uid),
-                              session_uid=str(session_uid))
+                              username=username,
+                              user_uid=user_uid,
+                              session_uid=session_uid)
 
     try:
         response["public_key"] = _PublicKey.from_data(response["public_key"])

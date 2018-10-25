@@ -209,7 +209,7 @@ def unpack_return_value(return_value, key=None, public_cert=None):
 
 
 def call_function(service_url, function=None, args_key=None, response_key=None,
-                  public_cert=None, args={}, **kwargs):
+                  public_cert=None, args=None, **kwargs):
     """Call the remote function called 'function' at 'service_url' passing
        in named function arguments in 'kwargs'. If 'args_key' is supplied,
        then encrypt the arguments using 'args'. If 'response_key'
@@ -229,6 +229,9 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
             "to be installed into this python session...")
 
     response_key = _get_key(response_key)
+
+    if args is None:
+        args = {}
 
     if function is not None:
         args["function"] = function
