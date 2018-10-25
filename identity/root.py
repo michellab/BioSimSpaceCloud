@@ -4,11 +4,14 @@ import os
 
 from Acquire.Service import unpack_arguments, get_service_private_key, \
                             create_return_value
-from Acquire.Service import get_service_info, pack_return_value
+from Acquire.Service import get_service_info, pack_return_value, \
+                            start_profile, end_profile
 
 
 def handler(ctx, data=None, loop=None):
     """This function return the status and service info"""
+
+    pr = start_profile()
 
     status = 0
     message = None
@@ -32,6 +35,8 @@ def handler(ctx, data=None, loop=None):
 
     if service:
         return_value["service_info"] = service.to_data()
+
+    end_profile(pr, return_value)
 
     # Pass the original arguments when creating the return value
     # as it may specify different formats for return, or provide
