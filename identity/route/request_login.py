@@ -1,10 +1,6 @@
 
-import json
-
-from Acquire.Service import get_service_private_key, unpack_arguments, \
-                            login_to_service_account
-from Acquire.Service import create_return_value, pack_return_value, \
-                            get_service_info, start_profile, end_profile
+from Acquire.Service import login_to_service_account, get_service_info
+from Acquire.Service import create_return_value
 
 from Acquire.ObjectStore import ObjectStore, string_to_bytes
 
@@ -17,7 +13,7 @@ class InvalidLoginError(Exception):
     pass
 
 
-def prune_expired_sessions(bucket, user_account, root, sessions, log):
+def prune_expired_sessions(bucket, user_account, root, sessions, log=[]):
     """This function will scan through all open requests and
        login sessions and will prune away old, expired or otherwise
        weird sessions. It will also use the ipaddress of the source
@@ -82,117 +78,107 @@ def prune_expired_sessions(bucket, user_account, root, sessions, log):
                     pass
 
 
-def handler(ctx, data=None, loop=None):
+def run(args):
     """This function will allow a user to request a new session
        that will be validated by the passed public key and public
        signing certificate. This will return a URL that the user
        must connect to to then log in and validate that request.
     """
 
-    pr = start_profile()
-
     status = 0
     message = None
     login_url = None
     login_uid = None
     user_uid = None
-    log = []
 
-    args = unpack_arguments(data, get_service_private_key)
+    username = args["username"]
+    public_key = PublicKey.from_data(args["public_key"])
+    public_cert = PublicKey.from_data(args["public_certificate"])
+
+    ip_addr = None
+    hostname = None
+    login_message = None
 
     try:
-        username = args["username"]
-        public_key = PublicKey.from_data(args["public_key"])
-        public_cert = PublicKey.from_data(args["public_certificate"])
+        ip_addr = args["ipaddr"]
+    except:
+        pass
 
-        ip_addr = None
-        hostname = None
-        login_message = None
+    try:
+        hostname = args["hostname"]
+    except:
+        pass
 
-        try:
-            ip_addr = args["ipaddr"]
-        except:
-            pass
+    try:
+        login_message = args["message"]
+    except:
+        pass
 
-        try:
-            hostname = args["hostname"]
-        except:
-            pass
+    # generate a sanitised version of the username
+    user_account = UserAccount(username)
 
-        try:
-            login_message = args["message"]
-        except:
-            pass
+    # Now generate a login session for this request
+    login_session = LoginSession(public_key, public_cert, ip_addr,
+                                 hostname, login_message)
 
-        # generate a sanitised version of the username
-        user_account = UserAccount(username)
+    # now log into the central identity account to record
+    # that a request to open a login session has been opened
+    bucket = login_to_service_account()
 
-        # Now generate a login session for this request
-        login_session = LoginSession(public_key, public_cert, ip_addr,
-                                     hostname, login_message)
+    # first, make sure that the user exists...
+    account_key = "accounts/%s" % user_account.sanitised_name()
 
-        # now log into the central identity account to record
-        # that a request to open a login session has been opened
-        bucket = login_to_service_account()
+    try:
+        existing_data = ObjectStore.get_object_from_json(bucket,
+                                                         account_key)
+    except:
+        existing_data = None
 
-        # first, make sure that the user exists...
-        account_key = "accounts/%s" % user_account.sanitised_name()
+    if existing_data is None:
+        raise InvalidLoginError("There is no user with name '%s'" %
+                                username)
 
-        try:
-            existing_data = ObjectStore.get_object_from_json(bucket,
-                                                             account_key)
-        except:
-            existing_data = None
+    user_account = UserAccount.from_data(existing_data)
+    user_uid = user_account.uid()
 
-        if existing_data is None:
-            raise InvalidLoginError("There is no user with name '%s'" %
-                                    username)
+    # first, make sure that the user doens't have too many open
+    # login sessions at once - this prevents denial of service
+    user_session_root = "sessions/%s" % user_account.sanitised_name()
 
-        user_account = UserAccount.from_data(existing_data)
-        user_uid = user_account.uid()
+    open_sessions = ObjectStore.get_all_object_names(bucket,
+                                                     user_session_root)
 
-        # first, make sure that the user doens't have too many open
-        # login sessions at once - this prevents denial of service
-        user_session_root = "sessions/%s" % user_account.sanitised_name()
+    # take the opportunity to prune old user login sessions
+    prune_expired_sessions(bucket, user_account,
+                           user_session_root, open_sessions)
 
-        open_sessions = ObjectStore.get_all_object_names(bucket,
-                                                         user_session_root)
+    # this is the key for the session in the object store
+    user_session_key = "%s/%s" % (user_session_root,
+                                  login_session.uuid())
 
-        # take the opportunity to prune old user login sessions
-        prune_expired_sessions(bucket, user_account,
-                               user_session_root, open_sessions, log)
+    ObjectStore.set_object_from_json(bucket, user_session_key,
+                                     login_session.to_data())
 
-        # this is the key for the session in the object store
-        user_session_key = "%s/%s" % (user_session_root,
+    # we will record a pointer to the request using the short
+    # UUID. This way we can give a simple URL. If there is a clash,
+    # then we will use the username provided at login to find the
+    # correct request from a much smaller pool (likely < 3)
+    request_key = "requests/%s/%s" % (login_session.short_uuid(),
                                       login_session.uuid())
 
-        ObjectStore.set_object_from_json(bucket, user_session_key,
-                                         login_session.to_data())
+    ObjectStore.set_string_object(bucket, request_key, user_account.name())
 
-        # we will record a pointer to the request using the short
-        # UUID. This way we can give a simple URL. If there is a clash,
-        # then we will use the username provided at login to find the
-        # correct request from a much smaller pool (likely < 3)
-        request_key = "requests/%s/%s" % (login_session.short_uuid(),
-                                          login_session.uuid())
+    status = 0
+    # the login URL is the URL of this identity service plus the
+    # short UID of the session
+    login_url = "%s/%s" % (get_service_info().service_url(),
+                           login_session.short_uuid())
 
-        ObjectStore.set_string_object(bucket, request_key, user_account.name())
+    login_uid = login_session.uuid()
 
-        status = 0
-        # the login URL is the URL of this identity service plus the
-        # short UID of the session
-        login_url = "%s/%s" % (get_service_info().service_url(),
-                               login_session.short_uuid())
+    message = "Success: Login via %s" % login_url
 
-        login_uid = login_session.uuid()
-
-        message = "Success: Login via %s" % login_url
-
-    except Exception as e:
-        status = -1
-        message = "Error %s: %s" % (e.__class__, str(e))
-
-    return_value = create_return_value(status, message, log)
+    return_value = create_return_value(status, message)
 
     if login_uid:
         return_value["session_uid"] = login_uid
@@ -205,15 +191,4 @@ def handler(ctx, data=None, loop=None):
     if user_uid:
         return_value["user_uid"] = user_uid
 
-    end_profile(pr, return_value)
-
-    return pack_return_value(return_value, args)
-
-
-if __name__ == "__main__":
-    try:
-        from fdk import handle
-        handle(handler)
-    except Exception as e:
-        print("Error running function: %s" % str(e))
-        raise
+    return return_value
