@@ -28,7 +28,7 @@ def _get_accounting_service(accounting_url=None):
         accounting_url = _get_accounting_url()
 
     privkey = _PrivateKey()
-    response = _call_function(accounting_url, {}, response_key=privkey)
+    response = _call_function(accounting_url, response_key=privkey)
 
     try:
         service = _Service.from_data(response["service_info"])
@@ -75,7 +75,7 @@ def _get_account_uid(user, account_name, accounting_service=None,
     privkey = _PrivateKey()
 
     result = _call_function(
-            "%s/get-account-uids" % accounting_service.service_url(),
+            accounting_service.service_url(), "get_account_uids",
             args=args,
             args_key=accounting_service.public_key(),
             response_key=privkey,
@@ -113,7 +113,7 @@ def _get_account_uids(user, accounting_service=None, accounting_url=None):
     privkey = _PrivateKey()
 
     result = _call_function(
-            "%s/get-account-uids" % accounting_service.service_url(),
+            accounting_service.service_url(), "get_account_uids",
             args=args,
             args_key=accounting_service.public_key(),
             response_key=privkey,
@@ -182,8 +182,8 @@ def create_account(user, account_name, description=None,
     privkey = _PrivateKey()
 
     result = _call_function(
-                "%s/create-account" % accounting_service.service_url(),
-                args,
+                accounting_service.service_url(), "create_account",
+                args=args,
                 args_key=accounting_service.public_key(),
                 response_key=privkey,
                 public_cert=accounting_service.public_certificate())
@@ -223,7 +223,7 @@ def deposit(user, value, description=None,
     privkey = _PrivateKey()
 
     result = _call_function(
-                    "%s/deposit" % accounting_service.service_url(),
+                    accounting_service.service_url(), "deposit",
                     args=args,
                     args_key=accounting_service.public_key(),
                     response_key=privkey,
@@ -369,8 +369,8 @@ class Account:
         privkey = _PrivateKey()
 
         result = _call_function(
-                    "%s/get-info" % self._accounting_service.service_url(),
-                    args,
+                    self._accounting_service.service_url(), "get_info",
+                    args=args,
                     args_key=self._accounting_service.public_key(),
                     response_key=privkey,
                     public_cert=self._accounting_service.public_certificate())
@@ -467,8 +467,8 @@ class Account:
         privkey = _PrivateKey()
 
         result = _call_function(
-                    "%s/perform" % self._accounting_service.service_url(),
-                    args,
+                    self._accounting_service.service_url(), "perform",
+                    args=args,
                     args_key=self._accounting_service.public_key(),
                     response_key=privkey,
                     public_cert=self._accounting_service.public_certificate())
@@ -500,8 +500,8 @@ class Account:
         privkey = _PrivateKey()
 
         result = _call_function(
-                    "%s/receipt" % self._accounting_service.service_url(),
-                    args,
+                    self._accounting_service.service_url(), "receipt",
+                    args=args,
                     args_key=self._accounting_service.public_key(),
                     response_key=privkey,
                     public_cert=self._accounting_service.public_certificate())
@@ -530,8 +530,8 @@ class Account:
         privkey = _PrivateKey()
 
         result = _call_function(
-                    "%s/refund" % self._accounting_service.service_url(),
-                    args,
+                    self._accounting_service.service_url(), "refund",
+                    args=args,
                     args_key=self._accounting_service.public_key(),
                     response_key=privkey,
                     public_cert=self._accounting_service.public_certificate())
