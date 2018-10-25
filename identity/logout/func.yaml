@@ -1,6 +1,6 @@
 schema_version: 20180708
 name: identity-logout
-version: 0.0.3
+version: 0.0.9
 runtime: docker
 format: json
 type: sync

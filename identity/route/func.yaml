@@ -1,11 +1,11 @@
 schema_version: 20180708
-name: identity-get-keys
+name: identity-route
 version: 0.0.9
 runtime: docker
 format: json
 type: sync
 timeout: 20
 triggers:
-- name: get-keys
+- name: route
   type: http
-  source: /get-keys
+  source: /route

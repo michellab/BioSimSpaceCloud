@@ -1,6 +1,6 @@
 schema_version: 20180708
 name: identity-request-login
-version: 0.0.3
+version: 0.0.10
 runtime: docker
 format: json
 type: sync

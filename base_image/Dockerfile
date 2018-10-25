@@ -10,7 +10,8 @@ RUN apt-get update && \
     cmake \
     libgnutls28-dev \
     libcurl4-gnutls-dev \
-    wget && \
+    wget \
+    zip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -33,14 +34,19 @@ WORKDIR $HOME
 
 ADD requirements.txt $HOME
 RUN pip3 install --no-cache --no-cache-dir -r requirements.txt
-RUN rm -fr ~/.cache/pip /tmp* requirements.txt func.yaml Dockerfile .venv
+RUN rm -fr ~/.cache/pip /tmp/* requirements.txt func.yaml Dockerfile .venv
 
 # Copy in the updated version of oci's __init__.py that we
 # have fixed to lazy load modules (thereby making it much quicker)
 ADD fast_oci__init__.py /usr/local/lib/python3.7/site-packages/oci/__init__.py
 ADD fast_oci_object_storage__init__.py /usr/local/lib/python3.7/site-packages/oci/object_storage/__init__.py
-ADD fast_oci_object_storage_models__init__.py /usr/local/lib/python3.7/site-packages/oci/object_storage/models/__init__.py
-ADD fast_oci__vendor__init__.py /usr/local/lib/python3.7/site-packages/oci/_vendor/__init__.py
+#ADD fast_oci_object_storage_models__init__.py /usr/local/lib/python3.7/site-packages/oci/object_storage/models/__init__.py
+#ADD fast_oci__vendor__init__.py /usr/local/lib/python3.7/site-packages/oci/_vendor/__init__.py
+
+# Now zip up oci so that it is imported from memory (THIS DOESN'T SPEED STUFF UP!)
+#WORKDIR /usr/local/lib/python3.7/site-packages
+#RUN zip -r $HOME/oci.zip oci && rm -rf oci
+#WORKDIR $HOME
 
 RUN /usr/bin/fix-permissions $HOME
 
@@ -57,5 +63,8 @@ RUN python3 -m compileall Acquire/*
 
 ENTRYPOINT ["bash"]
 
-USER $FN_USER
+#ENV PYTHONPATH $HOME/oci.zip
 
+# Always finish by switching to user to prevent accidentally
+# ending as root
+USER $FN_USER
