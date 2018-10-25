@@ -282,7 +282,7 @@ class ServiceWallet:
 
         try:
             key = _PrivateKey()
-            response = _call_function(service_url, {}, response_key=key)
+            response = _call_function(service_url, response_key=key)
             service = _Service.from_data(response["service_info"])
         except Exception as e:
             service = None
@@ -346,9 +346,6 @@ class ServiceWallet:
         service_key = self._get_service_key(service_url)
         service_cert = self._get_service_cert(service_url)
 
-        # the login URL is of the form "service_url/function"
-        function_url = "%s/%s" % (service_url, function)
-
         password = self._get_admin_password(service_url)
         otpcode = self._get_otpcode(service_url)
 
@@ -358,14 +355,15 @@ class ServiceWallet:
         args["otpcode"] = otpcode
         args["remember_device"] = remember_device
 
-        print("\nCalling '%s' with %s... " % (function_url, strargs), end="")
+        print("\nCalling '%s' with %s... " % (function, strargs), end="")
         _sys.stdout.flush()
 
         try:
             key = _PrivateKey()
-            response = _call_function(function_url, args,
+            response = _call_function(service_url, function,
                                       args_key=service_key, response_key=key,
-                                      public_cert=service_cert)
+                                      public_cert=service_cert,
+                                      args=args)
             print("SUCCEEDED!")
             _sys.stdout.flush()
         except Exception as e:

@@ -60,10 +60,9 @@ class IdentityService(_Service):
             if username:
                 args["username"] = str(username)
                 response = _call_function(
-                                "%s/whois" % self.service_url(),
-                                args,
+                                self.service_url(), "whois",
                                 public_cert=self.public_certificate(),
-                                response_key=key)
+                                response_key=key, args=args)
                 lookup_uid = response["user_uid"]
             else:
                 lookup_uid = None
@@ -71,10 +70,9 @@ class IdentityService(_Service):
             if user_uid:
                 args["user_uid"] = str(user_uid)
                 response = _call_function(
-                    "%s/whois" % self.service_url(),
-                    args,
+                    self.service_url(), "whois",
                     public_cert=self.public_certificate(),
-                    response_key=key)
+                    response_key=key, args=args)
                 lookup_username = response["username"]
             else:
                 lookup_username = None

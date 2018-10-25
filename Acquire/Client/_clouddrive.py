@@ -23,7 +23,7 @@ def _get_access_service(access_url=None):
         access_url = _get_access_url()
 
     privkey = _PrivateKey()
-    response = _call_function(access_url, {}, response_key=privkey)
+    response = _call_function(access_url, response_key=privkey)
 
     try:
         service = _Service.from_data(response["service_info"])
@@ -126,8 +126,8 @@ class CloudDrive:
         privkey = _PrivateKey()
 
         result = _call_function(
-                    "%s/request" % self._access_service.service_url(),
-                    args,
+                    self._access_service.service_url(), "request",
+                    args=args,
                     args_key=self._access_service.public_key(),
                     response_key=privkey,
                     public_cert=self._access_service.public_certificate())

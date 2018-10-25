@@ -49,7 +49,7 @@ def _get_identity_service(identity_url=None):
         identity_url = _get_identity_url()
 
     privkey = _PrivateKey()
-    response = _call_function(identity_url, {}, response_key=privkey)
+    response = _call_function(identity_url, response_key=privkey)
 
     try:
         service = _Service.from_data(response["service_info"])
@@ -75,8 +75,8 @@ def uid_to_username(user_uid, identity_url=None):
     if identity_url is None:
         identity_url = _get_identity_url()
 
-    response = _call_function("%s/whois" % identity_url,
-                              {"user_uid": str(user_uid)})
+    response = _call_function(identity_url, "whois",
+                              user_uid=str(user_uid))
 
     return response["username"]
 
@@ -86,8 +86,8 @@ def username_to_uid(username, identity_url=None):
     if identity_url is None:
         identity_url = _get_identity_url()
 
-    response = _call_function("%s/whois" % identity_url,
-                              {"username": username})
+    response = _call_function(identity_url, "whois",
+                              username=str(username))
 
     return response["user_uid"]
 
@@ -104,10 +104,10 @@ def get_session_keys(username=None, user_uid=None, session_uid=None,
     if identity_url is None:
         identity_url = _get_identity_url()
 
-    response = _call_function("%s/whois" % identity_url,
-                              {"username": username,
-                               "user_uid": user_uid,
-                               "session_uid": session_uid})
+    response = _call_function(identity_url, "whois",
+                              username=str(username),
+                              user_uid=str(user_uid),
+                              session_uid=str(session_uid))
 
     try:
         response["public_key"] = _PublicKey.from_data(response["public_key"])
@@ -294,17 +294,16 @@ class User:
             permission = "Log out request for %s" % self._session_uid
             signature = self.signing_key().sign(permission)
 
-            args = {"username": self._username,
-                    "session_uid": self._session_uid,
-                    "permission": permission,
-                    "signature": _bytes_to_string(signature)}
-
             print("Logging out %s from session %s" % (self._username,
                                                       self._session_uid))
 
             result = _call_function(
-                "%s/logout" % identity_url, args,
-                args_key=self.identity_service().public_key())
+                            identity_url, "logout",
+                            args_key=self.identity_service().public_key(),
+                            username=self._username,
+                            session_uid=self._session_uid,
+                            permission=permission,
+                            signature=_bytes_to_string(signature))
             print(result)
 
             self._status = _LoginStatus.LOGGED_OUT
@@ -323,16 +322,14 @@ class User:
         if identity_url is None:
             identity_url = _get_identity_url()
 
-        args = {"username": self._username,
-                "password": password}
-
         privkey = _PrivateKey()
 
         result = _call_function(
-                    "%s/register" % identity_url, args,
+                    identity_url, "register",
                     args_key=self.identity_service().public_key(),
                     response_key=privkey,
-                    public_cert=self.identity_service().public_certificate())
+                    public_cert=self.identity_service().public_certificate(),
+                    username=self._username, password=password)
 
         try:
             provisioning_uri = result["provisioning_uri"]
@@ -388,10 +385,15 @@ class User:
         args["message"] = login_message
 
         result = _call_function(
-            "%s/request-login" % self.identity_service_url(), args,
+            self.identity_service_url(), "request_login",
             args_key=self.identity_service().public_key(),
             response_key=session_key,
-            public_cert=self.identity_service().public_certificate())
+            public_cert=self.identity_service().public_certificate(),
+            username=self._username,
+            public_key=session_key.public_key().to_data(),
+            public_certificate=signing_key.public_key().to_data(),
+            ipaddr=None,
+            message=login_message)
 
         # look for status = 0
         try:
@@ -467,10 +469,9 @@ class User:
         if identity_url is None:
             return
 
-        args = {"username": self._username,
-                "session_uid": self._session_uid}
-
-        result = _call_function("%s/get-status" % identity_url, args)
+        result = _call_function(identity_url, "get_status",
+                                username=self._username,
+                                session_uid=self._session_uid)
 
         # look for status = 0
         try:

@@ -284,7 +284,7 @@ class Wallet:
 
         try:
             key = _PrivateKey()
-            response = _call_function(identity_service, {}, response_key=key)
+            response = _call_function(identity_service, response_key=key)
             service = _Service.from_data(response["service_info"])
         except Exception as e:
             raise LoginError(
@@ -341,22 +341,20 @@ class Wallet:
         password = self._get_user_password(username)
         otpcode = self._get_otpcode(username)
 
-        args = {"username": username,
-                "password": password,
-                "otpcode": otpcode,
-                "remember_device": remember_device,
-                "device_uid": self._device_uid,
-                "short_uid": short_uid}
-
         print("\nLogging in to '%s', session '%s'..." % (
               identity_service, short_uid), end="")
         _sys.stdout.flush()
 
         try:
             key = _PrivateKey()
-            response = _call_function("%s/login" % identity_service, args,
+            response = _call_function(identity_service, "login",
                                       args_key=service_key, response_key=key,
-                                      public_cert=service_cert)
+                                      public_cert=service_cert,
+                                      username=username, password=password,
+                                      otpcode=otpcode,
+                                      remember_device=remember_device,
+                                      device_uid=self._device_uid,
+                                      short_uid=short_uid)
             print("SUCCEEDED!")
             _sys.stdout.flush()
         except Exception as e:

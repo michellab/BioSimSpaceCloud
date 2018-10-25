@@ -60,13 +60,12 @@ def handler(ctx, data=None, loop=None):
 
         # Since we trust this identity service, we can ask it to give us the
         # public certificate and signing certificate for this user.
-        args = {"user_uuid": user_uuid}
-
         key = PrivateKey()
 
-        response = call_function("%s/get_user_keys" % identity_service_url,
-                                 args, args_key=identity_service.public_key(),
-                                 response_key=key)
+        response = call_function(identity_service_url, "get_user_keys",
+                                 args_key=identity_service.public_key(),
+                                 response_key=key,
+                                 user_uuid=user_uuid)
 
         status = 0
         message = "Success: Status = %s" % str(response)

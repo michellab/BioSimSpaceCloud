@@ -208,10 +208,10 @@ def unpack_return_value(return_value, key=None, public_cert=None):
     return unpack_arguments(return_value, key, public_cert)
 
 
-def call_function(function_url, args, args_key=None, response_key=None,
-                  public_cert=None):
-    """Call the remote function at 'function_url' passing
-       in named function arguments in 'args'. If 'args_key' is supplied,
+def call_function(service_url, function=None, args_key=None, response_key=None,
+                  public_cert=None, args={}, **kwargs):
+    """Call the remote function called 'function' at 'service_url' passing
+       in named function arguments in 'kwargs'. If 'args_key' is supplied,
        then encrypt the arguments using 'args'. If 'response_key'
        is supplied, then tell the remote server to encrypt the response
        using the public version of 'response_key', so that we can
@@ -230,6 +230,12 @@ def call_function(function_url, args, args_key=None, response_key=None,
 
     response_key = _get_key(response_key)
 
+    if function is not None:
+        args["function"] = function
+
+    for key, value in kwargs.items():
+        args[key] = value
+
     if response_key:
         args_json = pack_arguments(args, args_key, response_key.public_key(),
                                    public_cert=public_cert)
@@ -238,7 +244,7 @@ def call_function(function_url, args, args_key=None, response_key=None,
 
     buffer = _BytesIO()
     c = _pycurl.Curl()
-    c.setopt(c.URL, function_url)
+    c.setopt(c.URL, service_url)
     c.setopt(c.WRITEDATA, buffer)
     c.setopt(c.POSTFIELDS, args_json)
 
@@ -251,13 +257,13 @@ def call_function(function_url, args, args_key=None, response_key=None,
         c.close()
     except _pycurl.error as e:
         raise RemoteFunctionCallError(
-            "Cannot call remote function '%s' because of a possible network "
-            "issue: curl errorcode %s, message '%s'" %
-            (function_url, e.args[0], e.args[1]))
+            "Cannot call remote function '%s' at  '%s' because of a possible "
+            "network issue: curl errorcode %s, message '%s'" %
+            (function, service_url, e.args[0], e.args[1]))
     except Exception as e:
         raise RemoteFunctionCallError(
-            "Cannot call remote function '%s' because of a possible network "
-            "issue: %s" % (function_url, str(e)))
+            "Cannot call remote function '%s' at '%s' because of a possible "
+            "nework issue: %s" % (function, service_url, str(e)))
 
     result = buffer.getvalue().decode("utf-8")
 
@@ -266,16 +272,17 @@ def call_function(function_url, args, args_key=None, response_key=None,
         result = unpack_return_value(result, response_key, public_cert)
     except Exception as e:
         raise RemoteFunctionCallError(
-            "Error calling '%s': %s" % (function_url, str(e)))
+            "Error calling '%s' at '%s': %s" % (function, service_url, str(e)))
 
     if len(result) == 1 and "error" in result:
         raise RemoteFunctionCallError(
-            "Error calling '%s': '%s'" % (function_url, result["error"]))
+            "Error calling '%s' at '%s': '%s'" % (function, service_url,
+                                                  result["error"]))
     elif "status" in result:
         if result["status"] != 0:
             raise RemoteFunctionCallError(
-                "Error calling '%s'. Server returned "
+                "Error calling '%s' at '%s'. Server returned "
                 "error code '%d' with message '%s'" %
-                (function_url, result["status"], result["message"]))
+                (function, service_url, result["status"], result["message"]))
 
     return result

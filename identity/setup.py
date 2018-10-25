@@ -1,7 +1,7 @@
 
 import os
 
-from Acquire.Service import set_trusted_service_info, call_function, \
+from Acquire.Service import set_trusted_service_info, \
                             create_return_value
 from Acquire.Service import login_to_service_account, \
                             get_service_info
