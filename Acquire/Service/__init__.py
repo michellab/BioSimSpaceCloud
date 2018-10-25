@@ -11,6 +11,7 @@ from ._get_services import *
 from ._login_to_objstore import *
 from ._service_account import *
 from ._service import *
+from ._profile import *
 from ._errors import *
 
 try:

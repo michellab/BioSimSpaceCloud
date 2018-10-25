@@ -3,7 +3,8 @@ import json
 
 from Acquire.Service import get_service_private_key, unpack_arguments, \
                             login_to_service_account
-from Acquire.Service import create_return_value, pack_return_value
+from Acquire.Service import create_return_value, pack_return_value, \
+                            start_profile, end_profile
 
 from Acquire.ObjectStore import ObjectStore
 
@@ -17,6 +18,8 @@ class InvalidSessionError(Exception):
 def handler(ctx, data=None, loop=None):
     """This function will allow anyone to query the current login
        status of the session with passed UID"""
+
+    pr = start_profile()
 
     status = 0
     message = None
@@ -72,6 +75,8 @@ def handler(ctx, data=None, loop=None):
 
     if session_status:
         return_value["session_status"] = session_status
+
+    end_profile(pr, return_value)
 
     return pack_return_value(return_value, args)
 
