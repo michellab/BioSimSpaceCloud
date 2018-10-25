@@ -48,6 +48,9 @@ def handler(ctx, data=None, loop=None):
         elif function == "whois":
             from whois import run as _whois
             result = _whois(args)
+        else:
+            result = {"status": -1,
+                      "message": "Unknown function '%s'" % function}
 
     except Exception as e:
         result = {"status": -1,
