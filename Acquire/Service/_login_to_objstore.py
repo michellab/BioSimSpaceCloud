@@ -5,6 +5,9 @@ import json as _json
 from cachetools import cached as _cached
 from cachetools import TTLCache as _TTLCache
 
+from Acquire.Crypto import PrivateKey as _PrivateKey
+from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
+
 from ._errors import ServiceAccountError
 
 # The cache can hold a maximum of 50 objects, and will be renewed
@@ -34,21 +37,16 @@ def login_to_service_account(testing_dir=None):
        (which should be encrypted or hidden in some way...)
     """
 
-    # get the login information in json format from
-    # the LOGIN_JSON environment variable
-    access_json = _os.getenv("LOGIN_JSON")
-    access_data = None
-    has_access_data = False
+    # read the password for the secret key from the filesystem
+    try:
+        with open("secret_key", "r") as FILE:
+            password = FILE.readline()
+    except:
+        password = None
 
-    # get the bucket information in json format from
-    # the BUCKET_JSON environment variable
-    bucket_json = _os.getenv("BUCKET_JSON")
-    bucket_data = None
-    has_bucket_data = False
-
-    if (bucket_json is None) or (access_json is None):
+        # we must be in testing mode...
         from Acquire.ObjectStore import use_testing_object_store_backend as \
-                                        _use_testing_object_store_backend
+            _use_testing_object_store_backend
 
         # see if this is running in testing mode...
         global _current_testing_objstore
@@ -58,29 +56,22 @@ def login_to_service_account(testing_dir=None):
         elif _current_testing_objstore:
             return _use_testing_object_store_backend(_current_testing_objstore)
 
-    if bucket_json and len(bucket_json) > 0:
-        try:
-            bucket_data = _json.loads(bucket_json)
-            bucket_json = None
-            has_bucket_data = True
-        except:
-            pass
+    if password is None:
+        raise ServiceAccountError(
+            "You need to supply login credentials via the 'secret_key' "
+            "file, and 'SECRET_KEY' and 'SECRET_CONFIG' environment "
+            "variables! %s" % testing_dir)
 
-    if access_json and len(access_json) > 0:
-        try:
-            access_data = _json.loads(access_json)
-            access_json = None
-            has_access_data = True
-        except:
-            pass
+    # use the password to decrypt the SECRET_KEY in the config
+    secret_key = _PrivateKey.from_data(_json.loads(_os.getenv("SECRET_KEY")),
+                                       password)
 
-    if not (has_access_data and has_bucket_data):
-        if testing_dir:
-            return _use_testing_object_store_backend(testing_dir)
-        else:
-            raise ServiceAccountError(
-                "You need to supply login credentials via the 'LOGIN_JSON' "
-                "and 'BUCKET_JSON' environment variables! %s" % testing_dir)
+    # use the secret_key to decrypt the config in SECRET_CONFIG
+    config = secret_key.decrypt(_string_to_bytes(_os.getenv("SECRET_CONFIG")))
+
+    # get info from this config
+    access_data = config["LOGIN"]
+    bucket_data = config["BUCKET"]
 
     # we have OCI login details, so make sure that we are using
     # the OCI object store backend
