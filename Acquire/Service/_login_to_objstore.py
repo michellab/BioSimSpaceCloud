@@ -40,7 +40,7 @@ def login_to_service_account(testing_dir=None):
     # read the password for the secret key from the filesystem
     try:
         with open("secret_key", "r") as FILE:
-            password = FILE.readline()
+            password = FILE.readline()[0:-1]
     except:
         password = None
 
@@ -67,7 +67,8 @@ def login_to_service_account(testing_dir=None):
                                        password)
 
     # use the secret_key to decrypt the config in SECRET_CONFIG
-    config = secret_key.decrypt(_string_to_bytes(_os.getenv("SECRET_CONFIG")))
+    config = _json.loads(secret_key.decrypt(
+                         _string_to_bytes(_os.getenv("SECRET_CONFIG"))))
 
     # get info from this config
     access_data = config["LOGIN"]
