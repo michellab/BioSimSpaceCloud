@@ -75,6 +75,9 @@ def login_to_service_account(testing_dir=None):
     access_data = config["LOGIN"]
     bucket_data = config["BUCKET"]
 
+    # save the service password to the environment
+    _os.environ["SERVICE_PASSWORD"] = config["PASSWORD"]
+
     # we have OCI login details, so make sure that we are using
     # the OCI object store backend
     from Acquire.ObjectStore import use_oci_object_store_backend as \
