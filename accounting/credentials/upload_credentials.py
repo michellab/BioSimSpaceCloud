@@ -10,6 +10,10 @@ import os
 
 from Acquire.Crypto import PrivateKey
 
+## Create a key to encrypt the config
+config_key = PrivateKey()
+secret_config = {}
+
 ## First create the login info to connect to the account
 
 """
@@ -46,9 +50,7 @@ privkey = PrivateKey.read(sys.argv[1],sys.argv[2])
 # The region for this tenancy
 data["region"] = "eu-frankfurt-1"
 
-print(json.dumps(data))
-
-os.system("fn config app accounting LOGIN_JSON '%s'" % json.dumps(data))
+secret_config["LOGIN"] = data
 
 ## Now create the bucket info so we know where the bucket is
 ## that will store all data related to logging into accounts
@@ -57,7 +59,12 @@ data = {}
 data["compartment"] = "ocid1.compartment.oc1..aaaaaaaat33j7w74mdyjenwoinyeawztxe7ri6qkfbm5oihqb5zteamvbpzq"
 data["bucket"] = "acquire_accounting"
 
-print(json.dumps(data))
+secret_config["BUCKET"] = data
 
-os.system("fn config app accounting BUCKET_JSON '%s'" % json.dumps(data))
-os.system("fn config app accounting SERVICE_PASSWORD '%s'" % sys.argv[2])
+secret_config["PASSWORD"] = sys.argv[2]
+
+config_data = bytes_to_string(config_key.encrypt(json.dumps(secret_config)))
+secret_key = json.dumps(config_key.to_data(sys.argv[3]))
+
+os.system("fn config app accounting SECRET_CONFIG '%s'" % config_data)
+os.system("fn config app accounting SECRET_KEY '%s'" % secret_key)

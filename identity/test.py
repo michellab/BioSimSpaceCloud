@@ -7,7 +7,7 @@ from Acquire.Service import create_return_value
 
 def run(args):
     status = 0
-    message = str(dict(os.environ))
+    message = "TEST"
 
     return_value = create_return_value(status, message)
 
