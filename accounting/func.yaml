@@ -1,8 +1,8 @@
 schema_version: 20180708
 name: accounting-root
-version: 0.0.4
+version: 0.0.7
 runtime: docker
-format: json
+format: http-stream
 type: sync
 timeout: 20
 triggers:
