@@ -1,70 +1,46 @@
-FROM python:3.7-slim-stretch
-LABEL maintainer="Christopher Woods <Christopher.Woods@bristol.ac.uk>"
+# Build and install dependencies into the build container
+FROM fnproject/python:3.7-dev as build-stage
 
-USER root
+WORKDIR /function
 
+# Install libraries needed by python dependencies
 RUN apt-get update && \
-    apt-get install --no-install-recommends -qy \ 
-    build-essential \ 
+    apt-get install --no-install-recommends -qy \
+    build-essential \
     gcc \
     cmake \
     libgnutls28-dev \
     libcurl4-gnutls-dev \
-    wget \
-    zip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Configure environment
-ENV SHELL=/bin/bash \
-    FN_USER=fnuser \
-    FN_UID=1000 \
-    FN_GID=100
+ADD requirements.txt .
 
-ENV HOME=/home/$FN_USER
+RUN pip3 install --target /python/ --no-cache --no-cache-dir \
+                 -r requirements.txt && \
+    rm -fr ~/.cache/pip /tmp* requirements.txt func.yaml Dockerfile .venv
 
-ADD fix-permissions /usr/bin/fix-permissions
+# Now transfer what is needed to the production container
+FROM fnproject/python:3.7
 
-# Create fn user with UID=1000 and in the 'users' group
-# and make sure these dirs are writable by the `users` group.
-RUN useradd -m -s /bin/bash -N -u $FN_UID $FN_USER && \
-    fix-permissions $HOME
+WORKDIR /function
 
-WORKDIR $HOME
+COPY --from=build-stage /function /function
+COPY --from=build-stage /python /python
 
-ADD requirements.txt $HOME
-RUN pip3 install --no-cache --no-cache-dir -r requirements.txt
-RUN rm -fr ~/.cache/pip /tmp/* requirements.txt func.yaml Dockerfile .venv
+ENV PYTHONPATH=/python
 
 # Copy in the updated version of oci's __init__.py that we
 # have fixed to lazy load modules (thereby making it much quicker)
-ADD fast_oci__init__.py /usr/local/lib/python3.7/site-packages/oci/__init__.py
-ADD fast_oci_object_storage__init__.py /usr/local/lib/python3.7/site-packages/oci/object_storage/__init__.py
+#ADD fast_oci__init__.py /usr/local/lib/python3.7/site-packages/oci/__init__.py
+#ADD fast_oci_object_storage__init__.py /usr/local/lib/python3.7/site-packages/oci/object_storage/__init__.py
 #ADD fast_oci_object_storage_models__init__.py /usr/local/lib/python3.7/site-packages/oci/object_storage/models/__init__.py
 #ADD fast_oci__vendor__init__.py /usr/local/lib/python3.7/site-packages/oci/_vendor/__init__.py
 
-# Now zip up oci so that it is imported from memory (THIS DOESN'T SPEED STUFF UP!)
-#WORKDIR /usr/local/lib/python3.7/site-packages
-#RUN zip -r $HOME/oci.zip oci && rm -rf oci
-#WORKDIR $HOME
-
-RUN /usr/bin/fix-permissions $HOME
-
-# Become the $FN_USER so that nothing runs as root
-USER $FN_USER
-
 # Add the function last as this is the thing that will change
 # most often
-ADD function/* $HOME/
+ADD Acquire /function
 
-# Now byte-compile everything
-USER root
-RUN python3 -m compileall Acquire/*
+RUN python3 -m compileall /function/Acquire/*
 
 ENTRYPOINT ["bash"]
-
-#ENV PYTHONPATH $HOME/oci.zip
-
-# Always finish by switching to user to prevent accidentally
-# ending as root
-USER $FN_USER
