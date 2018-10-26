@@ -1,6 +1,6 @@
 schema_version: 20180708
 name: access-root
-version: 0.0.2
+version: 0.0.6
 runtime: docker
 format: json
 type: sync

@@ -5,4 +5,3 @@ pyotp
 pycurl
 qrcode[pil]
 cachetools
-cython
