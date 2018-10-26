@@ -1,10 +1,13 @@
 
+import asyncio
+import fdk
+
 from Acquire.Service import unpack_arguments, get_service_private_key
 from Acquire.Service import create_return_value, pack_return_value, \
                             start_profile, end_profile
 
 
-def handler(ctx, data=None, loop=None):
+async def handler(ctx, data=None, loop=None):
     """This function routes calls to sub-functions, thereby allowing
        a single identity function to stay hot for longer"""
 
@@ -62,9 +65,4 @@ def handler(ctx, data=None, loop=None):
 
 
 if __name__ == "__main__":
-    try:
-        from fdk import handle
-        handle(handler)
-    except Exception as e:
-        print("Error running function: %s" % str(e))
-        raise
+    fdk.handle(handler)
