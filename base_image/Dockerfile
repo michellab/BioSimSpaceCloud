@@ -83,6 +83,8 @@ ADD fixed/fast_oci_object_storage__init__.py /python/oci/object_storage/__init__
 #ADD fixed/fast_oci_object_storage_models__init__.py /python/oci/object_storage/models/__init__.py
 #ADD fixed/fast_oci__vendor__init__.py /python/oci/_vendor/__init__.py
 
+ADD fixed/fast_fdk__init__.py /python/fdk/__init__.py
+
 # Add the function last as this is the thing that will change
 # most often
 ADD Acquire /function/Acquire
