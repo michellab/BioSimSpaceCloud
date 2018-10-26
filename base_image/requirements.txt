@@ -1,4 +1,4 @@
-fdk==0.0.32
+fdk
 oci
 lazy_import
 pyotp

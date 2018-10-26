@@ -1,8 +1,9 @@
 schema_version: 20180708
 name: identity-root
-version: 0.0.33
+version: 0.0.50
 runtime: docker
-format: json
+entrypoint: python test.py
+format: http-stream
 type: sync
 timeout: 20
 triggers:
