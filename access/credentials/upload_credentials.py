@@ -9,6 +9,7 @@ import sys
 import os
 
 from Acquire.Crypto import PrivateKey
+from Acquire.ObjectStore import bytes_to_string
 
 ## Create a key to encrypt the config
 config_key = PrivateKey()
@@ -63,7 +64,7 @@ secret_config["BUCKET"] = data
 
 secret_config["PASSWORD"] = sys.argv[2]
 
-config_data = bytes_to_string(config_key.encrypt(json.dumps(secret_config)))
+config_data = bytes_to_string(config_key.encrypt(json.dumps(secret_config).encode("utf-8")))
 secret_key = json.dumps(config_key.to_data(sys.argv[3]))
 
 os.system("fn config app access SECRET_CONFIG '%s'" % config_data)

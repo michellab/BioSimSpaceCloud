@@ -68,4 +68,9 @@ async def handler(ctx, data=None, loop=None):
 
 
 if __name__ == "__main__":
-    fdk.handle(handler)
+    try:
+        fdk.handle(handler)
+    except Exception as e:
+        print( {"message": "Error! %s" % str(e), "status": -1} )
+    except:
+        print( {"message": "Unknown error!", "status": -1} )
