@@ -68,7 +68,8 @@ def login_to_service_account(testing_dir=None):
 
     # use the secret_key to decrypt the config in SECRET_CONFIG
     config = _json.loads(secret_key.decrypt(
-                         _string_to_bytes(_os.getenv("SECRET_CONFIG"))))
+                         _string_to_bytes(_os.getenv("SECRET_CONFIG")))
+                         .decode("utf-8"))
 
     # get info from this config
     access_data = config["LOGIN"]
