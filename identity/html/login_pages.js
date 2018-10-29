@@ -14,22 +14,22 @@ function render_main(){
         </p>\
         <form class="content__form contact-form">\
         <div class="contact-form__input-group">\
-            <label class="contact-form__label" for="username">username</label>\
+            <label class="contact-form__label" for="username">\
+              username\
+              <span class="contact-form__remind-input" id="contact-form__remind-username"> (*) you must supply a username</span>\
+              </label>\
             <input class="contact-form__input contact-form__input--text"\
                 id="username" name="username"\
                 type="text" autofill="username"/>\
         </div>\
         <div class="contact-form__input-group">\
-            <label class="contact-form__label" for="password">password</label>\
+            <label class="contact-form__label" for="password">\
+            password\
+            <span class="contact-form__remind-input" id="contact-form__remind-password"> (*) you must supply a password</span>\
+            </label>\
             <input class="contact-form__input contact-form__input--text"\
                 id="password" name="password" type="password"\
                 autofill="password"/>\
-        </div>\
-        <div class="contact-form__input-group">\
-            <label class="contact-form__label"\
-                for="otpcode">one time authentication code</label>\
-            <input class="contact-form__input contact-form__input--text"\
-                id="otpcode" name="otpcode" type="text"/>\
         </div>\
         <button class="contact-form__button" type="submit">Login</button>\
         <div class="contact-form__input-group">\
@@ -70,22 +70,26 @@ function render_main(){
         var data = formToJSON(form.elements);
 
         var all_ok = 1;
-        var remind_username = 0;
-        var remind_password = 0;
-        var remember_username = null;
 
         // make sure that we have everything we need...
         if (!data["username"]){
-            remind_username = 1;
+            var remind_input = document.getElementById("contact-form__remind-username");
+            remind_input.style.display = "inline";
             all_ok = 0;
         }
         else{
-            remember_username = data["username"];
+            var remind_input = document.getElementById("contact-form__remind-username");
+            remind_input.style.display = "none";
         }
 
         if (!data["password"]){
-            remind_password = 1;
+            var remind_input = document.getElementById("contact-form__remind-password");
+            remind_input.style.display = "inline";
             all_ok = 0;
+        }
+        else{
+            var remind_input = document.getElementById("contact-form__remind-password");
+            remind_input.style.display = "none";
         }
 
         if (!all_ok)

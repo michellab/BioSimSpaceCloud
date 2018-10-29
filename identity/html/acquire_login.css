@@ -88,6 +88,12 @@ h1,h2 {
     line-height: 1.125;
 }
 
+.contact-form__remind-input {
+    display: none;
+    float: right;
+    color: red;
+}
+
 .contact-form__label--checkbox-group {
     display: inline-block;
     margin-right: 16px;
