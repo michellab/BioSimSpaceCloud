@@ -2,7 +2,58 @@
  *  These are the functions that render individual pages / views
  *  for the login application
  */
-function render_main(){
+
+var json_login_data = {};
+
+var pages = ["login-page", "otp-page", "progress-page", "test-page"];
+
+/** Function used to switch views between different pages */
+function show_page(new_page){
+    selected = null;
+
+    pages.forEach((page) => {
+        p = document.getElementById(page);
+
+        if (new_page == page){
+            p.style.display = "block";
+            selected = page;
+        }
+        else{
+            p.style.display = "none";
+        }
+    });
+
+    if (!selected){
+        p = document.getElementById("login-page");
+        p.style.display = "block";
+    }
+}
+
+/** Shortcut function to switch back to the login page */
+function show_login_page(){
+    show_page("login-page");
+}
+
+/** This function renders the test page */
+function render_test_page(){
+    document.write(
+        '<div class="results">\
+          <h2 class="results__heading">Form Data</h2>\
+          <pre class="results__display-wrapper"><code class="results__display"></code></pre>\
+          <button type="button" onclick="show_login_page()">Back</button>\
+          <button type="button" onclick="perform_login()">Submit</button>\
+          </div>');
+}
+
+/** This function is used to get the otpcode from either the user
+ *  of from secure storage
+ */
+function get_otpcode(){
+    json_login_data["otpcode"] = "56789";
+}
+
+/* This function renders the login page */
+function render_login_page(){
     document.write(
         '<h1 class="content__heading">\
             <a href="' + getIdentityServiceURL() + '">\
@@ -38,24 +89,7 @@ function render_main(){
                 id="remember_device" name="remember_device" type="checkbox"\
                 value="true"/>\
         </div>\
-        <input name="function" type="hidden" value="login"/>\
-        <input name="short_uid" type="hidden" value="' +
-                   getSessionUID() + '"/>');
-
-    var device_uid = getDeviceUID();
-    if (device_uid){
-        document.write("<input name='device_uid' type='hidden' value='" +
-                       device_uid + "'/>")
-    }
-    document.write('</form>');
-
-    if (isTesting()){
-        document.write(
-          '<div class="results">\
-            <h2 class="results__heading">Form Data</h2>\
-            <pre class="results__display-wrapper"><code class="results__display"></code></pre>\
-          </div>');
-    }
+      </form>');
 
     /**
      * A handler function to prevent default submission and run our custom script.
@@ -72,24 +106,26 @@ function render_main(){
         var all_ok = 1;
 
         // make sure that we have everything we need...
-        if (!data["username"]){
+        if (data["username"]){
+            json_login_data["username"] = data["username"];
             var remind_input = document.getElementById("contact-form__remind-username");
-            remind_input.style.display = "inline";
-            all_ok = 0;
+            remind_input.style.display = "none";
         }
         else{
             var remind_input = document.getElementById("contact-form__remind-username");
-            remind_input.style.display = "none";
+            remind_input.style.display = "inline";
+            all_ok = 0;
         }
 
-        if (!data["password"]){
+        if (data["password"]){
+            json_login_data["password"];
             var remind_input = document.getElementById("contact-form__remind-password");
-            remind_input.style.display = "inline";
-            all_ok = 0;
+            remind_input.style.display = "none";
         }
         else{
             var remind_input = document.getElementById("contact-form__remind-password");
-            remind_input.style.display = "none";
+            remind_input.style.display = "inline";
+            all_ok = 0;
         }
 
         if (!all_ok)
@@ -97,12 +133,21 @@ function render_main(){
             return;
         }
 
+        json_login_data["function"] = "login";
+        json_login_data["short_uid"] = getSessionUID();
+
+        // now try to get the one-time-code
+        get_otpcode();
+
         // Testing only: print the form data onscreen as a formatted JSON object.
         if (isTesting()){
             var dataContainer = document.getElementsByClassName('results__display')[0];
 
             // Use `JSON.stringify()` to make the output valid, human-readable JSON.
-            dataContainer.textContent = JSON.stringify(data, null, "  ");
+            dataContainer.textContent = JSON.stringify(json_login_data, null, "  ");
+
+            show_page("test-page");
+            return;
         }
 
         // ...this is where we’d actually do something with the form data...
@@ -135,4 +180,16 @@ function render_main(){
 
     var form = document.getElementsByClassName('contact-form')[0];
     form.addEventListener('submit', handleFormSubmit);
+}
+
+/** This function renders the device page */
+function render_device_page()
+{
+    document.write('<p>Device login page</p>');
+}
+
+/** This function renders the progress page */
+function render_progress_page()
+{
+    document.write('<p>Device progress page</p>');
 }

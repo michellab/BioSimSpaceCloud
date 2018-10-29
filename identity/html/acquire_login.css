@@ -157,3 +157,20 @@ h1,h2 {
     cursor: pointer;
     outline: 0;
 }
+
+/** Start with only the login page visible */
+#login-page {
+    display: block;
+}
+
+#device-page {
+    display: none;
+}
+
+#progress-page {
+    display: none;
+}
+
+#test-page {
+    display: none;
+}
