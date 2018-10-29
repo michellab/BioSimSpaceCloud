@@ -38,12 +38,64 @@ function reset_login_page(){
 /** This function renders the test page */
 function render_test_page(){
     document.write(
-        '<div class="results">\
-          <h2 class="results__heading">JSON data to be submitted to server...</h2>\
-          <pre class="results__display-wrapper"><code class="results__display"></code></pre>\
-          <button type="button" onclick="reset_login_page()">Back</button>\
-          <button type="button" onclick="perform_login_submit()">Submit</button>\
-          </div>');
+        '<h1 class="content__heading">\
+            <a href="' + getIdentityServiceURL() + '">\
+                Logging into Acquire\
+            </a>\
+         </h1>\
+         <p class="content__lede">\
+         (unique session ID ' + getSessionUID() + ')\
+         </p>\
+         <form class="content__form contact-form" id="login-progress-form">\
+         <label class="contact-form__label">\
+          JSON data to be submitted to server...\
+         </label>\
+         <pre class="results__display-wrapper"><code class="results__display"></code></pre>\
+         <button type="button" class="contact-form__button" onclick="reset_login_page()">Back</button>\
+         <button type="button" class="contact-form__button" onclick="perform_login_submit()">Submit</button>\
+         </form>');
+}
+
+/** This function cancels a login request */
+function cancel_login(){
+    reset_login_page();
+}
+
+/** This function renders the progress page */
+function render_progress_page(){
+    document.write(
+        '<h1 class="content__heading">\
+            <a href="' + getIdentityServiceURL() + '">\
+                Logging into Acquire\
+            </a>\
+        </h1>\
+        <p class="content__lede">\
+        (unique session ID ' + getSessionUID() + ')\
+        </p>\
+        <form class="content__form contact-form" id="login-progress-form">\
+        <label class="contact-form__label" id="login-text">\
+        Collecting data...\
+        </label>\
+        <div id="login-progress">\
+            <div id="login-bar"></div>\
+          </div>\
+          <button class="contact-form__button" type="submit">Cancel</button>\
+          </form>'
+    );
+
+    /**
+     * A handler function to prevent default submission and run our custom script.
+     * @param  {Event} event  the submit event triggered by the user
+     * @return {void}
+    */
+    var handleFormSubmit = function handleFormSubmit(event) {
+        // Stop the form from submitting since we’re handling that with AJAX.
+        event.preventDefault();
+        cancel_login();
+    };
+
+    var form = document.getElementById('login-progress-form');
+    form.addEventListener('submit', handleFormSubmit);
 }
 
 /** This function is used to get the otpcode from either the user
@@ -61,16 +113,64 @@ function get_otpcode(){
     perform_login();
 }
 
+/** Function to update the progress bar */
+function set_progress(start, value, text) {
+    var para = document.getElementById("login-text");
+    para.textContent = text;
+    var elem = document.getElementById("login-bar");
+    var width = start;
+    var id = setInterval(frame, 10);
+    function frame() {
+        if (width >= value) {
+            clearInterval(id);
+        } else if (width >= 100){
+            clearInterval(id);
+        }
+        else {
+            width++;
+            elem.style.width = width + '%';
+            elem.innerHTML = width * 1 + '%';
+        }
+    }
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
 /** This function is used to submit the login data to the server,
  *  without first showing testing data
  */
 function perform_login_submit(){
+
+    set_progress(0, 0, "Starting login...");
+    show_page("progress-page");
 
     // ...this is where we’d actually do something with the form data...
     // I WANT TO ENCRYPT THE JSON AND SEND IT AS A POST TO THE IDENTITY SERVER
     var server_public_key = "PUBLIC KEY INSERTED INTO DOCUMENT BY SERVER";
     var args_json = JSON.stringify(json_login_data);
     //var encrypted_json = server_public_key.encrypt(args_json);
+
+    set_progress(0, 30, "Encrypting login info...");
+
+    var id = setInterval(frame, 1000);
+    var i = 0;
+    function frame() {
+        if (i == 0){
+            set_progress(30, 60, "Transmitting login details to server...");
+            i += 1;
+        }
+        else if (i == 1){
+            set_progress(60, 100, "Decoding result...");
+            i += 1;
+        }
+        else
+        {
+            set_progress(100, 100, "Successfully logged in");
+            clearInterval(id);
+        }
+    }
 
     // now generate a new pub/priv keypair to encrypt the server call...
 
@@ -267,10 +367,4 @@ function render_otpcode_page()
 
     var form = document.getElementById('user-otpcode-form');
     form.addEventListener('submit', handleFormSubmit);
-}
-
-/** This function renders the progress page */
-function render_progress_page()
-{
-    document.write('<p>Device progress page</p>');
 }
