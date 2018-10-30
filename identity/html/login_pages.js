@@ -35,6 +35,21 @@ function reset_login_page(){
     show_page("login-page");
 }
 
+/** Function to reset the progress page and bar back to defaults */
+function reset_progress_page(){
+    var bar = document.getElementById("login-bar")
+    bar.style.width = "0%";
+    bar.className = "login-bar";
+    bar.innerHTML = "0%";
+
+    var para = document.getElementById("login-text");
+    para.className = "login-text";
+    para.textContent = "Waiting...";
+
+    var button = document.getElementById("login_submit_button");
+    button.textContent = "CANCEL";
+}
+
 /** This function renders the test page */
 function render_test_page(){
     document.write(
@@ -59,6 +74,7 @@ function render_test_page(){
 /** This function cancels a login request */
 function cancel_login(){
     reset_login_page();
+    reset_progress_page();
 }
 
 /** This function renders the progress page */
@@ -76,10 +92,11 @@ function render_progress_page(){
         <label class="contact-form__label" id="login-text">\
         Collecting data...\
         </label>\
-        <div id="login-progress">\
-            <div id="login-bar"></div>\
+        <div id="login-progress" class="login-progress">\
+            <div id="login-bar" class="login-bar"></div>\
           </div>\
-          <button class="contact-form__button" type="submit">Cancel</button>\
+          <button id="login_submit_button", class="contact-form__button" \
+                  type="submit">Cancel</button>\
           </form>'
     );
 
@@ -138,14 +155,52 @@ function perform_login_submit(){
     set_progress(0, 0, "Starting login...");
     show_page("progress-page");
 
-    function result_success(){
-        set_progress(100, 100, "Successfully logged in!");
+    function result_success(message){
+        set_progress(100, 100, `Successfully logged in: ${message}`);
+    }
+
+    function result_failure(message){
+        var bar = document.getElementById("login-bar")
+        bar.style.width = "100%";
+        bar.className = "login-bar-failure";
+        bar.innerHTML = "FAILED LOGIN";
+
+        var para = document.getElementById("login-text");
+        para.className = "login-text-failure";
+        para.textContent = message;
+
+        var button = document.getElementById("login_submit_button");
+        button.textContent = "TRY AGAIN";
     }
 
     function interpret_result(result_json){
-        set_progress(60, 90, "Interpreting result...");
+        set_progress(80, 90, "Interpreting result...");
         console.log(result_json);
-        result_success();
+
+        var response = null;
+
+        try{
+            response = JSON.parse(result_json);
+        } catch(e){
+            result_failure("Cannot decode server result: ${e}");
+            return;
+        }
+
+        if (response["status"] != 0)
+        {
+            result_failure(response["message"]);
+            return;
+        }
+        else
+        {
+            result_success(response["message"]);
+        }
+    }
+
+    function decrypt_result(result_json){
+        set_progress(60, 80, "Decrypting result...");
+        console.log(result_json);
+        interpret_result(result_json);
     }
 
     function fetch_server(encrypted_json){
@@ -159,7 +214,7 @@ function perform_login_submit(){
             body: encrypted_json
         })
         .then(response=>response.json())
-        .then(response=>interpret_result(response));
+        .then(response=>decrypt_result(response));
     }
 
     function encrypt_json(args_json){
