@@ -118,25 +118,17 @@ function set_progress(start, value, text) {
     var para = document.getElementById("login-text");
     para.textContent = text;
     var elem = document.getElementById("login-bar");
-    var width = start;
-    var id = setInterval(frame, 10);
-    function frame() {
-        if (width >= value) {
-            clearInterval(id);
-        } else if (width >= 100){
-            clearInterval(id);
-        }
-        else {
-            width++;
-            elem.style.width = width + '%';
-            elem.innerHTML = width * 1 + '%';
-        }
+    var width = value;
+    if (width < start){
+        width = start;
     }
-}
+    else if (width > 100){
+        width = 100;
+    }
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
+    elem.style.width = width + '%';
+    elem.innerHTML = width * 1 + '%';
+}
 
 /** This function is used to submit the login data to the server,
  *  without first showing testing data
@@ -146,53 +138,43 @@ function perform_login_submit(){
     set_progress(0, 0, "Starting login...");
     show_page("progress-page");
 
-    // ...this is where we’d actually do something with the form data...
-    // I WANT TO ENCRYPT THE JSON AND SEND IT AS A POST TO THE IDENTITY SERVER
-    var server_public_key = "PUBLIC KEY INSERTED INTO DOCUMENT BY SERVER";
-    var args_json = JSON.stringify(json_login_data);
-    //var encrypted_json = server_public_key.encrypt(args_json);
-
-    set_progress(0, 30, "Encrypting login info...");
-
-    var id = setInterval(frame, 1000);
-    var i = 0;
-    function frame() {
-        if (i == 0){
-            set_progress(30, 60, "Transmitting login details to server...");
-            i += 1;
-        }
-        else if (i == 1){
-            set_progress(60, 100, "Decoding result...");
-            i += 1;
-        }
-        else
-        {
-            set_progress(100, 100, "Successfully logged in");
-            clearInterval(id);
-        }
+    function result_success(){
+        set_progress(100, 100, "Successfully logged in!");
     }
 
-    // now generate a new pub/priv keypair to encrypt the server call...
+    function interpret_result(result_json){
+        set_progress(60, 90, "Interpreting result...");
+        console.log(result_json);
+        result_success();
+    }
 
-    // now call the service by posing the encrypted_json and waiting for
-    // the result...
-    console.log(identity_service_url);
-    console.log(args_json);
+    function fetch_server(encrypted_json){
+        set_progress(30, 60, "Sending login data to server...");
+        fetch(identity_service_url, {
+            method: 'post',
+            headers: {
+                'Accept': 'application/json, test/plain, */*',
+                'Content-Type': 'application/json'
+            },
+            body: encrypted_json
+        })
+        .then(response=>response.json())
+        .then(response=>interpret_result(response));
+    }
 
-    /*fetch(identity_service_url)
-    .then(function(response) {
-        return response.json();
-    })
-    .then(function(myJson) {
-        console.log(JSON.stringify(myJson));
-    });*/
+    function encrypt_json(args_json){
+        set_progress(0, 30, "Encrypting login info...");
+        fetch_server(args_json);
+    }
+
+    var server_public_key = "PUBLIC KEY INSERTED INTO DOCUMENT BY SERVER";
+    encrypt_json(JSON.stringify(json_login_data));
 
     // if remember_device then encrypt the returned otpsecret using the
     // user's password (we need a secret to keep it safe in the cookiestore)
 
     // now tell the user whether or not they were successful, and that they
     // can now close this window (or click a link to try again)
-
 }
 
 /** This function is used to submit the login data to the server */
