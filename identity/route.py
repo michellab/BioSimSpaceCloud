@@ -1,6 +1,7 @@
 
 import asyncio
 import fdk
+import json
 
 from Acquire.Service import unpack_arguments, get_service_private_key
 from Acquire.Service import create_return_value, pack_return_value, \
@@ -13,7 +14,16 @@ async def handler(ctx, data=None, loop=None):
 
     pr = start_profile()
 
-    args = unpack_arguments(data, get_service_private_key)
+    try:
+        args = unpack_arguments(data, get_service_private_key)
+    except Exception as e:
+        result = {"status": -1,
+                  "message": "Cannot unpack arguments: %s" % e}
+        return json.dumps(result)
+    except:
+        result = {"status": -1,
+                  "message": "Cannot unpack arguments: Unknown error!"}
+        return json.dumps(result)
 
     try:
         function = str(args["function"])
@@ -62,15 +72,19 @@ async def handler(ctx, data=None, loop=None):
         result = {"status": -1,
                   "message": "Error %s: %s" % (e.__class__, str(e))}
 
-    end_profile(pr, result)
+    try:
+        end_profile(pr, result)
 
-    return pack_return_value(result, args)
+        return pack_return_value(result, args)
+    except Exception as e:
+        message = {"status": -1,
+                   "message": "Error packing results: %s" % e}
+        return json.dumps(message)
+    except:
+        message = {"status": -1,
+                   "message": "Error packing results: Unknown error"}
+        return jsom.dumps(message)
 
 
 if __name__ == "__main__":
-    try:
-        fdk.handle(handler)
-    except Exception as e:
-        print({"message": "Error! %s" % str(e), "status": -1})
-    except:
-        print({"message": "Unknown error!", "status": -1})
+    fdk.handle(handler)
