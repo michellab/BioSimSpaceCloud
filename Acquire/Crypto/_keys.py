@@ -8,10 +8,10 @@ from ._errors import WeakPassphraseError, KeyManipulationError, \
                      SignatureVerificationError
 from ._errors import DecryptionError
 
-_pyotp = _lazy_import.lazy_module("pyotp")
-
-#_tempfile = _lazy_import.lazy_module("tempfile")
+# tempfile = _lazy_import.lazy_module("tempfile")
 import tempfile as _tempfile
+
+_pyotp = _lazy_import.lazy_module("pyotp")
 
 _re = _lazy_import.lazy_module("re")
 

@@ -10,8 +10,11 @@
 /** Hard code the URL of the identity service */
 var identity_service_url = "http://130.61.60.88:8080/t/identity"
 
-/** Also hard code the PEM data for the service's public key */
-var identity_public_pem = "DATA";
+/** Also hard code the data for the service's public key
+ *
+ *  This data is encoded using the PublicKey.to_data() function...
+*/
+var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFzR0cycjJXWXljR0t0MXEzc1hZdAprbkZaVjVSa1Z5TUV2M2VZS2o0VDExMG41b241bzBBNms1NU13cTZPVFZpUVhLVVd3enQ0K09oWDY4cXNjM2ZPCnZ2aFFZdGZpT2prcXJvNFI0djhXaXdxbjlwdmdocW04b1FmTlhqRWw1ODBvV0w4SFMzTFgvQk9TQVFyMHNpQkYKN0hMWW9QVlVrcVovdmFuUWlwWlJhNXZmTlZoNXVBcGs0b2xRRzJzL3kyZnVSZzQydEhpbldObk1YdE0wWTVGbgprV1lUK00xL3BrUDRpSVB0akg0VUg0OTQyaG5SSkRwZXArWWpJQ1g5eVZQcHRSbFhIdWYrbVVtTThNZGpHcFp1Cks3cHppTGh6L2tNNzcwejhlMEluYzEzcFNBV2VLRmRKbjFMa3F2a24vVU9XN1pMVVV6Q1VKdGZ2VjlJb0hkbVcKZ1FJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
 
 /** Return a fast but low quality uuid4 - this is sufficient for our uses.
  *  This code comes from
@@ -65,14 +68,7 @@ function readData(name)
 function getSessionUID() {
   vars = getUrlVars();
 
-  session_uid = vars["id"];
-
-  if (session_uid){
-      return session_uid;
-  }
-
-  document.clear();
-  document.write("<p>INVALID SESSION UID</p>");
+  return session_uid = vars["id"];
 }
 
 /** Function to return whether or not we are running in testing
@@ -87,6 +83,32 @@ function isTesting(){
 /** Function to return the fully qualified URL of the identity service */
 function getIdentityServiceURL(){
   return identity_service_url;
+}
+
+/** Function to convert from a string back to binary */
+function string_to_bytes(s){
+    var bytes = base64js.toByteArray(s);
+    return new (TextDecoder || TextDecoderLite)("utf-8").decode(bytes);
+}
+
+/** Function to convert binary data to a string */
+function bytes_to_string(b){
+    var bytes = new (TextEncoder || TextEncoderLite)("utf-8").encode(b);
+    return base64js.fromByteArray(bytes);
+}
+
+/** Function to import a public key from the passed json data */
+function getIdentityPublicPem(){
+    /*try{
+        var bytes = string_to_bytes(json_data["data"]);
+    }
+    catch(e){
+        var bytes = string_to_bytes(json_data);
+    }*/
+    var s = String( string_to_bytes(identity_public_pem) );
+    console.log(s);
+
+    return s;
 }
 
 /** Function that returns the UID of this device. If this device has not

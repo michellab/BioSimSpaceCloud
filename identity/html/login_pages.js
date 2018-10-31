@@ -24,8 +24,18 @@ function show_page(new_page){
     });
 
     if (!selected){
+        new_page = "login-page";
         p = document.getElementById("login-page");
         p.style.display = "block";
+    }
+
+    if (new_page == "login-page")
+    {
+        document.getElementById("username").focus();
+    }
+    else if (new_page == "otpcode-page")
+    {
+        document.getElementById("otpcode").focus();
     }
 }
 
@@ -197,13 +207,14 @@ function perform_login_submit(){
         }
     }
 
-    function decrypt_result(result_json){
+    function decrypt_result(result_json, keyPair){
         set_progress(60, 80, "Decrypting result...");
         console.log(result_json);
+        console.log(keyPair.privateKey);
         interpret_result(result_json);
     }
 
-    function fetch_server(encrypted_json){
+    function fetch_server(encrypted_json, keyPair){
         set_progress(30, 60, "Sending login data to server...");
         fetch(identity_service_url, {
             method: 'post',
@@ -214,12 +225,25 @@ function perform_login_submit(){
             body: encrypted_json
         })
         .then(response=>response.json())
-        .then(response=>decrypt_result(response));
+        .then(response=>decrypt_result(response, keyPair));
     }
 
     function encrypt_json(args_json){
         set_progress(0, 30, "Encrypting login info...");
-        fetch_server(args_json);
+        const crypto = new OpenCrypto();
+
+        //first generate a key-pair that will be used to
+        //decrypt the result back from the server...
+        crypto.getKeyPair()
+        .then(function (keyPair){
+
+            //now convert the pem public key to a crypto key
+            crypto.pemPublicToCrypto(getIdentityPublicPem())
+            .then(function (pubkey){
+                console.log(pubkey);
+            })
+            .then(fetch_server(args_json, keyPair));
+        });
     }
 
     var server_public_key = "PUBLIC KEY INSERTED INTO DOCUMENT BY SERVER";
