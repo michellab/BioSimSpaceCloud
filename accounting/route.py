@@ -10,10 +10,21 @@ from Acquire.Service import create_return_value, pack_return_value, \
 async def handler(ctx, data=None, loop=None):
     """This function routes calls to sub-functions, thereby allowing
        a single accounting function to stay hot for longer"""
+    try:
+        pr = start_profile()
+    except:
+        pass
 
-    pr = start_profile()
-
-    args = unpack_arguments(data, get_service_private_key)
+    try:
+        args = unpack_arguments(data, get_service_private_key)
+    except Exception as e:
+        result = {"status": -1,
+                  "message": "Cannot unpack arguments: %s" % e}
+        return json.dumps(result)
+    except:
+        result = {"status": -1,
+                  "message": "Cannot unpack arguments: Unknown error!"}
+        return json.dumps(result)
 
     try:
         function = str(args["function"])
@@ -50,9 +61,21 @@ async def handler(ctx, data=None, loop=None):
         result = {"status": -1,
                   "message": "Error %s: %s" % (e.__class__, str(e))}
 
-    end_profile(pr, result)
+    try:
+        end_profile(pr, result)
+    except:
+        pass
 
-    return pack_return_value(result, args)
+    try:
+        return pack_return_value(result, args)
+    except Exception as e:
+        message = {"status": -1,
+                   "message": "Error packing results: %s" % e}
+        return json.dumps(message)
+    except:
+        message = {"status": -1,
+                   "message": "Error packing results: Unknown error"}
+        return json.dumps(message)
 
 
 if __name__ == "__main__":

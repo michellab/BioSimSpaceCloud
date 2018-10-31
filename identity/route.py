@@ -12,7 +12,10 @@ async def handler(ctx, data=None, loop=None):
     """This function routes calls to sub-functions, thereby allowing
        a single identity function to stay hot for longer"""
 
-    pr = start_profile()
+    try:
+        pr = start_profile()
+    except:
+        pass
 
     try:
         args = unpack_arguments(data, get_service_private_key)
@@ -74,7 +77,10 @@ async def handler(ctx, data=None, loop=None):
 
     try:
         end_profile(pr, result)
+    except:
+        pass
 
+    try:
         return pack_return_value(result, args)
     except Exception as e:
         message = {"status": -1,
@@ -83,7 +89,7 @@ async def handler(ctx, data=None, loop=None):
     except:
         message = {"status": -1,
                    "message": "Error packing results: Unknown error"}
-        return jsom.dumps(message)
+        return json.dumps(message)
 
 
 if __name__ == "__main__":

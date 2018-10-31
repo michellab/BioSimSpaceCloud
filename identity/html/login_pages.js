@@ -186,21 +186,24 @@ function perform_login_submit(){
 
     function interpret_result(result_json){
         set_progress(80, 90, "Interpreting result...");
-        console.log(result_json);
 
         var response = null;
 
         try{
             response = JSON.parse(result_json);
         } catch(e){
-            login_failure("Cannot decode server result: ${e}");
+            login_failure(`Cannot decode server result: ${e}`);
             return;
         }
 
         if (response["status"] != 0)
         {
-            login_failure(response["message"]);
-            return;
+            message = response["message"];
+            if (!message){
+                console.log(`CANNOT UNDERSTAND RESPONSE\n${result_json}`);
+                message = `Cannot interpret the server's response`;
+            }
+            login_failure(message);
         }
         else
         {
@@ -210,14 +213,13 @@ function perform_login_submit(){
 
     function decrypt_result(result_json, keyPair){
         set_progress(60, 80, "Decrypting result...");
+        console.log("SERVER RESPONSE");
         console.log(result_json);
-        console.log(keyPair.privateKey);
         interpret_result(result_json);
     }
 
     function fetch_server(encrypted_json, keyPair){
         set_progress(30, 60, "Sending login data to server...");
-        console.log(encrypted_json);
         fetch(identity_service_url, {
             method: 'post',
             headers: {
@@ -227,17 +229,20 @@ function perform_login_submit(){
             body: encrypted_json
         })
         .then((response) => {
+            if (response.status != 200){
+                login_failure(`Error connecting to server. ${response.status} - ${response.statusText}`);
+                return;
+            }
+
             response.json().then((response) => {
                 decrypt_result(response, keyPair);
             })
             .catch((err) => {
-                console.log(`Failed to get json from ${response.status} ${response.text()}`);
+
                 login_failure(`Failed to decode response ${response} : ${err}`);
             })
         })
         .catch((err) => {
-            console.log(`Failed to connect to ${identity_service_url}`);
-            console.log(err);
             login_failure(`Failed to connect! ${err}`);
         })
     }
@@ -258,24 +263,17 @@ function perform_login_submit(){
                     var data = {};
                     data["data"] = bytes_to_string(encrypted_json);
                     data["encrypted"] = true;
-                    console.log(data);
                     fetch_server(JSON.stringify(data), keyPair);
                 })
                 .catch((err) =>{
-                    console.log("Could not encrypt the arguments?");
-                    console.log(err);
                     login_failure(`Could not encrypt data: ${err}`);
                 })
             })
             .catch((err) => {
-                console.log("Couldn't import the server's public key?");
-                console.log(err);
                 login_failure(`Could not import the server's public key: ${err}`);
             })
         })
         .catch((err) => {
-            console.log("Couldn't generate a public/private key pair?");
-            console.log(err);
             login_failure(`Could not generate a key pair: ${err}`);
         });
     }
