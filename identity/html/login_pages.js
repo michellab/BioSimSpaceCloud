@@ -157,6 +157,21 @@ function set_progress(start, value, text) {
     elem.innerHTML = width * 1 + '%';
 }
 
+/** Sets the progress bar to show failure */
+function login_failure(message){
+    var bar = document.getElementById("login-bar")
+    bar.style.width = "100%";
+    bar.className = "login-bar-failure";
+    bar.innerHTML = "FAILED LOGIN";
+
+    var para = document.getElementById("login-text");
+    para.className = "login-text-failure";
+    para.textContent = message;
+
+    var button = document.getElementById("login_submit_button");
+    button.textContent = "TRY AGAIN";
+}
+
 /** This function is used to submit the login data to the server,
  *  without first showing testing data
  */
@@ -169,20 +184,6 @@ function perform_login_submit(){
         set_progress(100, 100, `Successfully logged in: ${message}`);
     }
 
-    function result_failure(message){
-        var bar = document.getElementById("login-bar")
-        bar.style.width = "100%";
-        bar.className = "login-bar-failure";
-        bar.innerHTML = "FAILED LOGIN";
-
-        var para = document.getElementById("login-text");
-        para.className = "login-text-failure";
-        para.textContent = message;
-
-        var button = document.getElementById("login_submit_button");
-        button.textContent = "TRY AGAIN";
-    }
-
     function interpret_result(result_json){
         set_progress(80, 90, "Interpreting result...");
         console.log(result_json);
@@ -192,13 +193,13 @@ function perform_login_submit(){
         try{
             response = JSON.parse(result_json);
         } catch(e){
-            result_failure("Cannot decode server result: ${e}");
+            login_failure("Cannot decode server result: ${e}");
             return;
         }
 
         if (response["status"] != 0)
         {
-            result_failure(response["message"]);
+            login_failure(response["message"]);
             return;
         }
         else
@@ -216,6 +217,7 @@ function perform_login_submit(){
 
     function fetch_server(encrypted_json, keyPair){
         set_progress(30, 60, "Sending login data to server...");
+        console.log(encrypted_json);
         fetch(identity_service_url, {
             method: 'post',
             headers: {
@@ -224,8 +226,20 @@ function perform_login_submit(){
             },
             body: encrypted_json
         })
-        .then(response=>response.json())
-        .then(response=>decrypt_result(response, keyPair));
+        .then((response) => {
+            response.json().then((response) => {
+                decrypt_result(response, keyPair);
+            })
+            .catch((err) => {
+                console.log(`Failed to get json from ${response.status} ${response.text()}`);
+                login_failure(`Failed to decode response ${response} : ${err}`);
+            })
+        })
+        .catch((err) => {
+            console.log(`Failed to connect to ${identity_service_url}`);
+            console.log(err);
+            login_failure(`Failed to connect! ${err}`);
+        })
     }
 
     function encrypt_json(args_json){
@@ -235,14 +249,34 @@ function perform_login_submit(){
         //first generate a key-pair that will be used to
         //decrypt the result back from the server...
         crypto.getKeyPair()
-        .then(function (keyPair){
-
+        .then((keyPair) => {
             //now convert the pem public key to a crypto key
             crypto.pemPublicToCrypto(getIdentityPublicPem())
-            .then(function (pubkey){
-                console.log(pubkey);
+            .then((pubkey) => {
+                crypto.encryptPublic(pubkey, args_json)
+                .then((encrypted_json) => {
+                    var data = {};
+                    data["data"] = bytes_to_string(encrypted_json);
+                    data["encrypted"] = true;
+                    console.log(data);
+                    fetch_server(JSON.stringify(data), keyPair);
+                })
+                .catch((err) =>{
+                    console.log("Could not encrypt the arguments?");
+                    console.log(err);
+                    login_failure(`Could not encrypt data: ${err}`);
+                })
             })
-            .then(fetch_server(args_json, keyPair));
+            .catch((err) => {
+                console.log("Couldn't import the server's public key?");
+                console.log(err);
+                login_failure(`Could not import the server's public key: ${err}`);
+            })
+        })
+        .catch((err) => {
+            console.log("Couldn't generate a public/private key pair?");
+            console.log(err);
+            login_failure(`Could not generate a key pair: ${err}`);
         });
     }
 

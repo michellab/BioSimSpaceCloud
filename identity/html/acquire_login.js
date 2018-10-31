@@ -105,10 +105,7 @@ function getIdentityPublicPem(){
     catch(e){
         var bytes = string_to_bytes(json_data);
     }*/
-    var s = String( string_to_bytes(identity_public_pem) );
-    console.log(s);
-
-    return s;
+    return String( string_to_bytes(identity_public_pem) );
 }
 
 /** Function that returns the UID of this device. If this device has not
