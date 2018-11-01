@@ -348,18 +348,16 @@ class PrivateKey:
             raise DecryptionError("You cannot decrypt a message "
                                   "with a null key!")
 
-        if len(message) <= self.key_size_in_bytes():
-            # this is a small message, so should be decryptable...
-            try:
-                return self._privkey.decrypt(
-                    message,
-                    _padding.OAEP(
-                        mgf=_padding.MGF1(algorithm=_hashes.SHA256()),
-                        algorithm=_hashes.SHA256(),
-                        label=None))
-            except Exception as e:
-                raise DecryptionError(
-                        "Cannot decrypt the message: %s" % str(e))
+        # try standard decryption
+        try:
+            return self._privkey.decrypt(
+                message,
+                _padding.OAEP(
+                    mgf=_padding.MGF1(algorithm=_hashes.SHA256()),
+                    algorithm=_hashes.SHA256(),
+                    label=None))
+        except:
+            pass
 
         # it is a larger message, so need to decrypt the secret symmetric
         # key, and then use that to decrypt the rest of the token

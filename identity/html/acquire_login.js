@@ -85,52 +85,79 @@ function getIdentityServiceURL(){
   return identity_service_url;
 }
 
+/** Convert a string to utf-8 encoded binary bytes */
+function to_utf8(s){
+    var encoded = new TextEncoder("utf-8").encode(s);
+    return encoded;
+}
+
+function string_to_utf8_bytes(s){
+    return to_utf8(s);
+}
+
+/** Decode utf-8 encoded bytes to a string */
+function from_utf8(b){
+    var decoded = new TextDecoder("utf-8").decode(b);
+    return decoded;
+}
+
+function utf8_bytes_to_string(b){
+    return from_utf8(b);
+}
+
 /** Function to convert from a string back to binary */
 function string_to_bytes(s){
     var bytes = base64js.toByteArray(s);
-    return new (TextDecoder || TextDecoderLite)("utf-8").decode(bytes);
 }
 
 /** Function to convert binary data to a string */
 function bytes_to_string(b){
-    var bytes = new (TextEncoder || TextEncoderLite)("utf-8").encode(b);
-    return base64js.fromByteArray(bytes);
+    return base64js.fromByteArray(b);
 }
-
-const crypto = new OpenCrypto();
 
 /** Function to import a public key from the passed json data */
 function getIdentityPublicPem(){
-    /*try{
-        var bytes = string_to_bytes(json_data["data"]);
-    }
-    catch(e){
-        var bytes = string_to_bytes(json_data);
-    }*/
-    return String( string_to_bytes(identity_public_pem) );
+    return utf8_bytes_to_string(base64js.toByteArray(identity_public_pem));
 }
 
 /** Function to generate a public/private key pair */
 async function generateKeypair(){
-    let result = await crypto.getKeyPair();
+    return null;
+    var rsa = forge.pki.rsa;
+    let result = await rsa.generateKeyPair({bits: 2048, workers: -1});
     return result;
 }
 
 /** Function to load the public key of the identity service */
 async function getIdentityPublicKey(){
-    let result = await crypto.pemPublicToCrypto(getIdentityPublicPem());
-    return result;
+    var pem = getIdentityPublicPem();
+    console.log(pem);
+    var publicKey = forge.pki.publicKeyFromPem(pem);
+    return publicKey;
 }
 
 /** Function that encrypts the passed data with the passed public key */
 async function encryptData(key, data){
-    let result = await crypto.encryptPublic(key, data);
-    return bytes_to_string(result);
+    var result = key.encrypt(data, 'RSA-OAEP', {
+        md: forge.md.sha256.create(),
+        mgf1: {
+          md: forge.md.sha1.create()
+        }
+      });
+
+    console.log(`CLASS ${result.constructor.name}`);
+
+    return result;
 }
 
 /** Function that decrypts the passed data with the passed private key */
 async function decryptData(key, data){
-    return data;
+    return key.decrypt(data,'RSA-OAEP', {
+        md: forge.md.sha256.create(),
+        mgf1: {
+          md: forge.md.sha1.create()
+        }
+      });
 }
 
 /** Function that returns the UID of this device. If this device has not

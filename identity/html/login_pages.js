@@ -191,13 +191,33 @@ function perform_login_submit(){
 
         let identity_key = await getIdentityPublicKey();
 
-        let encrypted_data = await encryptData(identity_key, args_json);
+        args_json = "hello";
+        var args_utf8 = to_utf8(args_json);
+        var b = bytes_to_string(args_utf8);
+
+        console.log( b );
+        console.log( string_to_bytes(b) );
+        console.log( from_utf8(string_to_bytes(b)) );
+
+        //args_data = to_utf8(args_json);
+        //from_utf8(args_data);
+
+        let encrypted_data = await encryptData(identity_key, to_utf8(args_json));
+        let uu_encrypted_data = from_utf8(bytes_to_string(to_utf8(encrypted_data)));
+
+        console.log(`ORIGINAL: ${args_json} ${args_json.length}`);
+        console.log(`ENCRYPTED: ${encrypted_data} ${encrypted_data.length}`);
+        console.log(`UUENCODE: ${uu_encrypted_data} ${uu_encrypted_data.length}`);
+
+        encrypted_data = from_utf8(string_to_bytes(uu_encrypted_data));
+        console.log(`TEST: ${encrypted_data} ${encrypted_data.length}`);
 
         set_progress(30, 60, "Sending login data to server...");
 
         var data = {};
-        data["data"] = encrypted_data;
+        data["data"] = uu_encrypted_data;
         data["encrypted"] = true;
+        data["testing"] = true;
 
         var response = null;
 
@@ -232,12 +252,16 @@ function perform_login_submit(){
             return;
         }
 
+        console.log("SERVER RESPONSE");
+        console.log(encrypted_json);
+        console.log("END SERVER RESPONSE");
+
         set_progress(70, 80, "Decrypting result...");
 
         var result_json = null;
 
         try{
-            result_json = await decryptData(key_pair, encrypted_json);
+            result_json = await decryptData(key_pair.privateKey, encrypted_json);
         } catch(err){
             login_failure(`Could not decrypt the response '${encrypted_json}': ${err}`);
             return;
