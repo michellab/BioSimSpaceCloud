@@ -180,14 +180,71 @@ function perform_login_submit(){
     set_progress(0, 0, "Starting login...");
     show_page("progress-page");
 
-    function result_success(message){
+    async function result_success(message){
         set_progress(100, 100, `Successfully logged in: ${message}`);
     }
 
-    function interpret_result(result_json){
-        set_progress(80, 90, "Interpreting result...");
+    async function login_to_server(args_json){
+        set_progress(0, 30, "Encrypting login info...");
+
+        let key_pair = await generateKeypair();
+
+        let identity_key = await getIdentityPublicKey();
+
+        let encrypted_data = await encryptData(identity_key, args_json);
+
+        set_progress(30, 60, "Sending login data to server...");
+
+        var data = {};
+        data["data"] = encrypted_data;
+        data["encrypted"] = true;
 
         var response = null;
+
+        try{
+            response = await fetch(identity_service_url, {
+                            method: 'post',
+                            headers: {
+                                'Accept': 'application/json, test/plain, */*',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(data)
+                        });
+        } catch(err){
+            console.log(err);
+            login_failure(`Error connecting to server. ${err}`);
+            return;
+        }
+
+        if (response.status != 200){
+            login_failure(`Error connecting to server. ${response.status} - ${response.statusText}`);
+            return;
+        }
+
+        set_progress(60, 70, "Parsing the result...");
+
+        var encrypted_json = null;
+
+        try{
+            encrypted_json = await response.json();
+        } catch(err){
+            login_failure(`Could not interpret value JSON from the response: ${err}`);
+            return;
+        }
+
+        set_progress(70, 80, "Decrypting result...");
+
+        var result_json = null;
+
+        try{
+            result_json = await decryptData(key_pair, encrypted_json);
+        } catch(err){
+            login_failure(`Could not decrypt the response '${encrypted_json}': ${err}`);
+            return;
+        }
+
+        // interpret the encrypted response as JSON...
+        set_progress(80, 90, "Interpreting result...");
 
         try{
             response = JSON.parse(result_json);
@@ -211,75 +268,7 @@ function perform_login_submit(){
         }
     }
 
-    function decrypt_result(result_json, keyPair){
-        set_progress(60, 80, "Decrypting result...");
-        console.log("SERVER RESPONSE");
-        console.log(result_json);
-        interpret_result(result_json);
-    }
-
-    function fetch_server(encrypted_json, keyPair){
-        set_progress(30, 60, "Sending login data to server...");
-        fetch(identity_service_url, {
-            method: 'post',
-            headers: {
-                'Accept': 'application/json, test/plain, */*',
-                'Content-Type': 'application/json'
-            },
-            body: encrypted_json
-        })
-        .then((response) => {
-            if (response.status != 200){
-                login_failure(`Error connecting to server. ${response.status} - ${response.statusText}`);
-                return;
-            }
-
-            response.json().then((response) => {
-                decrypt_result(response, keyPair);
-            })
-            .catch((err) => {
-
-                login_failure(`Failed to decode response ${response} : ${err}`);
-            })
-        })
-        .catch((err) => {
-            login_failure(`Failed to connect! ${err}`);
-        })
-    }
-
-    function encrypt_json(args_json){
-        set_progress(0, 30, "Encrypting login info...");
-        const crypto = new OpenCrypto();
-
-        //first generate a key-pair that will be used to
-        //decrypt the result back from the server...
-        crypto.getKeyPair()
-        .then((keyPair) => {
-            //now convert the pem public key to a crypto key
-            crypto.pemPublicToCrypto(getIdentityPublicPem())
-            .then((pubkey) => {
-                crypto.encryptPublic(pubkey, args_json)
-                .then((encrypted_json) => {
-                    var data = {};
-                    data["data"] = bytes_to_string(encrypted_json);
-                    data["encrypted"] = true;
-                    fetch_server(JSON.stringify(data), keyPair);
-                })
-                .catch((err) =>{
-                    login_failure(`Could not encrypt data: ${err}`);
-                })
-            })
-            .catch((err) => {
-                login_failure(`Could not import the server's public key: ${err}`);
-            })
-        })
-        .catch((err) => {
-            login_failure(`Could not generate a key pair: ${err}`);
-        });
-    }
-
-    var server_public_key = "PUBLIC KEY INSERTED INTO DOCUMENT BY SERVER";
-    encrypt_json(JSON.stringify(json_login_data));
+    login_to_server(JSON.stringify(json_login_data));
 
     // if remember_device then encrypt the returned otpsecret using the
     // user's password (we need a secret to keep it safe in the cookiestore)

@@ -97,6 +97,8 @@ function bytes_to_string(b){
     return base64js.fromByteArray(bytes);
 }
 
+const crypto = new OpenCrypto();
+
 /** Function to import a public key from the passed json data */
 function getIdentityPublicPem(){
     /*try{
@@ -106,6 +108,29 @@ function getIdentityPublicPem(){
         var bytes = string_to_bytes(json_data);
     }*/
     return String( string_to_bytes(identity_public_pem) );
+}
+
+/** Function to generate a public/private key pair */
+async function generateKeypair(){
+    let result = await crypto.getKeyPair();
+    return result;
+}
+
+/** Function to load the public key of the identity service */
+async function getIdentityPublicKey(){
+    let result = await crypto.pemPublicToCrypto(getIdentityPublicPem());
+    return result;
+}
+
+/** Function that encrypts the passed data with the passed public key */
+async function encryptData(key, data){
+    let result = await crypto.encryptPublic(key, data);
+    return bytes_to_string(result);
+}
+
+/** Function that decrypts the passed data with the passed private key */
+async function decryptData(key, data){
+    return data;
 }
 
 /** Function that returns the UID of this device. If this device has not
