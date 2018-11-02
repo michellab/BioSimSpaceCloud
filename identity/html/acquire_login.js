@@ -255,9 +255,18 @@ function convertBinaryToPem(binaryData, label) {
     return pemCert
 }
 
+/** Function that converts the passed public key into an Acquire
+ *  json dictionary
+ */
+async function exportPublicKeyToAcquire(key){
+    var pem = await exportPublicKey(key);
+    console.log(pem);
+    return bytes_to_string(to_utf8(pem));
+}
+
 /** Function to convert a public key to a PEM file */
-async function exportPublicKey(keys) {
-    let exported = await window.crypto.subtle.exportKey('spki', keys.publicKey);
+async function exportPublicKey(key) {
+    let exported = await window.crypto.subtle.exportKey('spki', key);
     let pem = convertBinaryToPem(exported, "PUBLIC KEY");
     return pem;
 }
@@ -450,12 +459,21 @@ async function encryptData(key, data){
 
 /** Function that decrypts the passed data with the passed private key */
 async function decryptData(key, data){
-    return key.decrypt(data, 'RSA-OAEP', {
-        md: forge.md.sha256.create(),
-        mgf1: {
-          md: forge.md.sha256.create()
-        }
-      });
+    try{
+        //extract the first 'key-size' bytes from the message
+        let result = await window.crypto.subtle.decrypt(
+                    {
+                        name: "RSA-OAEP",
+                    },
+                    key,
+                    data)
+                ;
+        console.log(result);
+
+        return result;
+    } catch(e){
+        console.log(`ERROR ${e}`);
+    }
 }
 
 /** Function that returns the UID of this device. If this device has not

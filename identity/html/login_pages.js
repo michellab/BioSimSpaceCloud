@@ -187,11 +187,23 @@ function perform_login_submit(){
     async function login_to_server(args_json){
         set_progress(0, 10, "Generating login session keys...");
         let key_pair = await generateKeypair();
-        args_json["encryption_public_key"] = await exportPublicKey(key_pair);
+        let key_data = await exportPublicKeyToAcquire(key_pair.publicKey);
+        args_json["encryption_public_key"] = key_data;
 
         args_json = JSON.stringify(args_json);
 
         console.log(args_json);
+
+        //let test_key = await importPublicKey(session_pem);
+
+        //console.log(`TEST KEY = ${test_key} | ${session_pem}`);
+
+        // test encrypt/decrypt cycle
+        //let e = await encryptData(key_pair.publicKey, args_json);
+        //let m = await decryptData(key_pair.privateKey, e);
+
+        //console.log(`DECRYPTED = ${m}`);
+        //console.log(args_json == m);
 
         set_progress(10, 30, "Encrypting login info...");
 
@@ -244,12 +256,12 @@ function perform_login_submit(){
 
         var result_json = null;
 
-        try{
+        /*try{
             result_json = await decryptData(key_pair.privateKey, encrypted_json);
         } catch(err){
             login_failure(`Could not decrypt the response '${encrypted_json}': ${err}`);
             return;
-        }
+        }*/
 
         // interpret the encrypted response as JSON...
         set_progress(80, 90, "Interpreting result...");
