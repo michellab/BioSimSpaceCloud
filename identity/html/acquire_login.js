@@ -17,6 +17,7 @@ var identity_service_url = "http://130.61.60.88:8080/t/identity"
 var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFzR0cycjJXWXljR0t0MXEzc1hZdAprbkZaVjVSa1Z5TUV2M2VZS2o0VDExMG41b241bzBBNms1NU13cTZPVFZpUVhLVVd3enQ0K09oWDY4cXNjM2ZPCnZ2aFFZdGZpT2prcXJvNFI0djhXaXdxbjlwdmdocW04b1FmTlhqRWw1ODBvV0w4SFMzTFgvQk9TQVFyMHNpQkYKN0hMWW9QVlVrcVovdmFuUWlwWlJhNXZmTlZoNXVBcGs0b2xRRzJzL3kyZnVSZzQydEhpbldObk1YdE0wWTVGbgprV1lUK00xL3BrUDRpSVB0akg0VUg0OTQyaG5SSkRwZXArWWpJQ1g5eVZQcHRSbFhIdWYrbVVtTThNZGpHcFp1Cks3cHppTGh6L2tNNzcwejhlMEluYzEzcFNBV2VLRmRKbjFMa3F2a24vVU9XN1pMVVV6Q1VKdGZ2VjlJb0hkbVcKZ1FJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
 //var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFwY2VYaWVNS0xYL3Z4M1lwSUljRApDcGFkdTRnQUNsZWdaTDRIeS9DYXFTSC9pcDIwWFdjN24wUGp6eEkzbHdidXhOb1pkWHlud2QvYXV6LzFmMUpJCmNaS28yVzVSMFhISHMvWXpHdWhuODhjTm5kQkplaVkvZ2dWdEJ4WWhHVWJkWVl3ekRBeDBjVXd0RXJhYi9yNk0KVUFWaXBTRkJyZ2VIN2tJLzJ3MGt4ckNxQU9Cay95S1h6TXdLMnBWdklMR2VRZzdKSkZKQytxeHVqdVdOL20vaApuY0ZFUkRZVXl0NUNHUmdBTjNNQkNueVZmVzRXUzV0bFhvN0Z2YzhjYW9mUFBzSWpXWkkxdVEwRExpYk9RMkFuCnlhU2d2MytqK1RjQ1RrYnVJUTdiSmUwM09sb3dJWVRtTTEzcWZJK3V4Z0hvRzdCL3dJck4yRWJsd2Z3MjZNR3MKZ3dJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
 
+/*
 function generateKey(alg, scope) {
 return new Promise(function(resolve) {
     var genkey = crypto.subtle.generateKey(alg, true, scope)
@@ -32,14 +33,6 @@ for (var i=0; i<byteArray.byteLength; i++) {
     byteString += String.fromCharCode(byteArray[i])
 }
 return btoa(byteString)
-}
-function base64StringToArrayBuffer(b64str) {
-var byteStr = atob(b64str)
-var bytes = new Uint8Array(byteStr.length)
-for (var i = 0; i < byteStr.length; i++) {
-    bytes[i] = byteStr.charCodeAt(i)
-}
-return bytes.buffer
 }
 function textToArrayBuffer(str) {
 var buf = unescape(encodeURIComponent(str)) // 2 bytes for each char
@@ -146,6 +139,7 @@ modulusLength: 2048,
 extractable: false,
 publicExponent: new Uint8Array([1, 0, 1])
 }
+*/
 
 /** Return a fast but low quality uuid4 - this is sufficient for our uses.
  *  This code comes from
@@ -244,6 +238,16 @@ function string_to_bytes(s){
 /** Function to convert binary data to a string */
 function bytes_to_string(b){
     return base64js.fromByteArray(b);
+}
+
+/** Function to convert a base64 string to an array buffer */
+function base64StringToArrayBuffer(b64str) {
+    var byteStr = atob(b64str)
+    var bytes = new Uint8Array(byteStr.length)
+    for (var i = 0; i < byteStr.length; i++) {
+        bytes[i] = byteStr.charCodeAt(i)
+    }
+    return bytes.buffer
 }
 
 /** Function to import a public key from the passed json data */

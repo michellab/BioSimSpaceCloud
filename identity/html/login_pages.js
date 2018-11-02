@@ -191,7 +191,7 @@ function perform_login_submit(){
 
         let identity_key = await getIdentityPublicKey();
 
-        args_json = "hello";
+        args_json = "{'data':'something'}";
 
         let encrypted_data = await encryptData(identity_key, to_utf8(args_json));
 
