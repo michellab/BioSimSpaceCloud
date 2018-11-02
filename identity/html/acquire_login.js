@@ -365,6 +365,11 @@ async function decryptData(key, data){
 
     secret = utf8_bytes_to_string(secret);
 
+    if (data.length <= rsa_key_size){
+        // the secret is the message - no fernet decoding needed
+        return secret;
+    }
+
     data = utf8_bytes_to_string(data.slice(rsa_key_size, data.length));
 
     var token = new fernet.Token({
