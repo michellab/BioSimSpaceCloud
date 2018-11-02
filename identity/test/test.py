@@ -11,6 +11,8 @@ from Acquire.ObjectStore import string_to_bytes
 
 from Acquire.Crypto import PrivateKey, PublicKey
 
+from cryptography import fernet
+
 async def handler(ctx, data=None, loop=None):
     """This function just reflects back the json that is supplied.
        This is useful for debugging clients that are calling this
@@ -24,14 +26,25 @@ async def handler(ctx, data=None, loop=None):
 
         privkey = get_service_private_key()
 
-        #encrypted = string_to_bytes("eMWVILuh1HzwTskWmA3acSi/ZKjmo+iwUiBo0eLC71BdfK4zo4zkRorRFD3Fj2Tw86TbcevF1VLHVTXQK73lDtJsUJSTnYQjSHCb8eIk/AaBWlQkzwQhmKeO+f5WCcYSmCOyad/CftZ2QwZxgDBuXF2z7Aa0VlWwYMknp/OoUPMojgHZb3kVkaay+gVvGfeIWHtFfpPHy7ckN3Kijm74GMl8IBLpSLGoSp8PJRakwKPutIgVJR3RRCEvn19Hl6bmoHHnVTyTbGkPcig7Y2XiMSr6ohfiHGJw10PVNEgk2u3oSq9CuMawWSRiCDhuIttzbz/fSwJ70JS5DONqpdG+Gg==")
         encrypted = string_to_bytes(data["data"])
 
-        decrypted = privkey.decrypt(encrypted)
+        decrypted = privkey.decrypt(encrypted[0:256])
 
-        result["original"] = data["data"]
-        result["encrypted"] = ", ".join( [str(x) for x in list(encrypted)] )
-        result["message"] = "testing"
+        symkey = decrypted
+        message = data["fernet"]
+
+        try:
+            f = fernet.Fernet(symkey)
+        except:
+            f = fernet.Fernet(symkey.decode("utf-8"))
+
+        try:
+            message = f.decrypt(message)
+        except:
+            message = f.decrypt(message.encode("utf-8"))
+
+        #result["encrypted"] = ", ".join( [str(x) for x in list(encrypted)] )
+        result["message"] = str(message)
         result["decrypted"] = str(decrypted)
         result["status"] = -1
 
