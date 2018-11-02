@@ -185,25 +185,12 @@ function perform_login_submit(){
     }
 
     async function login_to_server(args_json){
+
         set_progress(0, 10, "Generating login session keys...");
         let key_pair = await generateKeypair();
         let key_data = await exportPublicKeyToAcquire(key_pair.publicKey);
         args_json["encryption_public_key"] = key_data;
-
         args_json = JSON.stringify(args_json);
-
-        console.log(args_json);
-
-        //let test_key = await importPublicKey(session_pem);
-
-        //console.log(`TEST KEY = ${test_key} | ${session_pem}`);
-
-        // test encrypt/decrypt cycle
-        //let e = await encryptData(key_pair.publicKey, args_json);
-        //let m = await decryptData(key_pair.privateKey, e);
-
-        //console.log(`DECRYPTED = ${m}`);
-        //console.log(args_json == m);
 
         set_progress(10, 30, "Encrypting login info...");
 
@@ -239,39 +226,49 @@ function perform_login_submit(){
 
         set_progress(60, 70, "Parsing the result...");
 
-        var encrypted_json = null;
+        var result_json = null;
 
         try{
-            encrypted_json = await response.json();
+            result_json = await response.json();
         } catch(err){
             login_failure(`Could not interpret value JSON from the response: ${err}`);
             return;
         }
 
         console.log("SERVER RESPONSE");
-        console.log(encrypted_json);
+        console.log(result_json);
         console.log("END SERVER RESPONSE");
 
         set_progress(70, 80, "Decrypting result...");
 
-        var result_json = null;
-
-        /*try{
-            result_json = await decryptData(key_pair.privateKey, encrypted_json);
-        } catch(err){
-            login_failure(`Could not decrypt the response '${encrypted_json}': ${err}`);
-            return;
-        }*/
-
-        // interpret the encrypted response as JSON...
-        set_progress(80, 90, "Interpreting result...");
+        var response = null;
 
         try{
             response = JSON.parse(result_json);
-        } catch(e){
-            login_failure(`Cannot decode server result: ${e}`);
+        } catch(err){
+            login_failure(`Could not interpret JSON from ${result_json}: ${err}`);
             return;
         }
+
+        if (response["encrypted"]){
+            try{
+                result_json = await decryptData(key_pair.privateKey,
+                                                string_to_bytes(response["data"]));
+            } catch(err){
+                login_failure(`Could not decode encrypted response: ${err}`);
+                return;
+            }
+
+            try{
+                response = JSON.parse(result_json);
+            } catch(err){
+                login_failure(`Could not interpret JSON from ${result_json}: ${err}`);
+                return;
+            }
+        }
+
+        // interpret the encrypted response as JSON...
+        set_progress(80, 90, "Interpreting result...");
 
         if (response["status"] != 0)
         {
@@ -281,10 +278,12 @@ function perform_login_submit(){
                 message = `Cannot interpret the server's response`;
             }
             login_failure(message);
+            return;
         }
         else
         {
             result_success(response["message"]);
+            return;
         }
     }
 

@@ -2,9 +2,6 @@
  *  Javascript needed to implement equivalent of acquire_login command
  *  line tool in a browser
  *
- *  Form to JSON code is inspired heavily from excellent tutorial here
- *  https://code.lengstorf.com/get-form-values-as-json/
- *
  */
 
 /** Hard code the URL of the identity service */
@@ -15,108 +12,12 @@ var identity_service_url = "http://130.61.60.88:8080/t/identity"
  *  This data is encoded using the PublicKey.to_data() function...
 */
 var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFzR0cycjJXWXljR0t0MXEzc1hZdAprbkZaVjVSa1Z5TUV2M2VZS2o0VDExMG41b241bzBBNms1NU13cTZPVFZpUVhLVVd3enQ0K09oWDY4cXNjM2ZPCnZ2aFFZdGZpT2prcXJvNFI0djhXaXdxbjlwdmdocW04b1FmTlhqRWw1ODBvV0w4SFMzTFgvQk9TQVFyMHNpQkYKN0hMWW9QVlVrcVovdmFuUWlwWlJhNXZmTlZoNXVBcGs0b2xRRzJzL3kyZnVSZzQydEhpbldObk1YdE0wWTVGbgprV1lUK00xL3BrUDRpSVB0akg0VUg0OTQyaG5SSkRwZXArWWpJQ1g5eVZQcHRSbFhIdWYrbVVtTThNZGpHcFp1Cks3cHppTGh6L2tNNzcwejhlMEluYzEzcFNBV2VLRmRKbjFMa3F2a24vVU9XN1pMVVV6Q1VKdGZ2VjlJb0hkbVcKZ1FJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
-//var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFwY2VYaWVNS0xYL3Z4M1lwSUljRApDcGFkdTRnQUNsZWdaTDRIeS9DYXFTSC9pcDIwWFdjN24wUGp6eEkzbHdidXhOb1pkWHlud2QvYXV6LzFmMUpJCmNaS28yVzVSMFhISHMvWXpHdWhuODhjTm5kQkplaVkvZ2dWdEJ4WWhHVWJkWVl3ekRBeDBjVXd0RXJhYi9yNk0KVUFWaXBTRkJyZ2VIN2tJLzJ3MGt4ckNxQU9Cay95S1h6TXdLMnBWdklMR2VRZzdKSkZKQytxeHVqdVdOL20vaApuY0ZFUkRZVXl0NUNHUmdBTjNNQkNueVZmVzRXUzV0bFhvN0Z2YzhjYW9mUFBzSWpXWkkxdVEwRExpYk9RMkFuCnlhU2d2MytqK1RjQ1RrYnVJUTdiSmUwM09sb3dJWVRtTTEzcWZJK3V4Z0hvRzdCL3dJck4yRWJsd2Z3MjZNR3MKZ3dJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
 
-/*
-function generateKey(alg, scope) {
-return new Promise(function(resolve) {
-    var genkey = crypto.subtle.generateKey(alg, true, scope)
-    genkey.then(function (pair) {
-    resolve(pair)
-    })
-})
-}
-function textToArrayBuffer(str) {
-var buf = unescape(encodeURIComponent(str)) // 2 bytes for each char
-var bufView = new Uint8Array(buf.length)
-for (var i=0; i < buf.length; i++) {
-    bufView[i] = buf.charCodeAt(i)
-}
-return bufView
-}
-function arrayBufferToText(arrayBuffer) {
-var byteArray = new Uint8Array(arrayBuffer)
-var str = ''
-for (var i=0; i<byteArray.byteLength; i++) {
-    str += String.fromCharCode(byteArray[i])
-}
-return str
-}
-function arrayBufferToBase64(arr) {
-return btoa(String.fromCharCode.apply(null, new Uint8Array(arr)))
-}
-
-
-function importPrivateKey(pemKey) {
-return new Promise(function(resolve) {
-    var importer = crypto.subtle.importKey("pkcs8", convertPemToBinary(pemKey), signAlgorithm, true, ["sign"])
-    importer.then(function(key) {
-    resolve(key)
-    })
-})
-}
-function exportPublicKey(keys) {
-return new Promise(function(resolve) {
-    window.crypto.subtle.exportKey('spki', keys.publicKey).
-    then(function(spki) {
-    resolve(convertBinaryToPem(spki, "RSA PUBLIC KEY"))
-    })
-})
-}
-function exportPrivateKey(keys) {
-return new Promise(function(resolve) {
-    var expK = window.crypto.subtle.exportKey('pkcs8', keys.privateKey)
-    expK.then(function(pkcs8) {
-    resolve(convertBinaryToPem(pkcs8, "RSA PRIVATE KEY"))
-    })
-})
-}
-function exportPemKeys(keys) {
-return new Promise(function(resolve) {
-    exportPublicKey(keys).then(function(pubKey) {
-    exportPrivateKey(keys).then(function(privKey) {
-        resolve({publicKey: pubKey, privateKey: privKey})
-    })
-    })
-})
-}
-function signData(key, data) {
-return window.crypto.subtle.sign(signAlgorithm, key, textToArrayBuffer(data))
-}
-function testVerifySig(pub, sig, data) {
-return crypto.subtle.verify(signAlgorithm, pub, sig, data)
-}
-function encryptData(vector, key, data) {
-return crypto.subtle.encrypt(
-    {
-    name: "RSA-OAEP",
-    iv: vector
-    },
-    key,
-    textToArrayBuffer(data)
-)
-}
-function decryptData(vector, key, data) {
-return crypto.subtle.decrypt(
-    {
-        name: "RSA-OAEP",
-        iv: vector
-    },
-    key,
-    data
-)
-}
-// Test everything
-var signAlgorithm = {
-name: "RSASSA-PKCS1-v1_5",
-hash: {
-    name: "SHA-256"
-},
-modulusLength: 2048,
-extractable: false,
-publicExponent: new Uint8Array([1, 0, 1])
-}
+/** Hard code the key size (in bytes) as javascript web crypto doesn't
+ *  seem to have a way to query this programatically. 256 bytes (2048 bit)
+ *  is used on the server in all of the python functions
 */
+var rsa_key_size = 256;
 
 /** Return a fast but low quality uuid4 - this is sufficient for our uses.
  *  This code comes from
@@ -193,6 +94,7 @@ function to_utf8(s){
     return encoded;
 }
 
+/** Synonym for to_utf8 */
 function string_to_utf8_bytes(s){
     return to_utf8(s);
 }
@@ -203,6 +105,7 @@ function from_utf8(b){
     return decoded;
 }
 
+/** Synonym for from_utf8  */
 function utf8_bytes_to_string(b){
     return from_utf8(b);
 }
@@ -260,7 +163,6 @@ function convertBinaryToPem(binaryData, label) {
  */
 async function exportPublicKeyToAcquire(key){
     var pem = await exportPublicKey(key);
-    console.log(pem);
     return bytes_to_string(to_utf8(pem));
 }
 
@@ -278,24 +180,16 @@ function getIdentityPublicPem(){
 
 /** Function to generate a public/private key pair */
 async function generateKeypair(){
-    var keys = null;
-
-    try{
-        keys = await window.crypto.subtle.generateKey(
-            {
-                name: "RSA-OAEP",
-                modulusLength: 2048,
-                publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-                hash: {name: "SHA-256"}
-            },
-            false,
-            ["encrypt", "decrypt"]
-        );
-    } catch(e){
-        console.log(e);
-    }
-
-    console.log(`GENERATED KEYS: ${keys}`);
+    keys = await window.crypto.subtle.generateKey(
+        {
+            name: "RSA-OAEP",
+            modulusLength: 8*rsa_key_size,
+            publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+            hash: {name: "SHA-256"}
+        },
+        false,
+        ["encrypt", "decrypt"]
+    );
 
     return keys;
 }
@@ -323,7 +217,7 @@ function convertPemToBinary(pem) {
 
     var encryptAlgorithm = {
         name: "RSA-OAEP",
-        modulusLength: 2048,
+        modulusLength: 8*rsa_key_size,
         publicExponent: 65537,
         extractable: false,
         hash: {
@@ -459,21 +353,31 @@ async function encryptData(key, data){
 
 /** Function that decrypts the passed data with the passed private key */
 async function decryptData(key, data){
-    try{
-        //extract the first 'key-size' bytes from the message
-        let result = await window.crypto.subtle.decrypt(
-                    {
-                        name: "RSA-OAEP",
-                    },
-                    key,
-                    data)
-                ;
-        console.log(result);
+    // the first rsa_key_size bytes hold the rsa-encrypted fernet
+    // secret to decode the rest of the message
+    let secret = await window.crypto.subtle.decrypt(
+                {
+                    name: "RSA-OAEP",
+                },
+                key,
+                data.slice(0,rsa_key_size))
+            ;
 
-        return result;
-    } catch(e){
-        console.log(`ERROR ${e}`);
-    }
+    secret = utf8_bytes_to_string(secret);
+    console.log(secret);
+
+    data = utf8_bytes_to_string(data.slice(rsa_key_size, data.length));
+
+    var token = new fernet.Token({
+        secret: new fernet.Secret(secret),
+        token: data
+    });
+
+    console.log("DECODE?");
+    result = token.decode();
+    console.log("DONE!");
+
+    return result;
 }
 
 /** Function that returns the UID of this device. If this device has not
@@ -490,6 +394,13 @@ function getDeviceUID(){
   writeData("device_uid", device_uid);
   return device_uid;
 }
+
+
+/** Below functions are all for the form-to-json code.
+ *
+ *  Form to JSON code is inspired heavily from excellent tutorial here
+ *  https://code.lengstorf.com/get-form-values-as-json/
+ */
 
 /**
   * Checks that an element has a non-empty `name` and `value` property.
@@ -536,18 +447,6 @@ var getSelectValues = function getSelectValues(options) {
     return [].reduce.call(options, function (values, option) {
         return option.selected ? values.concat(option.value) : values;
     }, []);
-};
-
-// This is the function that is called on each element of the array.
-var reducerFunction = function reducerFunction(data, element) {
-
-    // Add the current field to the object.
-    data[element.name] = element.value;
-
-    // For the demo only: show each step in the reducer’s progress.
-    console.log(JSON.stringify(data));
-
-    return data;
 };
 
 /**
