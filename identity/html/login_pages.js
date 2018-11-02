@@ -134,10 +134,12 @@ async function get_otpcode(){
     //supplied name and password
     var username = json_login_data["username"];
     var uri_key = username + "@" + identity_service_url;
+    var device_key = "device:" + uri_key;
 
     var provisioning_uri = readData(uri_key);
+    var device_uid = readData(device_key);
 
-    if (provisioning_uri){
+    if (provisioning_uri && device_uid){
         //get a key from the username and password
         var fernet_key = await generateFernetKey(username,
                                                  json_login_data["password"]);
@@ -163,7 +165,8 @@ async function get_otpcode(){
             var otp = totpObj.getOTP(secret);
 
             json_login_data["otpcode"] = String(otp);
-            json_login_data["device_uid"] = getDeviceUID();
+            json_login_data["device_uid"] = device_uid;
+            json_login_data["remember_device"] = false;
         }
     }
 
@@ -325,7 +328,9 @@ function perform_login_submit(){
             //wrong. Delete the existing code so that we ask for it again
             //the next time the user tries to log in
             var uri_key = json_login_data["username"] + "@" + identity_service_url;
+            var device_key = "device:" + uri_key;
             clearData(uri_key);
+            clearData(device_key);
 
             login_failure(message);
             return;
@@ -348,6 +353,9 @@ function perform_login_submit(){
 
                 var uri_key = json_login_data["username"] + "@" + identity_service_url;
                 writeData(uri_key, encrypted_uri);
+
+                var device_key = "device:" + uri_key;
+                writeData(device_key, response["device_uid"]);
             }
 
             login_success(response["message"], response);
@@ -529,8 +537,11 @@ function render_otpcode_page()
             all_ok = 0;
         }
 
-        json_login_data["remember_device"] = data["remember_device"];
-        json_login_data["device_uid"] = getDeviceUID();
+        var remember_device = data["remember_device"];
+
+        if (remember_device){
+            json_login_data["remember_device"] = true;
+        }
 
         if (all_ok)
         {

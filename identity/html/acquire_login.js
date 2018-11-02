@@ -19,17 +19,6 @@ var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txa
 */
 var rsa_key_size = 256;
 
-/** Return a fast but low quality uuid4 - this is sufficient for our uses.
- *  This code comes from
- *  https://stackoverflow.com/questions/105034/create-guid-uuid-in-javascript
- */
-function uuidv4() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
-
 /** Get URL requestion variables as an array. This is inspired from
  *  https://html-online.com/articles/get-url-parameters-javascript/
  */
@@ -445,21 +434,6 @@ async function decryptData(key, data){
     let result = token.decode();
 
     return result;
-}
-
-/** Function that returns the UID of this device. If this device has not
- *  been used before, then a random UID is generated and then stored to
- *  local storage. This is then re-read the next time this function is
- *  called
- */
-function getDeviceUID(){
-  var device_uid = readData("device_uid");
-  if (device_uid){
-    return device_uid;
-  }
-  device_uid = uuidv4();
-  writeData("device_uid", device_uid);
-  return device_uid;
 }
 
 /** Below function inspired by TOTP generator at
