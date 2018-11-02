@@ -15,6 +15,7 @@ var identity_service_url = "http://130.61.60.88:8080/t/identity"
  *  This data is encoded using the PublicKey.to_data() function...
 */
 var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFzR0cycjJXWXljR0t0MXEzc1hZdAprbkZaVjVSa1Z5TUV2M2VZS2o0VDExMG41b241bzBBNms1NU13cTZPVFZpUVhLVVd3enQ0K09oWDY4cXNjM2ZPCnZ2aFFZdGZpT2prcXJvNFI0djhXaXdxbjlwdmdocW04b1FmTlhqRWw1ODBvV0w4SFMzTFgvQk9TQVFyMHNpQkYKN0hMWW9QVlVrcVovdmFuUWlwWlJhNXZmTlZoNXVBcGs0b2xRRzJzL3kyZnVSZzQydEhpbldObk1YdE0wWTVGbgprV1lUK00xL3BrUDRpSVB0akg0VUg0OTQyaG5SSkRwZXArWWpJQ1g5eVZQcHRSbFhIdWYrbVVtTThNZGpHcFp1Cks3cHppTGh6L2tNNzcwejhlMEluYzEzcFNBV2VLRmRKbjFMa3F2a24vVU9XN1pMVVV6Q1VKdGZ2VjlJb0hkbVcKZ1FJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
+var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUF1UXlKRmRXMFpxcWtQNlUxWEhLSwpzUGcxeFlOSXNzUm51dnZqWm81MnJzYzhlTEpjcStJNVdDRFA5c245bG9LRjhmUVI3K3JSdlBlVjczTXhnU3U1Ci9sQUVBTHU3Z0RTdWxaSExORkVGSFFOek9XUm03UEM1eU42ZTZUZWVZRkNnYzVLZWxneitRbHYvUmRaaVB2eWUKcTJtZkRvR2NhdFBEeFlEaS9sMENzMGdLNllVVWVUQXgvY01EaEQyQk1oNXhDRW5EOUNKOG0xUzFBRTNvUUlaUgpFK3JHeGtMNDJTK2taQW1HVGRNbUU2WWhNcmxEa2l5RThxR2pRUGgrdmxHRDBzaG9kODNCOTVFUmQxMmhXWlRHCkcxSE4zTWw3eXlhRlR3K0J2RE1Kc05qZGxxRTI0VllrRmpJa3JPNlJhK2UxOEQ0clNSNTNPdnc5S3dWRVYvcG8KL3dJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
 
 /** Return a fast but low quality uuid4 - this is sufficient for our uses.
  *  This code comes from
@@ -107,7 +108,7 @@ function utf8_bytes_to_string(b){
 
 /** Function to convert from a string back to binary */
 function string_to_bytes(s){
-    var bytes = base64js.toByteArray(s);
+    return base64js.toByteArray(s);
 }
 
 /** Function to convert binary data to a string */
@@ -136,26 +137,63 @@ async function getIdentityPublicKey(){
     return publicKey;
 }
 
+function rawBytesFromJSString( str ) {
+    var ch, st, re = [], j=0;
+    for (var i = 0; i < str.length; i++ ) {
+        ch = str.charCodeAt(i);
+        if(ch < 127)
+        {
+            re[j++] = ch & 0xFF;
+        }
+        else
+        {
+            st = [];    // clear stack
+            do {
+                st.push( ch & 0xFF );  // push byte to stack
+                ch = ch >> 8;          // shift value down by 1 byte
+            }
+            while ( ch );
+            // add stack contents to result
+            // done because chars have "wrong" endianness
+            st = st.reverse();
+            for(var k=0;k<st.length; ++k)
+                re[j++] = st[k];
+        }
+    }
+    // return an array of bytes
+    return re;
+}
+
 /** Function that encrypts the passed data with the passed public key */
 async function encryptData(key, data){
+    if (typeof data === 'string' || data instanceof String){
+        data = string_to_utf8_bytes(data);
+    }
+
+    console.log(`INPUT = ${data}`);
+
+    key = await key;
+
     var result = key.encrypt(data, 'RSA-OAEP', {
         md: forge.md.sha256.create(),
         mgf1: {
-          md: forge.md.sha1.create()
+          md: forge.md.sha256.create()
         }
       });
 
-    console.log(`CLASS ${result.constructor.name}`);
+    result = rawBytesFromJSString(result);
+
+    console.log(`OUTPUT = ${result} | ${result.length}`);
 
     return result;
 }
 
 /** Function that decrypts the passed data with the passed private key */
 async function decryptData(key, data){
-    return key.decrypt(data,'RSA-OAEP', {
+    return key.decrypt(data, 'RSA-OAEP', {
         md: forge.md.sha256.create(),
         mgf1: {
-          md: forge.md.sha1.create()
+          md: forge.md.sha256.create()
         }
       });
 }

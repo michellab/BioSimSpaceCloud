@@ -192,32 +192,18 @@ function perform_login_submit(){
         let identity_key = await getIdentityPublicKey();
 
         args_json = "hello";
-        var args_utf8 = to_utf8(args_json);
-        var b = bytes_to_string(args_utf8);
-
-        console.log( b );
-        console.log( string_to_bytes(b) );
-        console.log( from_utf8(string_to_bytes(b)) );
-
-        //args_data = to_utf8(args_json);
-        //from_utf8(args_data);
 
         let encrypted_data = await encryptData(identity_key, to_utf8(args_json));
-        let uu_encrypted_data = from_utf8(bytes_to_string(to_utf8(encrypted_data)));
-
-        console.log(`ORIGINAL: ${args_json} ${args_json.length}`);
-        console.log(`ENCRYPTED: ${encrypted_data} ${encrypted_data.length}`);
-        console.log(`UUENCODE: ${uu_encrypted_data} ${uu_encrypted_data.length}`);
-
-        encrypted_data = from_utf8(string_to_bytes(uu_encrypted_data));
-        console.log(`TEST: ${encrypted_data} ${encrypted_data.length}`);
 
         set_progress(30, 60, "Sending login data to server...");
 
         var data = {};
-        data["data"] = uu_encrypted_data;
+        data["data"] = bytes_to_string(encrypted_data);
         data["encrypted"] = true;
         data["testing"] = true;
+
+        console.log(`${data["data"]} | ${data["data"].length}`);
+        console.log(string_to_bytes(data["data"]));
 
         var response = null;
 
@@ -350,6 +336,11 @@ function render_login_page(){
         </div>\
         <button class="contact-form__button" type="submit">Login</button>\
       </form>');
+
+    var key = getIdentityPublicKey();
+    var s = "hello";
+    let e = encryptData(key, s);
+    console.log(e);
 
     /**
      * A handler function to prevent default submission and run our custom script.
