@@ -100,8 +100,11 @@ def run(args):
         device_key = "devices/%s/%s" % (user_account.sanitised_name(),
                                         device_uid)
 
-        device_secret = ObjectStore.get_string_object(bucket,
-                                                      device_key)
+        try:
+            device_secret = ObjectStore.get_string_object(bucket,
+                                                          device_key)
+        except:
+            device_secret = None
 
         if device_secret is None:
             raise LoginError(
