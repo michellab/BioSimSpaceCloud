@@ -26,14 +26,6 @@ return new Promise(function(resolve) {
     })
 })
 }
-function arrayBufferToBase64String(arrayBuffer) {
-var byteArray = new Uint8Array(arrayBuffer)
-var byteString = ''
-for (var i=0; i<byteArray.byteLength; i++) {
-    byteString += String.fromCharCode(byteArray[i])
-}
-return btoa(byteString)
-}
 function textToArrayBuffer(str) {
 var buf = unescape(encodeURIComponent(str)) // 2 bytes for each char
 var bufView = new Uint8Array(buf.length)
@@ -53,22 +45,7 @@ return str
 function arrayBufferToBase64(arr) {
 return btoa(String.fromCharCode.apply(null, new Uint8Array(arr)))
 }
-function convertBinaryToPem(binaryData, label) {
-var base64Cert = arrayBufferToBase64String(binaryData)
-var pemCert = "-----BEGIN " + label + "-----\r\n"
-var nextIndex = 0
-var lineLength
-while (nextIndex < base64Cert.length) {
-    if (nextIndex + 64 <= base64Cert.length) {
-    pemCert += base64Cert.substr(nextIndex, 64) + "\r\n"
-    } else {
-    pemCert += base64Cert.substr(nextIndex) + "\r\n"
-    }
-    nextIndex += 64
-}
-pemCert += "-----END " + label + "-----\r\n"
-return pemCert
-}
+
 
 function importPrivateKey(pemKey) {
 return new Promise(function(resolve) {
@@ -240,6 +217,16 @@ function bytes_to_string(b){
     return base64js.fromByteArray(b);
 }
 
+/** Function used as part of converting a key to a pem file */
+function arrayBufferToBase64String(arrayBuffer) {
+    var byteArray = new Uint8Array(arrayBuffer)
+    var byteString = ''
+    for (var i=0; i<byteArray.byteLength; i++) {
+        byteString += String.fromCharCode(byteArray[i])
+    }
+    return btoa(byteString)
+}
+
 /** Function to convert a base64 string to an array buffer */
 function base64StringToArrayBuffer(b64str) {
     var byteStr = atob(b64str)
@@ -250,6 +237,31 @@ function base64StringToArrayBuffer(b64str) {
     return bytes.buffer
 }
 
+/** Function used to convert binary key date to pem */
+function convertBinaryToPem(binaryData, label) {
+    var base64Cert = arrayBufferToBase64String(binaryData)
+    var pemCert = "-----BEGIN " + label + "-----\n"
+    var nextIndex = 0
+    var lineLength
+    while (nextIndex < base64Cert.length) {
+        if (nextIndex + 64 <= base64Cert.length) {
+        pemCert += base64Cert.substr(nextIndex, 64) + "\n"
+        } else {
+        pemCert += base64Cert.substr(nextIndex) + "\n"
+        }
+        nextIndex += 64
+    }
+    pemCert += "-----END " + label + "-----\n"
+    return pemCert
+}
+
+/** Function to convert a public key to a PEM file */
+async function exportPublicKey(keys) {
+    let exported = await window.crypto.subtle.exportKey('spki', keys.publicKey);
+    let pem = convertBinaryToPem(exported, "PUBLIC KEY");
+    return pem;
+}
+
 /** Function to import a public key from the passed json data */
 function getIdentityPublicPem(){
     return utf8_bytes_to_string(base64js.toByteArray(identity_public_pem));
@@ -257,7 +269,26 @@ function getIdentityPublicPem(){
 
 /** Function to generate a public/private key pair */
 async function generateKeypair(){
-    return null;
+    var keys = null;
+
+    try{
+        keys = await window.crypto.subtle.generateKey(
+            {
+                name: "RSA-OAEP",
+                modulusLength: 2048,
+                publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+                hash: {name: "SHA-256"}
+            },
+            false,
+            ["encrypt", "decrypt"]
+        );
+    } catch(e){
+        console.log(e);
+    }
+
+    console.log(`GENERATED KEYS: ${keys}`);
+
+    return keys;
 }
 
 /** Function to convert pemfile info binary data used for js crypto */
@@ -305,20 +336,6 @@ async function getIdentityPublicKey(){
     return await importPublicKey(pem);
 }
 
-function encryptDataFernet(data){
-    // we will encrypt the message using fernet, and send that prefixed
-    // by the RSA-encrypted secret
-    var secret = "cw_0x689RpI-jtRR7oE8h_eQsKImvJapLeSbXpwF4e4=";
-
-    var token = new fernet.Token({
-        secret: new fernet.Secret(secret)
-    });
-
-    encrypted = token.encode(data);
-
-    return encrypted;
-}
-
 /** Function that concatenates two arrays together -
  *  thanks to http://2ality.com/2015/10/concatenating-typed-arrays.html
  */
@@ -337,13 +354,15 @@ function concatenate(resultConstructor, ...arrays) {
 }
 
 /*
+Thanks to Jon Leighton for the below base64ArrayBuffer function that is
+  licensed under MIT
+
 MIT LICENSE
 Copyright 2011 Jon Leighton
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
-
 function base64ArrayBuffer(arrayBuffer) {
     var base64    = ''
     var encodings = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'

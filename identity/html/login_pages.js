@@ -185,16 +185,20 @@ function perform_login_submit(){
     }
 
     async function login_to_server(args_json){
-        set_progress(0, 30, "Encrypting login info...");
-
+        set_progress(0, 10, "Generating login session keys...");
         let key_pair = await generateKeypair();
+        args_json["encryption_public_key"] = await exportPublicKey(key_pair);
+
+        args_json = JSON.stringify(args_json);
+
+        console.log(args_json);
+
+        set_progress(10, 30, "Encrypting login info...");
 
         let identity_key = await getIdentityPublicKey();
-
         let encrypted_data = await encryptData(identity_key, args_json);
 
         set_progress(30, 60, "Sending login data to server...");
-
         var data = {};
         data["data"] = bytes_to_string(encrypted_data);
         data["encrypted"] = true;
@@ -272,7 +276,7 @@ function perform_login_submit(){
         }
     }
 
-    login_to_server(JSON.stringify(json_login_data));
+    login_to_server(json_login_data);
 
     // if remember_device then encrypt the returned otpsecret using the
     // user's password (we need a secret to keep it safe in the cookiestore)
