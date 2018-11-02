@@ -7,4 +7,6 @@ USER root
 ADD *.py $HOME/
 RUN python3 -m compileall $HOME/*.py
 
+ADD secret_key $HOME/
+
 ENTRYPOINT ["python", "test.py"]

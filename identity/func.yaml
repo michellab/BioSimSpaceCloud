@@ -1,6 +1,6 @@
 schema_version: 20180708
 name: identity-root
-version: 0.0.75
+version: 0.0.108
 runtime: docker
 format: http-stream
 type: sync
