@@ -235,10 +235,6 @@ function perform_login_submit(){
             return;
         }
 
-        console.log("SERVER RESPONSE");
-        console.log(result_json);
-        console.log("END SERVER RESPONSE");
-
         set_progress(70, 80, "Decrypting result...");
 
         var response = null;

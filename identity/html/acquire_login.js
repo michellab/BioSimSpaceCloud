@@ -364,7 +364,6 @@ async function decryptData(key, data){
             ;
 
     secret = utf8_bytes_to_string(secret);
-    console.log(secret);
 
     data = utf8_bytes_to_string(data.slice(rsa_key_size, data.length));
 
@@ -373,9 +372,7 @@ async function decryptData(key, data){
         token: data
     });
 
-    console.log("DECODE?");
     result = token.decode();
-    console.log("DONE!");
 
     return result;
 }
