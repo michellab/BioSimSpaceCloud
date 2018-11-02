@@ -95,7 +95,7 @@ def run(args):
         raise LoginError("No account available with username '%s'" %
                          username)
 
-    if device_uid:
+    if (not remember_device) and device_uid:
         # see if this device has been seen before
         device_key = "devices/%s/%s" % (user_account.sanitised_name(),
                                         device_uid)

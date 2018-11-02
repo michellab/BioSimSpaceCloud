@@ -153,6 +153,18 @@ async function get_otpcode(){
 
     if (provisioning_uri){
         console.log(provisioning_uri);
+
+        //extract the secret from the uri
+        urlvars = getUrlVars(provisioning_uri);
+        secret = urlvars["secret"];
+
+        if (secret){
+            var totpObj = new TOTP();
+            var otp = totpObj.getOTP(secret);
+
+            json_login_data["otpcode"] = String(otp);
+            json_login_data["device_uid"] = getDeviceUID();
+        }
     }
 
     //can't get the otpcode from local storage so have to ask
@@ -308,6 +320,13 @@ function perform_login_submit(){
                 console.log(`CANNOT UNDERSTAND RESPONSE\n${result_json}`);
                 message = `Cannot interpret the server's response`;
             }
+
+            //as the login failed, it means that the otpcode was likely
+            //wrong. Delete the existing code so that we ask for it again
+            //the next time the user tries to log in
+            var uri_key = json_login_data["username"] + "@" + identity_service_url;
+            clearData(uri_key);
+
             login_failure(message);
             return;
         }
@@ -511,6 +530,7 @@ function render_otpcode_page()
         }
 
         json_login_data["remember_device"] = data["remember_device"];
+        json_login_data["device_uid"] = getDeviceUID();
 
         if (all_ok)
         {
