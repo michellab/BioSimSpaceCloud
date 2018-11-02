@@ -15,7 +15,137 @@ var identity_service_url = "http://130.61.60.88:8080/t/identity"
  *  This data is encoded using the PublicKey.to_data() function...
 */
 var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFzR0cycjJXWXljR0t0MXEzc1hZdAprbkZaVjVSa1Z5TUV2M2VZS2o0VDExMG41b241bzBBNms1NU13cTZPVFZpUVhLVVd3enQ0K09oWDY4cXNjM2ZPCnZ2aFFZdGZpT2prcXJvNFI0djhXaXdxbjlwdmdocW04b1FmTlhqRWw1ODBvV0w4SFMzTFgvQk9TQVFyMHNpQkYKN0hMWW9QVlVrcVovdmFuUWlwWlJhNXZmTlZoNXVBcGs0b2xRRzJzL3kyZnVSZzQydEhpbldObk1YdE0wWTVGbgprV1lUK00xL3BrUDRpSVB0akg0VUg0OTQyaG5SSkRwZXArWWpJQ1g5eVZQcHRSbFhIdWYrbVVtTThNZGpHcFp1Cks3cHppTGh6L2tNNzcwejhlMEluYzEzcFNBV2VLRmRKbjFMa3F2a24vVU9XN1pMVVV6Q1VKdGZ2VjlJb0hkbVcKZ1FJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
-var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUF1UXlKRmRXMFpxcWtQNlUxWEhLSwpzUGcxeFlOSXNzUm51dnZqWm81MnJzYzhlTEpjcStJNVdDRFA5c245bG9LRjhmUVI3K3JSdlBlVjczTXhnU3U1Ci9sQUVBTHU3Z0RTdWxaSExORkVGSFFOek9XUm03UEM1eU42ZTZUZWVZRkNnYzVLZWxneitRbHYvUmRaaVB2eWUKcTJtZkRvR2NhdFBEeFlEaS9sMENzMGdLNllVVWVUQXgvY01EaEQyQk1oNXhDRW5EOUNKOG0xUzFBRTNvUUlaUgpFK3JHeGtMNDJTK2taQW1HVGRNbUU2WWhNcmxEa2l5RThxR2pRUGgrdmxHRDBzaG9kODNCOTVFUmQxMmhXWlRHCkcxSE4zTWw3eXlhRlR3K0J2RE1Kc05qZGxxRTI0VllrRmpJa3JPNlJhK2UxOEQ0clNSNTNPdnc5S3dWRVYvcG8KL3dJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
+//var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFwY2VYaWVNS0xYL3Z4M1lwSUljRApDcGFkdTRnQUNsZWdaTDRIeS9DYXFTSC9pcDIwWFdjN24wUGp6eEkzbHdidXhOb1pkWHlud2QvYXV6LzFmMUpJCmNaS28yVzVSMFhISHMvWXpHdWhuODhjTm5kQkplaVkvZ2dWdEJ4WWhHVWJkWVl3ekRBeDBjVXd0RXJhYi9yNk0KVUFWaXBTRkJyZ2VIN2tJLzJ3MGt4ckNxQU9Cay95S1h6TXdLMnBWdklMR2VRZzdKSkZKQytxeHVqdVdOL20vaApuY0ZFUkRZVXl0NUNHUmdBTjNNQkNueVZmVzRXUzV0bFhvN0Z2YzhjYW9mUFBzSWpXWkkxdVEwRExpYk9RMkFuCnlhU2d2MytqK1RjQ1RrYnVJUTdiSmUwM09sb3dJWVRtTTEzcWZJK3V4Z0hvRzdCL3dJck4yRWJsd2Z3MjZNR3MKZ3dJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
+
+function generateKey(alg, scope) {
+return new Promise(function(resolve) {
+    var genkey = crypto.subtle.generateKey(alg, true, scope)
+    genkey.then(function (pair) {
+    resolve(pair)
+    })
+})
+}
+function arrayBufferToBase64String(arrayBuffer) {
+var byteArray = new Uint8Array(arrayBuffer)
+var byteString = ''
+for (var i=0; i<byteArray.byteLength; i++) {
+    byteString += String.fromCharCode(byteArray[i])
+}
+return btoa(byteString)
+}
+function base64StringToArrayBuffer(b64str) {
+var byteStr = atob(b64str)
+var bytes = new Uint8Array(byteStr.length)
+for (var i = 0; i < byteStr.length; i++) {
+    bytes[i] = byteStr.charCodeAt(i)
+}
+return bytes.buffer
+}
+function textToArrayBuffer(str) {
+var buf = unescape(encodeURIComponent(str)) // 2 bytes for each char
+var bufView = new Uint8Array(buf.length)
+for (var i=0; i < buf.length; i++) {
+    bufView[i] = buf.charCodeAt(i)
+}
+return bufView
+}
+function arrayBufferToText(arrayBuffer) {
+var byteArray = new Uint8Array(arrayBuffer)
+var str = ''
+for (var i=0; i<byteArray.byteLength; i++) {
+    str += String.fromCharCode(byteArray[i])
+}
+return str
+}
+function arrayBufferToBase64(arr) {
+return btoa(String.fromCharCode.apply(null, new Uint8Array(arr)))
+}
+function convertBinaryToPem(binaryData, label) {
+var base64Cert = arrayBufferToBase64String(binaryData)
+var pemCert = "-----BEGIN " + label + "-----\r\n"
+var nextIndex = 0
+var lineLength
+while (nextIndex < base64Cert.length) {
+    if (nextIndex + 64 <= base64Cert.length) {
+    pemCert += base64Cert.substr(nextIndex, 64) + "\r\n"
+    } else {
+    pemCert += base64Cert.substr(nextIndex) + "\r\n"
+    }
+    nextIndex += 64
+}
+pemCert += "-----END " + label + "-----\r\n"
+return pemCert
+}
+
+function importPrivateKey(pemKey) {
+return new Promise(function(resolve) {
+    var importer = crypto.subtle.importKey("pkcs8", convertPemToBinary(pemKey), signAlgorithm, true, ["sign"])
+    importer.then(function(key) {
+    resolve(key)
+    })
+})
+}
+function exportPublicKey(keys) {
+return new Promise(function(resolve) {
+    window.crypto.subtle.exportKey('spki', keys.publicKey).
+    then(function(spki) {
+    resolve(convertBinaryToPem(spki, "RSA PUBLIC KEY"))
+    })
+})
+}
+function exportPrivateKey(keys) {
+return new Promise(function(resolve) {
+    var expK = window.crypto.subtle.exportKey('pkcs8', keys.privateKey)
+    expK.then(function(pkcs8) {
+    resolve(convertBinaryToPem(pkcs8, "RSA PRIVATE KEY"))
+    })
+})
+}
+function exportPemKeys(keys) {
+return new Promise(function(resolve) {
+    exportPublicKey(keys).then(function(pubKey) {
+    exportPrivateKey(keys).then(function(privKey) {
+        resolve({publicKey: pubKey, privateKey: privKey})
+    })
+    })
+})
+}
+function signData(key, data) {
+return window.crypto.subtle.sign(signAlgorithm, key, textToArrayBuffer(data))
+}
+function testVerifySig(pub, sig, data) {
+return crypto.subtle.verify(signAlgorithm, pub, sig, data)
+}
+function encryptData(vector, key, data) {
+return crypto.subtle.encrypt(
+    {
+    name: "RSA-OAEP",
+    iv: vector
+    },
+    key,
+    textToArrayBuffer(data)
+)
+}
+function decryptData(vector, key, data) {
+return crypto.subtle.decrypt(
+    {
+        name: "RSA-OAEP",
+        iv: vector
+    },
+    key,
+    data
+)
+}
+// Test everything
+var signAlgorithm = {
+name: "RSASSA-PKCS1-v1_5",
+hash: {
+    name: "SHA-256"
+},
+modulusLength: 2048,
+extractable: false,
+publicExponent: new Uint8Array([1, 0, 1])
+}
 
 /** Return a fast but low quality uuid4 - this is sufficient for our uses.
  *  This code comes from
@@ -129,39 +259,52 @@ async function generateKeypair(){
     return result;
 }
 
+/** Function to convert pemfile info binary data used for js crypto */
+function convertPemToBinary(pem) {
+    var lines = pem.split('\n')
+    var encoded = ''
+    for(var i = 0;i < lines.length;i++){
+        if (lines[i].trim().length > 0 &&
+            lines[i].indexOf('-BEGIN PRIVATE KEY-') < 0 &&
+            lines[i].indexOf('-BEGIN PUBLIC KEY-') < 0 &&
+            lines[i].indexOf('-END PRIVATE KEY-') < 0 &&
+            lines[i].indexOf('-END PUBLIC KEY-') < 0) {
+        encoded += lines[i].trim()
+        }
+    }
+    console.log(encoded);
+    return base64StringToArrayBuffer(encoded)
+}
+
+/** Function to import and return the public key from the passed pemfile */
+ async function importPublicKey(pemKey) {
+    //convert the pem key to binary
+    var bin = convertPemToBinary(pemKey);
+
+    var encryptAlgorithm = {
+        name: "RSA-OAEP",
+        modulusLength: 2048,
+        publicExponent: 65537,
+        extractable: false,
+        hash: {
+            name: "SHA-256"
+        }
+    };
+
+    var public_key = await crypto.subtle.importKey(
+                        "spki", bin, encryptAlgorithm,
+                        true, ["encrypt"]
+                        );
+
+    console.log(public_key)
+
+    return public_key;
+}
+
 /** Function to load the public key of the identity service */
 async function getIdentityPublicKey(){
     var pem = getIdentityPublicPem();
-    console.log(pem);
-    var publicKey = forge.pki.publicKeyFromPem(pem);
-    return publicKey;
-}
-
-function rawBytesFromJSString( str ) {
-    var ch, st, re = [], j=0;
-    for (var i = 0; i < str.length; i++ ) {
-        ch = str.charCodeAt(i);
-        if(ch < 127)
-        {
-            re[j++] = ch & 0xFF;
-        }
-        else
-        {
-            st = [];    // clear stack
-            do {
-                st.push( ch & 0xFF );  // push byte to stack
-                ch = ch >> 8;          // shift value down by 1 byte
-            }
-            while ( ch );
-            // add stack contents to result
-            // done because chars have "wrong" endianness
-            st = st.reverse();
-            for(var k=0;k<st.length; ++k)
-                re[j++] = st[k];
-        }
-    }
-    // return an array of bytes
-    return re;
+    return await importPublicKey(pem);
 }
 
 /** Function that encrypts the passed data with the passed public key */
@@ -171,21 +314,23 @@ async function encryptData(key, data){
     }
 
     console.log(`INPUT = ${data}`);
+    console.log(data.buffer);
 
     key = await key;
 
-    var result = key.encrypt(data, 'RSA-OAEP', {
-        md: forge.md.sha256.create(),
-        mgf1: {
-          md: forge.md.sha256.create()
-        }
-      });
+    let result = await window.crypto.subtle.encrypt(
+                    {
+                        name: "RSA-OAEP"
+                    },
+                    key,
+                    data.buffer
+                );
 
-    result = rawBytesFromJSString(result);
+    var output = new Uint8Array(result);
 
-    console.log(`OUTPUT = ${result} | ${result.length}`);
+    console.log(`OUTPUT = ${output} | ${output.length}`)
 
-    return result;
+    return output;
 }
 
 /** Function that decrypts the passed data with the passed private key */

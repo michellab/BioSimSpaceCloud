@@ -337,11 +337,6 @@ function render_login_page(){
         <button class="contact-form__button" type="submit">Login</button>\
       </form>');
 
-    var key = getIdentityPublicKey();
-    var s = "hello";
-    let e = encryptData(key, s);
-    console.log(e);
-
     /**
      * A handler function to prevent default submission and run our custom script.
      * @param  {Event} event  the submit event triggered by the user

@@ -144,7 +144,7 @@ class PublicKey:
            encrypt the symmetric key. This returns some bytes
         """
         if isinstance(message, str):
-            message = str.encode("utf-8")
+            message = message.encode("utf-8")
 
         try:
             return self._pubkey.encrypt(
