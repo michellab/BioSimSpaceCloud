@@ -207,8 +207,11 @@ function perform_login_submit(){
 
         var response = null;
 
+        console.log("SENDING");
+        console.log(JSON.stringify(data));
+
         try{
-            response = await fetch(identity_service_url, {
+            response = await fetch(identity_service_url + "/test", {
                             method: 'post',
                             headers: {
                                 'Accept': 'application/json, test/plain, */*',
