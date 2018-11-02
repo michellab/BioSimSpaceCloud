@@ -146,16 +146,16 @@ class PublicKey:
         if isinstance(message, str):
             message = message.encode("utf-8")
 
-        #try:
-        #    return self._pubkey.encrypt(
-        #                message,
-        #                _padding.OAEP(
-        #                    mgf=_padding.MGF1(algorithm=_hashes.SHA256()),
-        #                    algorithm=_hashes.SHA256(),
-        #                    label=None)
-        #                )
-        #except:
-        #    pass
+        try:
+            return self._pubkey.encrypt(
+                        message,
+                        _padding.OAEP(
+                            mgf=_padding.MGF1(algorithm=_hashes.SHA256()),
+                            algorithm=_hashes.SHA256(),
+                            label=None)
+                        )
+        except:
+            pass
 
         # this is a longer message that cannot be encoded using
         # an asymmetric key - need to use a symmetric key
