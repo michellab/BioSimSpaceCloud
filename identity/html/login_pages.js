@@ -191,14 +191,13 @@ function perform_login_submit(){
 
         let identity_key = await getIdentityPublicKey();
 
-        args_json = "{'data':'something'}";
-
-        let encrypted_data = await encryptData(identity_key, to_utf8(args_json));
+        let encrypted_data = await encryptData(identity_key, args_json);
 
         set_progress(30, 60, "Sending login data to server...");
 
         var data = {};
         data["data"] = bytes_to_string(encrypted_data);
+        data["fernet"] = encryptDataFernet(args_json);
         data["encrypted"] = true;
         data["testing"] = true;
 

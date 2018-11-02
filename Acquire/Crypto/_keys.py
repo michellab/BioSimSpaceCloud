@@ -371,12 +371,19 @@ class PrivateKey:
         except Exception as e:
             raise DecryptionError(
                 "Cannot decrypt the symmetric key used "
-                "to encrypt the long message: %s" % str(e))
-
-        f = _fernet.Fernet(symkey)
+                "to encrypt the long message '%s' (%s): %s" %
+                (message[0:key_size], key_size, str(e)))
 
         try:
-            return f.decrypt(message[key_size:])
+            f = _fernet.Fernet(symkey)
+        except:
+            f = _fernet.Fernet(symkey.decode("utf-8"))
+
+        try:
+            try:
+                return f.decrypt(message[key_size:])
+            except:
+                return f.decrypt(message[key_size:].encode("utf-8"))
         except Exception as e:
             raise DecryptionError(
                     "Cannot decrypt the long message using the "

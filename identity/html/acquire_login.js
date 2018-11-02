@@ -258,9 +258,6 @@ function getIdentityPublicPem(){
 /** Function to generate a public/private key pair */
 async function generateKeypair(){
     return null;
-    var rsa = forge.pki.rsa;
-    let result = await rsa.generateKeyPair({bits: 2048, workers: -1});
-    return result;
 }
 
 /** Function to convert pemfile info binary data used for js crypto */
@@ -311,28 +308,44 @@ async function getIdentityPublicKey(){
     return await importPublicKey(pem);
 }
 
+function encryptDataFernet(data){
+    // we will encrypt the message using fernet, and send that prefixed
+    // by the RSA-encrypted secret
+    var secret = "cw_0x689RpI-jtRR7oE8h_eQsKImvJapLeSbXpwF4e4=";
+
+    var token = new fernet.Token({
+        secret: new fernet.Secret(secret)
+    });
+
+    encrypted = token.encode(data);
+
+    return encrypted;
+}
+
 /** Function that encrypts the passed data with the passed public key */
 async function encryptData(key, data){
-    if (typeof data === 'string' || data instanceof String){
-        data = string_to_utf8_bytes(data);
-    }
-
-    console.log(`INPUT = ${data}`);
-    console.log(data.buffer);
-
     key = await key;
 
+    // we will encrypt the message using fernet, and send that prefixed
+    // by the RSA-encrypted secret
+    var secret = "cw_0x689RpI-jtRR7oE8h_eQsKImvJapLeSbXpwF4e4=";
+
+    var token = new fernet.Token({
+        secret: new fernet.Secret(secret)
+    });
+
+    encrypted = token.encode(data);
+
+    // now we will encrypt the fernet secret
     let result = await window.crypto.subtle.encrypt(
                     {
                         name: "RSA-OAEP"
                     },
                     key,
-                    data.buffer
+                    string_to_utf8_bytes(secret).buffer
                 );
 
-    var output = new Uint8Array(result);
-
-    console.log(`OUTPUT = ${output} | ${output.length}`)
+    var output = new Uint8Array(result);// + string_to_utf8_bytes(encrypted);
 
     return output;
 }
