@@ -197,20 +197,12 @@ function perform_login_submit(){
 
         var data = {};
         data["data"] = bytes_to_string(encrypted_data);
-        data["fernet"] = encryptDataFernet(args_json);
         data["encrypted"] = true;
-        data["testing"] = true;
-
-        console.log(`${data["data"]} | ${data["data"].length}`);
-        console.log(string_to_bytes(data["data"]));
 
         var response = null;
 
-        console.log("SENDING");
-        console.log(JSON.stringify(data));
-
         try{
-            response = await fetch(identity_service_url + "/test", {
+            response = await fetch(identity_service_url, {
                             method: 'post',
                             headers: {
                                 'Accept': 'application/json, test/plain, */*',
