@@ -31,6 +31,9 @@ parser.add_argument('--remove', type=str, nargs="*",
 parser.add_argument('--remove-service', type=str, nargs="*",
                     help="Remove locally stored information about the passed service(s)")
 
+parser.add_argument('--dry-run', action="store_true", default=None,
+                    help="Do a dry-run of the login - don't connect to the server")
+
 args = parser.parse_args()
                          
 from Acquire.Client import Wallet
@@ -47,6 +50,8 @@ if remember_password is None:
 
 if args.no_remember_password:
     remember_password = False
+
+dryrun = args.dry_run
 
 if not remember_password:
     # should not remember the otpsecret if 
@@ -86,7 +91,8 @@ wallet = Wallet()
 for url in args.url:
     try:
         response = wallet.send_password(url, args.username, 
-                                        remember_password, remember_device)
+                                        remember_password, remember_device,
+                                        dryrun)
 
     except Exception as e:
         try:

@@ -8,7 +8,7 @@ var json_login_data = {};
 var pages = ["login-page", "otpcode-page", "progress-page", "test-page"];
 
 /** Function used to switch views between different pages */
-function show_page(new_page){
+async function show_page(new_page){
     selected = null;
 
     pages.forEach((page) => {
@@ -130,6 +130,10 @@ function render_progress_page(){
  */
 function get_otpcode(){
 
+    //see if we can get the otp-provisioning uri from the user's
+    //supplied name and password
+
+
     //can't get the otpcode from local storage so have to ask
     //the user to supply it
     if (!json_login_data["otpcode"]){
@@ -172,6 +176,20 @@ function login_failure(message){
     button.textContent = "TRY AGAIN";
 }
 
+/** Function that is called when the user has successfully logged in */
+function login_success(message){
+    var bar = document.getElementById("login-bar")
+    bar.style.width = "100%";
+    bar.innerHTML = "SUCCESSFUL LOGIN";
+
+    var para = document.getElementById("login-text");
+    para.className = "login-text";
+    para.textContent = message;
+
+    var button = document.getElementById("login_submit_button");
+    button.textContent = "CLOSE WINDOW";
+}
+
 /** This function is used to submit the login data to the server,
  *  without first showing testing data
  */
@@ -179,10 +197,6 @@ function perform_login_submit(){
 
     set_progress(0, 0, "Starting login...");
     show_page("progress-page");
-
-    async function result_success(message){
-        set_progress(100, 100, `Successfully logged in: ${message}`);
-    }
 
     async function login_to_server(args_json){
 
@@ -278,12 +292,33 @@ function perform_login_submit(){
         }
         else
         {
-            result_success(response["message"]);
+            //login has been successful. If the server has given us a
+            //provisioning URI then save an encrypted copy of that
+            //in browser local storage so that we can skip the otp
+            //next time
+            prov_uri = response["provisioning_uri"];
+
+            if (prov_uri){
+                //create a new symmetric key with a secret based on the
+                //user's successfully used password
+                var fernet_key = await generateFernetKey(json_login_data["username"],
+                                                         json_login_data["password"]);
+
+                var encrypted_uri = fernet_encrypt(fernet_key, prov_uri);
+
+                var uri_key = data["username"] + "@" + identity_service_url;
+                writeData(uri_key, encrypted_uri);
+            }
+
+            login_success(response["message"], response);
             return;
         }
     }
 
-    login_to_server(json_login_data);
+    //use a copy to prevent us accidentally overwriting the original
+    var login_data = json_login_data;
+
+    login_to_server(login_data);
 
     // if remember_device then encrypt the returned otpsecret using the
     // user's password (we need a secret to keep it safe in the cookiestore)

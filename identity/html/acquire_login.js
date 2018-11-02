@@ -194,6 +194,26 @@ async function generateKeypair(){
     return keys;
 }
 
+/** Generate a fernet key from the supplied username and password - this will always
+ *  return the same key for the same username and password combination
+ */
+async function generateFernetKey(username, password){
+    // using a constant salt as we want the same key to be generated from
+    // the same password! (these were randomly generated...)
+    var salt = new Uint8Array([241, 21, 50, 59, 169, 41, 4, 123, 44, 41, 82,
+                               92, 72, 43, 252, 109]);
+
+    const params = {name: "PBKDF2", hash: {name: "SHA-1"}, iterations: 1000,
+                    salt: salt};
+
+    const encoder = new TextEncoder("utf-8");
+    const buffer = encoder.encode(username + password);
+    const key = await crypto.subtle.importKey("raw", buffer, "PBKDF2", false, ["deriveBits"]);
+    const derivation = await crypto.subtle.deriveBits(params, key, 256);
+
+    return base64ArrayBuffer(derivation);
+}
+
 /** Function to convert pemfile info binary data used for js crypto */
 function convertPemToBinary(pem) {
     var lines = pem.split('\n')
@@ -318,6 +338,33 @@ function base64ArrayBuffer(arrayBuffer) {
     return base64
   }
 
+/** Function to perform symmetric encryption using fernet - encrypts
+ *  'data' with 'key'
+ */
+function fernet_encrypt(key, data){
+    var token = new fernet.Token({
+        secret: new fernet.Secret(key)
+    });
+
+    encrypted = token.encode(data);
+
+    return encrypted;
+}
+
+/** Function to perform symmetric decryption using fernet - decrypts
+ *  'data' with 'key'
+ */
+function fernet_decrypt(key, data){
+    var token = new fernet.Token({
+        secret: new fernet.Secret(key),
+        token: data
+    });
+
+    var result = token.decode();
+
+    return result;
+}
+
 /** Function that encrypts the passed data with the passed public key */
 async function encryptData(key, data){
     key = await key;
@@ -377,7 +424,7 @@ async function decryptData(key, data){
         token: data
     });
 
-    result = token.decode();
+    let result = token.decode();
 
     return result;
 }

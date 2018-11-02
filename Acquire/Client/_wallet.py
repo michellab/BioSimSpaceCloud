@@ -315,7 +315,7 @@ class Wallet:
         return self._get_service_info(identity_service).public_certificate()
 
     def send_password(self, url, username=None, remember_password=True,
-                      remember_device=None):
+                      remember_device=None, dryrun=None):
         """Send a password and one-time code to the supplied login url"""
 
         self._manual_password = False
@@ -344,6 +344,13 @@ class Wallet:
         print("\nLogging in to '%s', session '%s'..." % (
               identity_service, short_uid), end="")
         _sys.stdout.flush()
+
+        if dryrun:
+            print("Calling %s with username=%s, password=%s, otpcode=%s, "
+                  "remember_device=%s, device_uid=%s, short_uid=%s" %
+                  (identity_service, username, password, otpcode,
+                   remember_device, self._device_uid, short_uid))
+            return
 
         try:
             key = _PrivateKey()
