@@ -45,8 +45,9 @@ function getUrlVars() {
 /** Write local data to the browser with 'name' == 'value' */
 function writeData(name, value)
 {
-    if (typeof(Storage) !== "undefined") {
+    if (typeof(Storage) != "undefined") {
         localStorage.setItem(name, value);
+        console.log(`SAVED ${name} == ${value}`);
     } else {
         console.log("Sorry - no web storage support. Cannot cache details!");
     }
@@ -357,7 +358,8 @@ function fernet_encrypt(key, data){
 function fernet_decrypt(key, data){
     var token = new fernet.Token({
         secret: new fernet.Secret(key),
-        token: data
+        token: data,
+        ttl: 0
     });
 
     var result = token.decode();
@@ -421,7 +423,8 @@ async function decryptData(key, data){
 
     var token = new fernet.Token({
         secret: new fernet.Secret(secret),
-        token: data
+        token: data,
+        ttl: 0
     });
 
     let result = token.decode();

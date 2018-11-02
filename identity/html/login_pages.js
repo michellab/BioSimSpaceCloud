@@ -128,11 +128,32 @@ function render_progress_page(){
 /** This function is used to get the otpcode from either the user
  *  of from secure storage
  */
-function get_otpcode(){
+async function get_otpcode(){
 
     //see if we can get the otp-provisioning uri from the user's
     //supplied name and password
+    var username = json_login_data["username"];
+    var uri_key = username + "@" + identity_service_url;
 
+    var provisioning_uri = readData(uri_key);
+
+    if (provisioning_uri){
+        //get a key from the username and password
+        var fernet_key = await generateFernetKey(username,
+                                                 json_login_data["password"]);
+
+        try{
+            provisioning_uri = fernet_decrypt(fernet_key, provisioning_uri);
+        } catch(err) {
+            // failure here may just mean that the user has changed or
+            // mistyped their password...
+            provisioning_uri = null;
+        }
+    }
+
+    if (provisioning_uri){
+        console.log(provisioning_uri);
+    }
 
     //can't get the otpcode from local storage so have to ask
     //the user to supply it
@@ -306,7 +327,7 @@ function perform_login_submit(){
 
                 var encrypted_uri = fernet_encrypt(fernet_key, prov_uri);
 
-                var uri_key = data["username"] + "@" + identity_service_url;
+                var uri_key = json_login_data["username"] + "@" + identity_service_url;
                 writeData(uri_key, encrypted_uri);
             }
 
