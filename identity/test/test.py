@@ -28,24 +28,15 @@ async def handler(ctx, data=None, loop=None):
 
         encrypted = string_to_bytes(data["data"])
 
-        decrypted = privkey.decrypt(encrypted[0:256])
+        decrypted = privkey.decrypt(encrypted).decode("utf-8")
 
-        symkey = decrypted
-        message = data["fernet"]
+        data = json.loads(decrypted)
 
-        try:
-            f = fernet.Fernet(symkey)
-        except:
-            f = fernet.Fernet(symkey.decode("utf-8"))
+        pem = data["encryption_public_key"]
 
-        try:
-            message = f.decrypt(message)
-        except:
-            message = f.decrypt(message.encode("utf-8"))
+        key = PublicKey.from_data(pem)
 
-        #result["encrypted"] = ", ".join( [str(x) for x in list(encrypted)] )
-        result["message"] = str(message)
-        result["decrypted"] = str(decrypted)
+        result["key"] = str(key.to_data())
         result["status"] = -1
 
     except Exception as e:
