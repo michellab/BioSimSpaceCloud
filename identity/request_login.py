@@ -171,8 +171,8 @@ def run(args):
     status = 0
     # the login URL is the URL of this identity service plus the
     # short UID of the session
-    login_url = "%s/%s" % (get_service_info().service_url(),
-                           login_session.short_uuid())
+    login_url = "%s/s?%s" % (get_service_info().service_url(),
+                             login_session.short_uuid())
 
     login_uid = login_session.uuid()
 
