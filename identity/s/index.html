@@ -650,7 +650,7 @@ function render_test_page(){
          <p class="content__lede">\
          (unique session ID ' + getSessionUID() + ')\
          </p>\
-         <form class="content__form contact-form" id="login-progress-form">\
+         <form class="content__form contact-form" id="login-test-form">\
          <label class="contact-form__label">\
           JSON data to be submitted to server...\
          </label>\
@@ -816,15 +816,35 @@ function perform_login_submit(){
     async function login_to_server(args_json){
 
         set_progress(0, 10, "Generating login session keys...");
-        let key_pair = await generateKeypair();
-        let key_data = await exportPublicKeyToAcquire(key_pair.publicKey);
-        args_json["encryption_public_key"] = key_data;
-        args_json = JSON.stringify(args_json);
+
+        var key_pair = null;
+
+        try{
+            key_pair = await generateKeypair();
+            let key_data = await exportPublicKeyToAcquire(key_pair.publicKey);
+            args_json["encryption_public_key"] = key_data;
+            args_json = JSON.stringify(args_json);
+        } catch(err) {
+            console.log(err);
+            login_failure("Cannot generate encryption keys. This may be because " +
+                          "your browser does not support cryptography or you are " +
+                          "loading this page over http when it should be https.");
+            return;
+        }
 
         set_progress(10, 30, "Encrypting login info...");
 
-        let identity_key = await getIdentityPublicKey();
-        let encrypted_data = await encryptData(identity_key, args_json);
+        var encrypted_data = null;
+
+        try{
+            let identity_key = await getIdentityPublicKey();
+            encrypted_data = await encryptData(identity_key, args_json);
+        } catch(err) {
+            console.log(err);
+            login_failure("Cannot encrypt your login data. This may be because " +
+                          "your browser does not support cryptography or you are " +
+                          "loading this page over http when it should be https.");
+        }
 
         set_progress(30, 60, "Sending login data to server...");
         var data = {};
@@ -945,7 +965,12 @@ function perform_login_submit(){
     //use a copy to prevent us accidentally overwriting the original
     var login_data = json_login_data;
 
-    login_to_server(login_data);
+    try{
+        login_to_server(login_data);
+    } catch(err){
+        console.log(err);
+        login_failure("Could not log into the server. Please try a different browser.");
+    }
 
     // if remember_device then encrypt the returned otpsecret using the
     // user's password (we need a secret to keep it safe in the cookiestore)
@@ -990,7 +1015,7 @@ function render_login_page(){
               </label>\
             <input class="contact-form__input contact-form__input--text"\
                 id="username" name="username"\
-                type="text" autofill="username"/>\
+                type="text" autofill="username" autocomplete="current-username"/>\
         </div>\
         <div class="contact-form__input-group">\
             <label class="contact-form__label" for="password">\
@@ -999,7 +1024,7 @@ function render_login_page(){
             </label>\
             <input class="contact-form__input contact-form__input--text"\
                 id="password" name="password" type="password"\
-                autofill="password"/>\
+                autofill="password"/ autocomplete="current-password">\
         </div>\
         <button class="contact-form__button" type="submit">Login</button>\
       </form>');
