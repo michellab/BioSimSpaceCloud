@@ -30,4 +30,6 @@ COPY --from=build-stage /html/index.html index.html
 ADD *.py $HOME/
 RUN python3 -m compileall $HOME/*.py
 
+ADD index.html $HOME/
+
 ENTRYPOINT ["python", "serve.py"]
